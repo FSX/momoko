@@ -90,24 +90,20 @@ class Pool(object):
         return None
 
     def _clean_pool(self):
-        """Try to close the number of connections that exceeds the number in
-        `min_conn`. This method loops throught the connections in `_pool` and
-        if it finds a free connection it closes it.
+        """Close a number of inactive connections when the number of connections
+        in the pool exceeds the number in `min_conn`.
         """
         if self.closed:
             raise PoolError('connection pool is closed')
         if len(self._pool) > self.min_conn:
             conns = len(self._pool) - self.min_conn
-            indexes = []
-            for i, conn in enumerate(self._pool):
+            for conn in self._pool[:]:
                 if not conn.isexecuting():
                     conn.close()
                     conns = conns - 1
-                    indexes.append(i)
+                    self._pool.remove(conn)
                     if conns == 0:
                         break
-            for i in indexes:
-                self._pool.pop(i)
 
     def execute(self, operation, parameters=(), callback=None):
         """http://initd.org/psycopg/docs/cursor.html#cursor.execute
@@ -134,6 +130,36 @@ class Pool(object):
                 conn.close()
         self._pool = []
         self.closed = True
+
+
+class BatchQuery(object):
+    """Experimental! This can open a lot of database connections.
+    """
+    def __init__(self, queries, callback):
+        self._callback = callback
+        self._queries = []
+        self._args = []
+        self._size = len(queries)
+        self._count = 0
+
+        for query in queries:
+            try:
+                query = list(query)
+                if len(query) < 2:
+                    query.append(())
+                query.append(self)
+            except IndexError:
+                print 'Index Error'
+            self._queries.append(query)
+
+    def __call__(self, cursor):
+        self._count = self._count + 1
+        self._args.append(cursor)
+        if self._count == self._size:
+            self._callback(self._args)
+
+    def batch(self):
+        return self._queries
 
 
 class Poller(object):

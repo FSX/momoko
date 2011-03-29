@@ -1,5 +1,6 @@
 MANIFEST
 env/
+build/
 dist/
 *.pyc
 tmp/
