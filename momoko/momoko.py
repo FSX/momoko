@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 __authors__ = ('Frank Smit <frank@61924.nl>',)
-__version__ = '0.1.0'
+__version__ = '0.2.0'
 __license__ = 'MIT'
 
 
@@ -133,32 +133,48 @@ class Pool(object):
 
 
 class BatchQuery(object):
-    """Experimental! This can open a lot of database connections.
+    """`BatchQuery` is a helper class to run a batch of query all at once. It
+    will call the final callback once all the queries are executed and all the
+    cursors will be passed to that callback. The downside is that it will also
+    open the same amount of database connections.
+
+    The first parameter is a dictionary of queries. The key is used to identify
+    the query and the value is a list with the SQL and a tuple of parameters.
+    The rules for passing parameters to SQL queries in Psycopg apply to this [1].
+
+    The second parameter is the callback that is called after all the queries
+    are executed. This must be a callable that accepts atleast one argument
+    with that contains a dictionary with all the cursors.
+
+     [1]:http://initd.org/psycopg/docs/usage.html#passing-parameters-to-sql-queries
     """
     def __init__(self, queries, callback):
         self._callback = callback
-        self._queries = []
-        self._args = []
+        self._queries = {}
+        self._args = {}
         self._size = len(queries)
         self._count = 0
 
-        for query in queries:
-            try:
-                query = list(query)
-                if len(query) < 2:
-                    query.append(())
-                query.append(self)
-            except IndexError:
-                print 'Index Error'
-            self._queries.append(query)
+        for key, query in queries.items():
+            if len(query) < 2:
+                query.append(())
+            query.append(functools.partial(self._collect, key))
+            self._queries[key] = query
 
-    def __call__(self, cursor):
+    def _collect(self, key, cursor):
+        """This function is called after each query is executed. It collects
+        all the cursors in a dictionary with the related keys. Once a all
+        queries are executed the final callback will be executed and the
+        collected cursors will be passed on to it.
+        """
         self._count = self._count + 1
-        self._args.append(cursor)
+        self._args[key] = cursor
         if self._count == self._size:
             self._callback(self._args)
 
     def batch(self):
+        """Return the dictionary with queries.
+        """
         return self._queries
 
 

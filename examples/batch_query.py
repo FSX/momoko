@@ -25,18 +25,18 @@ class BaseHandler(tornado.web.RequestHandler):
 class MainHandler(BaseHandler):
     @tornado.web.asynchronous
     def get(self):
-        bq = BatchQuery((
-            ('SELECT 42, 12, %s, 11;', (23,)),
-            ('SELECT 1, 2, 3, 4, 5;',),
-            ('SELECT 465767, 4567, 3454;',)
-        ), callback=self._on_response)
+        bq = BatchQuery({
+            'query1': ['SELECT 42, 12, %s, 11;', (23,)],
+            'query2': ['SELECT 1, 2, 3, 4, 5;'],
+            'query3': ['SELECT 465767, 4567, 3454;']
+        }, callback=self._on_response)
 
-        for query in bq.batch():
+        for query in bq.batch().values():
             self.db.execute(*query)
 
     def _on_response(self, cursors):
-        for cursor in cursors:
-            self.write('Query results: %s<br>' % cursor.fetchall())
+        for key, cursor in cursors.items():
+            self.write('Query results: %s = %s<br>' % (key, cursor.fetchall()))
         self.write('Done')
         self.finish()
 
