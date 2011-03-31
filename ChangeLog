@@ -1,0 +1,7 @@
+- 0.2.0
+   - Added the BatchQuery class.
+   - Improved Pool._clean_pool. It threw an IndexError when more than one
+     connection needed to be closed.
+
+- 0.1.0
+   - Initial release.
