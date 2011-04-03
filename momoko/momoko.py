@@ -132,6 +132,29 @@ class Pool(object):
         self.closed = True
 
 
+class QueryChain(object):
+
+    def __init__(self, db, chain):
+        self._db = db
+        self._chain = chain
+        self._last = len(chain) - 1
+        self._index = -1
+
+    def _collect(self, cursor):
+        self._index = self._index + 1
+        if self._index > self._last:
+            return
+        link = self._chain[self._index]
+        if hasattr(link, '__call__'):
+            link(cursor)
+            self._collect(None)
+        else:
+            self._db.execute(*link, callback=self._collect)
+
+    def run(self):
+        self._collect(None)
+
+
 class BatchQuery(object):
     """`BatchQuery` is a helper class to run a batch of query all at once. It
     will call the final callback once all the queries are executed and all the
