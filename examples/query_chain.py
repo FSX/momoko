@@ -28,6 +28,7 @@ class MainHandler(BaseHandler):
         qc = QueryChain(self.db, [
             ['SELECT 42, 12, %s, 11;', (23,)],
             self._after_first_query,
+            self._after_first_callable,
             ['SELECT 1, 2, 3, 4, 5;'],
             ['SELECT 123, 132, 678;'],
             self._on_response
@@ -35,8 +36,19 @@ class MainHandler(BaseHandler):
         qc.run()
 
     def _after_first_query(self, cursor):
-        self.write('Results of the first query in the chain: %s<br>' % \
-            cursor.fetchall())
+        results = cursor.fetchall()
+        #return results[0]
+
+        return {
+            'p1': results[0][0],
+            'p2': results[0][1],
+            'p3': results[0][2],
+            'p4': results[0][3]
+        }
+
+    def _after_first_callable(self, p1, p2, p3, p4):
+        self.write('Results of the first query in the chain: %s, %s, %s, %s<br>' % \
+            (p1, p2, p3, p4))
 
     def _on_response(self, cursor):
         self.write('Results of the last query in the chain: %s' % \

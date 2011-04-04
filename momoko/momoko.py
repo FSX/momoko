@@ -6,6 +6,7 @@ __license__ = 'MIT'
 
 
 import functools
+from collections import deque
 
 import psycopg2
 from tornado.ioloop import IOLoop, PeriodicCallback
@@ -136,18 +137,22 @@ class QueryChain(object):
 
     def __init__(self, db, chain):
         self._db = db
-        self._chain = chain
-        self._last = len(chain) - 1
-        self._index = -1
+        self._args = None
+        self._chain = deque(chain)
 
-    def _collect(self, cursor):
-        self._index = self._index + 1
-        if self._index > self._last:
+    def _collect(self, *args, **kwargs):
+        if len(self._chain) is 0:
             return
-        link = self._chain[self._index]
-        if hasattr(link, '__call__'):
-            link(cursor)
-            self._collect(None)
+        link = self._chain.popleft()
+        if callable(link):
+            results = link(*args, **kwargs)
+            print results
+            if type(results) is type([]) or type(results) is type(()):
+                self._collect(*results)
+            elif type(results) is type({}):
+                self._collect(**results)
+            else:
+                self._collect(results)
         else:
             self._db.execute(*link, callback=self._collect)
 
