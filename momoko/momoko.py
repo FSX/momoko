@@ -146,7 +146,6 @@ class QueryChain(object):
         link = self._chain.popleft()
         if callable(link):
             results = link(*args, **kwargs)
-            print results
             if type(results) is type([]) or type(results) is type(()):
                 self._collect(*results)
             elif type(results) is type({}):
@@ -154,6 +153,10 @@ class QueryChain(object):
             else:
                 self._collect(results)
         else:
+            if len(link) < 2:
+                link.append(args)
+            elif type(link[1]) is type([]):
+                link[1].extend(args)
             self._db.execute(*link, callback=self._collect)
 
     def run(self):
