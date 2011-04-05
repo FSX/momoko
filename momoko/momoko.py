@@ -184,7 +184,6 @@ class BatchQuery(object):
         self._queries = {}
         self._args = {}
         self._size = len(queries)
-        self._count = 0
 
         for key, query in queries.items():
             if len(query) < 2:
@@ -198,9 +197,9 @@ class BatchQuery(object):
         queries are executed the final callback will be executed and the
         collected cursors will be passed on to it.
         """
-        self._count = self._count + 1
+        self._size = self._size - 1
         self._args[key] = cursor
-        if self._count == self._size:
+        if not self._size:
             self._callback(self._args)
 
     def batch(self):
