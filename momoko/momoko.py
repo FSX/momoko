@@ -11,10 +11,40 @@ import psycopg2
 from tornado.ioloop import IOLoop, PeriodicCallback
 
 
+class Momoko(object):
+    def __init__(self, settings):
+        self._pool = Pool(**settings)
+
+    def batch(self, queries, callback):
+        return BatchQuery(self, queries, callback)
+
+    def chain(self, links):
+        return QueryChain(self, links)
+
+    def execute(self, operation, parameters=(), callback=None):
+        """http://initd.org/psycopg/docs/cursor.html#cursor.execute
+        """
+        self._pool.new_cursor('execute', (operation, parameters), callback)
+
+    def executemany(self, operation, parameters=None, callback=None):
+        """http://initd.org/psycopg/docs/cursor.html#cursor.executemany
+        """
+        self._pool.new_cursor('executemany', (operation, parameters), callback)
+
+    def callproc(self, procname, parameters=None, callback=None):
+        """http://initd.org/psycopg/docs/cursor.html#cursor.callproc
+        """
+        self._pool.new_cursor('callproc', (procname, parameters), callback)
+
+    def close(self):
+        self._pool.close()
+
+
 class Pool(object):
-    """A connection pool that manages PostgreSQL connections.
+    """A connection pool that manages PostgreSQL connections and cursors.
     """
-    def __init__(self, min_conn, max_conn, cleanup_timeout, *args, **kwargs):
+    def __init__(self, min_conn=1, max_conn=20, cleanup_timeout=10,
+                 *args, **kwargs):
         self.min_conn = min_conn
         self.max_conn = max_conn
         self.closed = False
@@ -39,12 +69,12 @@ class Pool(object):
         """
         if len(self._pool) > self.max_conn:
             raise PoolError('connection pool exausted')
-        conn = psycopg2.connect(*self._args, **self._kwargs)
+        conn = psycopg2.connect(async=1, *self._args, **self._kwargs)
         add_conn = functools.partial(self._add_conn, conn)
 
         if new_cursor_args:
             new_cursor_args['connection'] = conn
-            new_cursor = functools.partial(self._new_cursor, **new_cursor_args)
+            new_cursor = functools.partial(self.new_cursor, **new_cursor_args)
             Poller(conn, (add_conn, new_cursor)).start()
         else:
             Poller(conn, (add_conn,)).start()
@@ -55,9 +85,9 @@ class Pool(object):
         """
         self._pool.append(conn)
 
-    def _new_cursor(self, function, func_args=(), callback=None, connection=None):
+    def new_cursor(self, function, func_args=(), callback=None, connection=None):
         """Create a new cursor. If there's no connection available, a new
-        connection will be created and `_new_cursor` will be called again after
+        connection will be created and `new_cursor` will be called again after
         the connection has been made.
         """
         if not connection:
@@ -105,21 +135,6 @@ class Pool(object):
                     if conns == 0:
                         break
 
-    def execute(self, operation, parameters=(), callback=None):
-        """http://initd.org/psycopg/docs/cursor.html#cursor.execute
-        """
-        self._new_cursor('execute', (operation, parameters), callback)
-
-    def executemany(self, operation, parameters=None, callback=None):
-        """http://initd.org/psycopg/docs/cursor.html#cursor.executemany
-        """
-        self._new_cursor('executemany', (operation, parameters), callback)
-
-    def callproc(self, procname, parameters=None, callback=None):
-        """http://initd.org/psycopg/docs/cursor.html#cursor.callproc
-        """
-        self._new_cursor('callproc', (procname, parameters), callback)
-
     def close(self):
         """Close all open connections.
         """
@@ -134,16 +149,16 @@ class Pool(object):
 
 class QueryChain(object):
 
-    def __init__(self, db, chain):
+    def __init__(self, db, links):
         self._db = db
         self._args = None
-        self._chain = chain
-        self._chain.reverse()
+        self._links = links
+        self._links.reverse()
 
     def _collect(self, *args, **kwargs):
-        if not self._chain:
+        if not self._links:
             return
-        link = self._chain.pop()
+        link = self._links.pop()
         if callable(link):
             results = link(*args, **kwargs)
             if type(results) is type([]) or type(results) is type(()):

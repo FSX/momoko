@@ -5,19 +5,21 @@ import tornado.ioloop
 import tornado.options
 import tornado.web
 
-from momoko import Pool, QueryChain
+from momoko import Momoko
 
 
 class BaseHandler(tornado.web.RequestHandler):
     @property
     def db(self):
         if not hasattr(self.application, 'db'):
-            self.application.db = Pool(1, 20, 10, **{
+            self.application.db = Momoko({
                 'host': 'localhost',
                 'database': 'infunadb',
                 'user': 'infuna',
                 'password': 'password',
-                'async': 1
+                'min_conn': 1,
+                'max_conn': 20,
+                'cleanup_timeout': 10
             })
         return self.application.db
 
@@ -25,7 +27,7 @@ class BaseHandler(tornado.web.RequestHandler):
 class MainHandler(BaseHandler):
     @tornado.web.asynchronous
     def get(self):
-        qc = QueryChain(self.db, [
+        self.db.chain([
             ['SELECT 42, 12, %s, 11;', (23,)],
             self._after_first_query,
             self._after_first_callable,
@@ -33,8 +35,7 @@ class MainHandler(BaseHandler):
             self._before_last_query,
             ['SELECT %s, %s, %s, %s, %s;'],
             self._on_response
-        ])
-        qc.run()
+        ]).run()
 
     def _after_first_query(self, cursor):
         results = cursor.fetchall()

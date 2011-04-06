@@ -5,19 +5,21 @@ import tornado.ioloop
 import tornado.options
 import tornado.web
 
-from momoko import Pool
+from momoko import Momoko
 
 
 class BaseHandler(tornado.web.RequestHandler):
     @property
     def db(self):
         if not hasattr(self.application, 'db'):
-            self.application.db = Pool(1, 20, 10, **{
+            self.application.db = Momoko({
                 'host': 'localhost',
                 'database': 'infunadb',
                 'user': 'infuna',
                 'password': 'password',
-                'async': 1
+                'min_conn': 1,
+                'max_conn': 20,
+                'cleanup_timeout': 10
             })
         return self.application.db
 
