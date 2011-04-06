@@ -179,7 +179,8 @@ class BatchQuery(object):
 
      [1]:http://initd.org/psycopg/docs/usage.html#passing-parameters-to-sql-queries
     """
-    def __init__(self, queries, callback):
+    def __init__(self, db, queries, callback):
+        self._db = db
         self._callback = callback
         self._queries = {}
         self._args = {}
@@ -202,10 +203,11 @@ class BatchQuery(object):
         if not self._size:
             self._callback(self._args)
 
-    def batch(self):
-        """Return the dictionary with queries.
+    def run(self):
+        """Run the batch with queries.
         """
-        return self._queries
+        for query in self._queries.values():
+            self._db.execute(*query)
 
 
 class Poller(object):
