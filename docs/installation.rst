@@ -1,5 +1,5 @@
-Installation instructions
-=========================
+Installation
+============
 
 Momoko is only tested on Python 2.7, but it should run on any Python version
 that is supported by `Tornado`_ and `Psycopg2`_. Except Python 3.

@@ -1,4 +1,13 @@
-#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+"""
+    momoko.momoko
+    ~~~~~~~~~~~~~
+
+    This module defines all core and helper classes.
+
+    :copyright: (c) 2011 by Frank Smit.
+    :license: MIT, see LICENSE for more details.
+"""
 
 __authors__ = ('Frank Smit <frank@61924.nl>',)
 __version__ = '0.2.0'
@@ -12,13 +21,35 @@ from tornado.ioloop import IOLoop, PeriodicCallback
 
 
 class Momoko(object):
+    """The Momoko class is a wrapper for ``Pool``, ``BatchQuery`` and
+    ``QueryChain``. It also provides the ``execute``, ``executemany`` and
+    ``callproc`` functions.
+
+    :param settings: A dictionary that is passed to the ``Pool`` object.
+    """
     def __init__(self, settings):
         self._pool = Pool(**settings)
 
     def batch(self, queries, callback):
+        """Run a batch of queries all at once. This is a wrapper around
+        ``BatchQuery``. See the documentation of ``BatchQuery`` for a more
+        detailed description.
+
+        :param queries: A dictionary with all the queries. The key is the name
+                        of the query and the value is a list with a string
+                        (the query) and a tuple (optional) with parameters.
+        :param callback: The function that needs to be executed once all the
+                         queries are finished.
+        """
         return BatchQuery(self, queries, callback)
 
     def chain(self, links):
+        """Run a chain of queries and callables in a certain order. This is a
+        wrapper around ``QueryChain``. See the documentation of ``QueryChain``
+        for a more detailed description.
+
+        :param links: A list with all the links in the chain.
+        """
         return QueryChain(self, links)
 
     def execute(self, operation, parameters=(), callback=None):
