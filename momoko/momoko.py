@@ -53,26 +53,69 @@ class Momoko(object):
         return QueryChain(self, links)
 
     def execute(self, operation, parameters=(), callback=None):
-        """http://initd.org/psycopg/docs/cursor.html#cursor.execute
+        """Prepare and execute a database operation (query or command).
+
+        Parameters may be provided as sequence or mapping and will be bound to
+        variables in the operation. Variables are specified either with
+        positional (``%s``) or named (``%(name)s``) placeholders. See Passing
+        parameters to SQL queries `[1]`_ in the Psycopg2 documentation.
+
+        .. _[1]: http://initd.org/psycopg/docs/usage.html#query-parameters
+
+        :param operation: The database operation (an SQL query or command).
+        :param parameters: A tuple, list or dictionary with parameters. This is
+                           an empty tuple by default.
+        :param callback: A callable that is executed once the operation is finised.
         """
         self._pool.new_cursor('execute', (operation, parameters), callback)
 
-    def executemany(self, operation, parameters=None, callback=None):
-        """http://initd.org/psycopg/docs/cursor.html#cursor.executemany
+    def executemany(self, operation, seq_of_parameters=None, callback=None):
+        """Prepare a database operation (query or command) and then execute it
+        against all parameter tuples or mappings found in the sequence
+        ``seq_of_parameters``.
+
+        The function is mostly useful for commands that update the database:
+        any result set returned by the query is discarded.
+
+        Parameters are bounded to the query using the same rules described in
+        the ``execute()`` method.
+
+        :param operation: The database operation (an SQL query or command).
+        :param parameters: A sequence with parameters.
+        :param callback: A callable that is executed once the operation is finised.
         """
-        self._pool.new_cursor('executemany', (operation, parameters), callback)
+        self._pool.new_cursor('executemany', (operation, seq_of_parameters), callback)
 
     def callproc(self, procname, parameters=None, callback=None):
-        """http://initd.org/psycopg/docs/cursor.html#cursor.callproc
+        """Call a stored database procedure with the given name. The sequence
+        of parameters must contain one entry for each argument that the procedure
+        expects. The result of the call is returned as modified copy of the input
+        sequence. Input parameters are left untouched, output and input/output
+        parameters replaced with possibly new values.
+
+        The procedure may also provide a result set as output. This must then
+        be made available through the standard ``fetch*()`` methods.
+
+        :param procname: The name of the procedure.
+        :param parameters: A sequence with parameters. This is ``None`` by default.
+        :param callback: A callable that is executed once the procedure is finised.
         """
         self._pool.new_cursor('callproc', (procname, parameters), callback)
 
     def close(self):
+        """Close all connections in the connection pool.
+        """
         self._pool.close()
 
 
 class Pool(object):
     """A connection pool that manages PostgreSQL connections and cursors.
+
+    :param min_conn: The minimum amount of connections that is created when a
+                     connection pool is created.
+    :param max_conn: The maximum amount of connections the connection pool can
+                     have. If the amount of connections exceeds the limit a
+                     ``PoolError`` exception is raised.
     """
     def __init__(self, min_conn=1, max_conn=20, cleanup_timeout=10,
                  *args, **kwargs):
@@ -97,6 +140,8 @@ class Pool(object):
     def _new_conn(self, new_cursor_args={}):
         """Create a new connection. If `new_cursor_args` is provided a new
         cursor is created when the callback is executed.
+
+        :param new_cursor_args: Arguments (dictionary) for a new cursor.
         """
         if len(self._pool) > self.max_conn:
             raise PoolError('connection pool exausted')
@@ -113,6 +158,8 @@ class Pool(object):
     def _add_conn(self, conn):
         """Add a connection to the pool. This function is used by `_new_conn`
         as a callback to add the created connection to the pool.
+
+        :param conn: A database connection.
         """
         self._pool.append(conn)
 
@@ -120,6 +167,10 @@ class Pool(object):
         """Create a new cursor. If there's no connection available, a new
         connection will be created and `new_cursor` will be called again after
         the connection has been made.
+
+        :param function: ``execute``, ``executemany`` or ``callproc``.
+        :param func_args: A tuple with the arguments for the specified function.
+        :param callback: A callable that is executed once the operation is done.
         """
         if not connection:
             connection = self._get_free_conn()
@@ -167,7 +218,7 @@ class Pool(object):
                         break
 
     def close(self):
-        """Close all open connections.
+        """Close all open connections in the pool.
         """
         if self.closed:
             raise PoolError('connection pool is closed')
@@ -179,7 +230,8 @@ class Pool(object):
 
 
 class QueryChain(object):
-
+    """A query chain.
+    """
     def __init__(self, db, links):
         self._db = db
         self._args = None
@@ -206,6 +258,8 @@ class QueryChain(object):
             self._db.execute(*link, callback=self._collect)
 
     def run(self):
+        """Run the query chain.
+        """
         self._collect(None)
 
 
@@ -259,6 +313,9 @@ class BatchQuery(object):
 class Poller(object):
     """A poller that polls the PostgreSQL connection and calls the callbacks
     when the connection state is `POLL_OK`.
+
+    :param connection: The connection that needs to be polled.
+    :param callbacks: A tuple/list of callbacks.
     """
     def __init__(self, connection, callbacks=()):
         self._ioloop = IOLoop.instance()
