@@ -116,6 +116,10 @@ class Pool(object):
     :param max_conn: The maximum amount of connections the connection pool can
                      have. If the amount of connections exceeds the limit a
                      ``PoolError`` exception is raised.
+    :param host: The database host address (defaults to UNIX socket if not provided)
+    :param database: The database name
+    :param user: User name used to authenticate
+    :param password: Password used to authenticate
     """
     def __init__(self, min_conn=1, max_conn=20, cleanup_timeout=10,
                  *args, **kwargs):
