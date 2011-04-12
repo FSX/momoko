@@ -1,0 +1,468 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>API &mdash; Momoko v0.2.0 documentation</title>
+    <link rel="stylesheet" href="_static/nature.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '',
+        VERSION:     '0.2.0',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="top" title="Momoko v0.2.0 documentation" href="index.html" />
+    <link rel="prev" title="Tutorial" href="tutorial.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="tutorial.html" title="Tutorial"
+             accesskey="P">previous</a> |</li>
+        <li><a href="index.html">Momoko v0.2.0 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="api">
+<span id="id1"></span><h1>API<a class="headerlink" href="#api" title="Permalink to this headline">¶</a></h1>
+<p>This page only lists all the classes and methods available in the Momoko
+module. The tutorial explains how to use these.</p>
+<span class="target" id="module-momoko"></span><div class="section" id="momoko-object">
+<h2>Momoko Object<a class="headerlink" href="#momoko-object" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="momoko.Momoko">
+<em class="property">class </em><tt class="descclassname">momoko.</tt><tt class="descname">Momoko</tt><big>(</big><em>settings</em><big>)</big><a class="headerlink" href="#momoko.Momoko" title="Permalink to this definition">¶</a></dt>
+<dd><p>The Momoko class is a wrapper for <tt class="docutils literal"><span class="pre">Pool</span></tt>, <tt class="docutils literal"><span class="pre">BatchQuery</span></tt> and
+<tt class="docutils literal"><span class="pre">QueryChain</span></tt>. It also provides the <tt class="docutils literal"><span class="pre">execute</span></tt>, <tt class="docutils literal"><span class="pre">executemany</span></tt> and
+<tt class="docutils literal"><span class="pre">callproc</span></tt> functions.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field"><th class="field-name">Parameters:</th><td class="field-body"><strong>settings</strong> &#8211; A dictionary that is passed to the <tt class="docutils literal"><span class="pre">Pool</span></tt> object.</td>
+</tr>
+</tbody>
+</table>
+<dl class="method">
+<dt id="momoko.Momoko.batch">
+<tt class="descname">batch</tt><big>(</big><em>queries</em>, <em>callback</em><big>)</big><a class="headerlink" href="#momoko.Momoko.batch" title="Permalink to this definition">¶</a></dt>
+<dd><p>Run a batch of queries all at once. This is a wrapper around
+<tt class="docutils literal"><span class="pre">BatchQuery</span></tt>. See the documentation of <tt class="docutils literal"><span class="pre">BatchQuery</span></tt> for a more
+detailed description.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>queries</strong> &#8211; A dictionary with all the queries. The key is the name
+of the query and the value is a list with a string
+(the query) and a tuple (optional) with parameters.</li>
+<li><strong>callback</strong> &#8211; The function that needs to be executed once all the
+queries are finished.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="momoko.Momoko.callproc">
+<tt class="descname">callproc</tt><big>(</big><em>procname</em>, <em>parameters=None</em>, <em>callback=None</em><big>)</big><a class="headerlink" href="#momoko.Momoko.callproc" title="Permalink to this definition">¶</a></dt>
+<dd><p>Call a stored database procedure with the given name. The sequence
+of parameters must contain one entry for each argument that the procedure
+expects. The result of the call is returned as modified copy of the input
+sequence. Input parameters are left untouched, output and input/output
+parameters replaced with possibly new values.</p>
+<p>The procedure may also provide a result set as output. This must then
+be made available through the standard <tt class="docutils literal"><span class="pre">fetch*()</span></tt> methods.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>procname</strong> &#8211; The name of the procedure.</li>
+<li><strong>parameters</strong> &#8211; A sequence with parameters. This is <tt class="xref docutils literal"><span class="pre">None</span></tt> by default.</li>
+<li><strong>callback</strong> &#8211; A callable that is executed once the procedure is finised.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="momoko.Momoko.chain">
+<tt class="descname">chain</tt><big>(</big><em>links</em><big>)</big><a class="headerlink" href="#momoko.Momoko.chain" title="Permalink to this definition">¶</a></dt>
+<dd><p>Run a chain of queries and callables in a certain order. This is a
+wrapper around <tt class="docutils literal"><span class="pre">QueryChain</span></tt>. See the documentation of <tt class="docutils literal"><span class="pre">QueryChain</span></tt>
+for a more detailed description.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field"><th class="field-name">Parameters:</th><td class="field-body"><strong>links</strong> &#8211; A list with all the links in the chain.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="momoko.Momoko.close">
+<tt class="descname">close</tt><big>(</big><big>)</big><a class="headerlink" href="#momoko.Momoko.close" title="Permalink to this definition">¶</a></dt>
+<dd><p>Close all connections in the connection pool.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="momoko.Momoko.execute">
+<tt class="descname">execute</tt><big>(</big><em>operation</em>, <em>parameters=()</em>, <em>callback=None</em><big>)</big><a class="headerlink" href="#momoko.Momoko.execute" title="Permalink to this definition">¶</a></dt>
+<dd><p>Prepare and execute a database operation (query or command).</p>
+<p>Parameters may be provided as sequence or mapping and will be bound to
+variables in the operation. Variables are specified either with
+positional (<tt class="docutils literal"><span class="pre">%s</span></tt>) or named (<tt class="docutils literal"><span class="pre">%(name)s</span></tt>) placeholders. See Passing
+parameters to SQL queries <a class="reference external" href="http://initd.org/psycopg/docs/usage.html#query-parameters">[1]</a> in the Psycopg2 documentation.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>operation</strong> &#8211; The database operation (an SQL query or command).</li>
+<li><strong>parameters</strong> &#8211; A tuple, list or dictionary with parameters. This is
+an empty tuple by default.</li>
+<li><strong>callback</strong> &#8211; A callable that is executed once the operation is finised.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="momoko.Momoko.executemany">
+<tt class="descname">executemany</tt><big>(</big><em>operation</em>, <em>seq_of_parameters=None</em>, <em>callback=None</em><big>)</big><a class="headerlink" href="#momoko.Momoko.executemany" title="Permalink to this definition">¶</a></dt>
+<dd><p>Prepare a database operation (query or command) and then execute it
+against all parameter tuples or mappings found in the sequence
+<tt class="docutils literal"><span class="pre">seq_of_parameters</span></tt>.</p>
+<p>The function is mostly useful for commands that update the database:
+any result set returned by the query is discarded.</p>
+<p>Parameters are bounded to the query using the same rules described in
+the <tt class="docutils literal"><span class="pre">execute()</span></tt> method.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>operation</strong> &#8211; The database operation (an SQL query or command).</li>
+<li><strong>parameters</strong> &#8211; A sequence with parameters.</li>
+<li><strong>callback</strong> &#8211; A callable that is executed once the operation is finised.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="pool-object">
+<h2>Pool Object<a class="headerlink" href="#pool-object" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="momoko.Pool">
+<em class="property">class </em><tt class="descclassname">momoko.</tt><tt class="descname">Pool</tt><big>(</big><em>min_conn=1</em>, <em>max_conn=20</em>, <em>cleanup_timeout=10</em>, <em>*args</em>, <em>**kwargs</em><big>)</big><a class="headerlink" href="#momoko.Pool" title="Permalink to this definition">¶</a></dt>
+<dd><p>A connection pool that manages PostgreSQL connections and cursors.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>min_conn</strong> &#8211; The minimum amount of connections that is created when a
+connection pool is created.</li>
+<li><strong>max_conn</strong> &#8211; The maximum amount of connections the connection pool can
+have. If the amount of connections exceeds the limit a
+<tt class="docutils literal"><span class="pre">PoolError</span></tt> exception is raised.</li>
+<li><strong>host</strong> &#8211; The database host address (defaults to UNIX socket if not provided)</li>
+<li><strong>database</strong> &#8211; The database name</li>
+<li><strong>user</strong> &#8211; User name used to authenticate</li>
+<li><strong>password</strong> &#8211; Password used to authenticate</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<dl class="method">
+<dt id="momoko.Pool.close">
+<tt class="descname">close</tt><big>(</big><big>)</big><a class="headerlink" href="#momoko.Pool.close" title="Permalink to this definition">¶</a></dt>
+<dd><p>Close all open connections in the pool.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="momoko.Pool.new_cursor">
+<tt class="descname">new_cursor</tt><big>(</big><em>function</em>, <em>func_args=()</em>, <em>callback=None</em>, <em>connection=None</em><big>)</big><a class="headerlink" href="#momoko.Pool.new_cursor" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create a new cursor. If there&#8217;s no connection available, a new
+connection will be created and <cite>new_cursor</cite> will be called again after
+the connection has been made.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>function</strong> &#8211; <tt class="docutils literal"><span class="pre">execute</span></tt>, <tt class="docutils literal"><span class="pre">executemany</span></tt> or <tt class="docutils literal"><span class="pre">callproc</span></tt>.</li>
+<li><strong>func_args</strong> &#8211; A tuple with the arguments for the specified function.</li>
+<li><strong>callback</strong> &#8211; A callable that is executed once the operation is done.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="querychain-object">
+<h2>QueryChain Object<a class="headerlink" href="#querychain-object" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="momoko.QueryChain">
+<em class="property">class </em><tt class="descclassname">momoko.</tt><tt class="descname">QueryChain</tt><big>(</big><em>db</em>, <em>links</em><big>)</big><a class="headerlink" href="#momoko.QueryChain" title="Permalink to this definition">¶</a></dt>
+<dd><p>A query chain that excutes a list of queries and callables in the
+specified order. Cursors will be passed to callables and the results of a
+callable will be passed to another callable or query. A chain is defined
+like this:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="n">QueryChain</span><span class="p">(</span><span class="n">db</span><span class="p">,</span> <span class="p">[</span>
+    <span class="p">[</span><span class="s">&#39;SELECT 42, 12, </span><span class="si">%s</span><span class="s">, 11;&#39;</span><span class="p">,</span> <span class="p">(</span><span class="mi">23</span><span class="p">,)],</span>
+    <span class="n">_after_first_query</span><span class="p">,</span>
+    <span class="n">_after_first_callable</span><span class="p">,</span>
+    <span class="p">[</span><span class="s">&#39;SELECT 1, 2, 3, 4, 5;&#39;</span><span class="p">],</span>
+    <span class="n">_before_last_query</span><span class="p">,</span>
+    <span class="p">[</span><span class="s">&#39;SELECT </span><span class="si">%s</span><span class="s">, </span><span class="si">%s</span><span class="s">, </span><span class="si">%s</span><span class="s">, </span><span class="si">%s</span><span class="s">, </span><span class="si">%s</span><span class="s">;&#39;</span><span class="p">],</span>
+    <span class="n">_last_callable</span>
+<span class="p">])</span>
+</pre></div>
+</div>
+<p>A query is defined in a list with an SQL operation and a sequence of
+parameters.</p>
+<p>Once a query is executed and the next &#8220;link&#8221; is a callable, the callable
+will receive a cursor from the query that can be used to fetch the data.
+<tt class="docutils literal"><span class="pre">_after_first_query</span></tt> could look like this:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="k">def</span> <span class="nf">_after_first_query</span><span class="p">(</span><span class="n">cursor</span><span class="p">):</span>
+    <span class="n">results</span> <span class="o">=</span> <span class="n">cursor</span><span class="o">.</span><span class="n">fetchall</span><span class="p">()</span>
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="s">&#39;p1&#39;</span><span class="p">:</span> <span class="n">results</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span>
+        <span class="s">&#39;p2&#39;</span><span class="p">:</span> <span class="n">results</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">],</span>
+        <span class="s">&#39;p3&#39;</span><span class="p">:</span> <span class="n">results</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">2</span><span class="p">],</span>
+        <span class="s">&#39;p4&#39;</span><span class="p">:</span> <span class="n">results</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">3</span><span class="p">]</span>
+    <span class="p">}</span>
+</pre></div>
+</div>
+<p><tt class="docutils literal"><span class="pre">_after_first_callable</span></tt> will be executed once <tt class="docutils literal"><span class="pre">_after_first_query</span></tt> is
+executed, but <tt class="docutils literal"><span class="pre">_after_first_query</span></tt> returned a dictionary so this dictionary
+will be passed to <tt class="docutils literal"><span class="pre">_after_first_callable</span></tt>. So <tt class="docutils literal"><span class="pre">_after_first_callable</span></tt>
+looks like this:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="k">def</span> <span class="nf">_after_first_callable</span><span class="p">(</span><span class="n">p1</span><span class="p">,</span> <span class="n">p2</span><span class="p">,</span> <span class="n">p3</span><span class="p">,</span> <span class="n">p4</span><span class="p">):</span>
+    <span class="k">print</span> <span class="s">&#39;</span><span class="si">%s</span><span class="s">, </span><span class="si">%s</span><span class="s">, </span><span class="si">%s</span><span class="s">, </span><span class="si">%s</span><span class="s">&lt;br&gt;&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">p1</span><span class="p">,</span> <span class="n">p2</span><span class="p">,</span> <span class="n">p3</span><span class="p">,</span> <span class="n">p4</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Since <tt class="docutils literal"><span class="pre">_after_first_callable</span></tt> returns nothing the next query won&#8217;t get
+any data from this callable. <tt class="docutils literal"><span class="pre">_before_last_query</span></tt> is more interesting.
+It receives a cursor from the previous query and does something with the
+fetched data and passes it to the next query. That data is used in the
+query. Here are the last two callables:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="k">def</span> <span class="nf">_before_last_query</span><span class="p">(</span><span class="n">cursor</span><span class="p">):</span>
+    <span class="n">results</span> <span class="o">=</span> <span class="n">cursor</span><span class="o">.</span><span class="n">fetchall</span><span class="p">()</span>
+    <span class="k">return</span> <span class="p">[</span><span class="n">i</span><span class="o">*</span><span class="mi">16</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">results</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span>
+
+<span class="c"># [&#39;SELECT %s, %s, %s, %s, %s;&#39;] is executed here</span>
+
+<span class="k">def</span> <span class="nf">_last_callable</span><span class="p">(</span><span class="n">cursor</span><span class="p">):</span>
+    <span class="k">print</span> <span class="s">&#39;</span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="n">cursor</span><span class="o">.</span><span class="n">fetchall</span><span class="p">()</span>
+</pre></div>
+</div>
+<p><tt class="docutils literal"><span class="pre">_last_callable</span></tt> prints the numbers that were modified in
+<tt class="docutils literal"><span class="pre">_before_last_query</span></tt>.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>db</strong> &#8211; A <tt class="docutils literal"><span class="pre">Momoko</span></tt> instance.</li>
+<li><strong>links</strong> &#8211; All the queries and callables that need to be executed.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<dl class="method">
+<dt id="momoko.QueryChain.run">
+<tt class="descname">run</tt><big>(</big><big>)</big><a class="headerlink" href="#momoko.QueryChain.run" title="Permalink to this definition">¶</a></dt>
+<dd><p>Run the query chain.</p>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="batchquery-object">
+<h2>BatchQuery Object<a class="headerlink" href="#batchquery-object" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="momoko.BatchQuery">
+<em class="property">class </em><tt class="descclassname">momoko.</tt><tt class="descname">BatchQuery</tt><big>(</big><em>db</em>, <em>queries</em>, <em>callback</em><big>)</big><a class="headerlink" href="#momoko.BatchQuery" title="Permalink to this definition">¶</a></dt>
+<dd><p>The <tt class="docutils literal"><span class="pre">BatchQuery</span></tt> class executes a batch of queries all at the same time.
+Once all the queries are done a callback will be executed and all the cursors
+will be passed to the callback. The downside of this class is that for every
+query a new database connection will be created.</p>
+<p>A batch is defined like this:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="n">BatchQuery</span><span class="p">(</span><span class="n">db</span><span class="p">,</span> <span class="p">{</span>
+    <span class="s">&#39;query1&#39;</span><span class="p">:</span> <span class="p">[</span><span class="s">&#39;SELECT 42, 12, </span><span class="si">%s</span><span class="s">, 11;&#39;</span><span class="p">,</span> <span class="p">(</span><span class="mi">23</span><span class="p">,)],</span>
+    <span class="s">&#39;query2&#39;</span><span class="p">:</span> <span class="p">[</span><span class="s">&#39;SELECT 1, 2, 3, 4, 5;&#39;</span><span class="p">],</span>
+    <span class="s">&#39;query3&#39;</span><span class="p">:</span> <span class="p">[</span><span class="s">&#39;SELECT 465767, 4567, 3454;&#39;</span><span class="p">]</span>
+<span class="p">},</span> <span class="n">_batch_is_done</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>A query is defined in a list with an SQL operation and a sequence of
+parameters. The dictionary keys must be unique, because they are used to
+identify the cursors that are passed to the callback.</p>
+<p>The callback could look like this:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="k">def</span> <span class="nf">_batch_is_done</span><span class="p">(</span><span class="n">cursors</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">cursor</span> <span class="ow">in</span> <span class="n">cursors</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">print</span> <span class="s">&#39;Query results: </span><span class="si">%s</span><span class="s"> = </span><span class="si">%s</span><span class="s">&lt;br&gt;&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">cursor</span><span class="o">.</span><span class="n">fetchall</span><span class="p">())</span>
+    <span class="k">print</span> <span class="s">&#39;Done&#39;</span>
+</pre></div>
+</div>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>db</strong> &#8211; A <tt class="docutils literal"><span class="pre">Momoko</span></tt> instance.</li>
+<li><strong>queries</strong> &#8211; A dictionary with queries.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<dl class="method">
+<dt id="momoko.BatchQuery.run">
+<tt class="descname">run</tt><big>(</big><big>)</big><a class="headerlink" href="#momoko.BatchQuery.run" title="Permalink to this definition">¶</a></dt>
+<dd><p>Run the batch with queries.</p>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="poller-object">
+<h2>Poller Object<a class="headerlink" href="#poller-object" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="momoko.Poller">
+<em class="property">class </em><tt class="descclassname">momoko.</tt><tt class="descname">Poller</tt><big>(</big><em>connection</em>, <em>callbacks=()</em><big>)</big><a class="headerlink" href="#momoko.Poller" title="Permalink to this definition">¶</a></dt>
+<dd><p>A poller that polls the PostgreSQL connection and calls the callbacks
+when the connection state is <tt class="docutils literal"><span class="pre">POLL_OK</span></tt>.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>connection</strong> &#8211; The connection that needs to be polled.</li>
+<li><strong>callbacks</strong> &#8211; A tuple/list of callbacks.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<dl class="method">
+<dt id="momoko.Poller.start">
+<tt class="descname">start</tt><big>(</big><big>)</big><a class="headerlink" href="#momoko.Poller.start" title="Permalink to this definition">¶</a></dt>
+<dd><p>Start polling the connection.</p>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">API</a><ul>
+<li><a class="reference internal" href="#momoko-object">Momoko Object</a></li>
+<li><a class="reference internal" href="#pool-object">Pool Object</a></li>
+<li><a class="reference internal" href="#querychain-object">QueryChain Object</a></li>
+<li><a class="reference internal" href="#batchquery-object">BatchQuery Object</a></li>
+<li><a class="reference internal" href="#poller-object">Poller Object</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="tutorial.html"
+                        title="previous chapter">Tutorial</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="_sources/api.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" size="18" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="tutorial.html" title="Tutorial"
+             >previous</a> |</li>
+        <li><a href="index.html">Momoko v0.2.0 documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2011, Frank Smit.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.0.7.
+    </div>
+  </body>
+</html>
