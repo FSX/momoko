@@ -230,7 +230,65 @@ class Pool(object):
 
 
 class QueryChain(object):
-    """A query chain.
+    """A query chain that excutes a list of queries and callables in the
+    specified order. Cursors will be passed to callables and the results of a
+    callable will be passed to another callable or query. A chain is defined
+    like this::
+
+        QueryChain(db, [
+            ['SELECT 42, 12, %s, 11;', (23,)],
+            _after_first_query,
+            _after_first_callable,
+            ['SELECT 1, 2, 3, 4, 5;'],
+            _before_last_query,
+            ['SELECT %s, %s, %s, %s, %s;'],
+            _last_callable
+        ])
+
+    A query is defined in a list with an SQL operation and a sequence of
+    parameters.
+
+    Once a query is executed and the next "link" is a callable, the callable
+    will receive a cursor from the query that can be used to fetch the data.
+    ``_after_first_query`` could look like this::
+
+        def _after_first_query(cursor):
+            results = cursor.fetchall()
+            return {
+                'p1': results[0][0],
+                'p2': results[0][1],
+                'p3': results[0][2],
+                'p4': results[0][3]
+            }
+
+    ``_after_first_callable`` will be executed once ``_after_first_query`` is
+    executed, but ``_after_first_query`` returned a dictionary so this dictionary
+    will be passed to ``_after_first_callable``. So ``_after_first_callable``
+    looks like this::
+
+        def _after_first_callable(p1, p2, p3, p4):
+            print '%s, %s, %s, %s<br>' % (p1, p2, p3, p4)
+
+    Since ``_after_first_callable`` returns nothing the next query won't get
+    any data from this callable. ``_before_last_query`` is more interesting.
+    It receives a cursor from the previous query and does something with the
+    fetched data and passes it to the next query. That data is used in the
+    query. Here are the last two callables::
+
+        def _before_last_query(cursor):
+            results = cursor.fetchall()
+            return [i*16 for i in results[0]]
+
+        # ['SELECT %s, %s, %s, %s, %s;'] is executed here
+
+        def _last_callable(cursor):
+            print '%s' % cursor.fetchall()
+
+    ``_last_callable`` prints the numbers that were modified in
+    ``_before_last_query``.
+
+    :param db: A ``Momoko`` instance.
+    :param links: All the queries and callables that need to be executed.
     """
     def __init__(self, db, links):
         self._db = db
@@ -264,20 +322,32 @@ class QueryChain(object):
 
 
 class BatchQuery(object):
-    """`BatchQuery` is a helper class to run a batch of query all at once. It
-    will call the final callback once all the queries are executed and all the
-    cursors will be passed to that callback. The downside is that it will also
-    open the same amount of database connections.
+    """The ``BatchQuery`` class executes a batch of queries all at the same time.
+    Once all the queries are done a callback will be executed and all the cursors
+    will be passed to the callback. The downside of this class is that for every
+    query a new database connection will be created.
 
-    The first parameter is a dictionary of queries. The key is used to identify
-    the query and the value is a list with the SQL and a tuple of parameters.
-    The rules for passing parameters to SQL queries in Psycopg apply to this [1].
+    A batch is defined like this::
 
-    The second parameter is the callback that is called after all the queries
-    are executed. This must be a callable that accepts atleast one argument
-    with that contains a dictionary with all the cursors.
+        BatchQuery(db, {
+            'query1': ['SELECT 42, 12, %s, 11;', (23,)],
+            'query2': ['SELECT 1, 2, 3, 4, 5;'],
+            'query3': ['SELECT 465767, 4567, 3454;']
+        }, _batch_is_done)
 
-     [1]:http://initd.org/psycopg/docs/usage.html#passing-parameters-to-sql-queries
+    A query is defined in a list with an SQL operation and a sequence of
+    parameters. The dictionary keys must be unique, because they are used to
+    identify the cursors that are passed to the callback.
+
+    The callback could look like this::
+
+        def _batch_is_done(cursors):
+            for key, cursor in cursors.items():
+                print 'Query results: %s = %s<br>' % (key, cursor.fetchall())
+            print 'Done'
+
+    :param db: A ``Momoko`` instance.
+    :param queries: A dictionary with queries.
     """
     def __init__(self, db, queries, callback):
         self._db = db
@@ -293,11 +363,6 @@ class BatchQuery(object):
             self._queries[key] = query
 
     def _collect(self, key, cursor):
-        """This function is called after each query is executed. It collects
-        all the cursors in a dictionary with the related keys. Once a all
-        queries are executed the final callback will be executed and the
-        collected cursors will be passed on to it.
-        """
         self._size = self._size - 1
         self._args[key] = cursor
         if not self._size:
@@ -312,7 +377,7 @@ class BatchQuery(object):
 
 class Poller(object):
     """A poller that polls the PostgreSQL connection and calls the callbacks
-    when the connection state is `POLL_OK`.
+    when the connection state is ``POLL_OK``.
 
     :param connection: The connection that needs to be polled.
     :param callbacks: A tuple/list of callbacks.
