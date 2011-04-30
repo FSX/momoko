@@ -2,9 +2,10 @@ News/Changelog
 ==============
 
 
-0.2.0 (2011-??-??)
+0.2.0 (2011-04-30)
 ------------------
 
+* Removed ``executemany`` from ``Momoko``, because it can not be used in asynchronous mode.
 * Added a wrapper class, ``Momoko``, for ``Pool``, ``BatchQuery`` and ``QueryChain``.
 * Added the ``QueryChain`` class for executing a chain of queries (and callables)
   in a certain order.
