@@ -69,23 +69,6 @@ class Momoko(object):
         """
         self._pool.new_cursor('execute', (operation, parameters), callback)
 
-    def executemany(self, operation, seq_of_parameters=None, callback=None):
-        """Prepare a database operation (query or command) and then execute it
-        against all parameter tuples or mappings found in the sequence
-        ``seq_of_parameters``.
-
-        The function is mostly useful for commands that update the database:
-        any result set returned by the query is discarded.
-
-        Parameters are bounded to the query using the same rules described in
-        the ``execute()`` method.
-
-        :param operation: The database operation (an SQL query or command).
-        :param parameters: A sequence with parameters.
-        :param callback: A callable that is executed once the operation is finised.
-        """
-        self._pool.new_cursor('executemany', (operation, seq_of_parameters), callback)
-
     def callproc(self, procname, parameters=None, callback=None):
         """Call a stored database procedure with the given name. The sequence
         of parameters must contain one entry for each argument that the procedure
