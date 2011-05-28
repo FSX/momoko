@@ -5,10 +5,10 @@ from distutils.core import setup
 
 setup(
     name='Momoko',
-    version='0.2.0',
+    version='0.3.0',
     description='Asynchronous Psycopg wrapper for Tornado.',
     author='Frank Smit',
     author_email='frank@61924.nl',
-    url='https://github.com/FSX/momoko',
+    url='http://momoko.61924.nl/',
     packages=['momoko']
 )

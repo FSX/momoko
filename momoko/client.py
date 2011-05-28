@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-    momoko.momoko
+    momoko.client
     ~~~~~~~~~~~~~
 
     This module defines all core and helper classes.
@@ -9,10 +9,6 @@
     :license: MIT, see LICENSE for more details.
 """
 
-__authors__ = ('Frank Smit <frank@61924.nl>',)
-__version__ = '0.2.0'
-__license__ = 'MIT'
-
 
 import functools
 
@@ -20,10 +16,9 @@ import psycopg2
 from tornado.ioloop import IOLoop, PeriodicCallback
 
 
-class Momoko(object):
-    """The Momoko class is a wrapper for ``Pool``, ``BatchQuery`` and
-    ``QueryChain``. It also provides the ``execute``, ``executemany`` and
-    ``callproc`` functions.
+class Client(object):
+    """The Client class is a wrapper for ``Pool``, ``BatchQuery`` and
+    ``QueryChain``. It also provides the ``execute`` and ``callproc`` functions.
 
     :param settings: A dictionary that is passed to the ``Pool`` object.
     """

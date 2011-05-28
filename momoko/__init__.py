@@ -9,4 +9,10 @@
     :license: MIT, see LICENSE for more details.
 """
 
-from momoko import *
+
+__authors__ = ('Frank Smit <frank@61924.nl>',)
+__version__ = '0.3.0'
+__license__ = 'MIT'
+
+
+from client import Client, Pool, QueryChain, BatchQuery, Poller

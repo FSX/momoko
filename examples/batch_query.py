@@ -5,14 +5,14 @@ import tornado.ioloop
 import tornado.options
 import tornado.web
 
-from momoko import Momoko
+import momoko
 
 
 class BaseHandler(tornado.web.RequestHandler):
     @property
     def db(self):
         if not hasattr(self.application, 'db'):
-            self.application.db = Momoko({
+            self.application.db = momoko.Client({
                 'host': 'localhost',
                 'database': 'infunadb',
                 'user': 'infuna',
