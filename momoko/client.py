@@ -15,6 +15,8 @@ import functools
 import psycopg2
 from tornado.ioloop import IOLoop, PeriodicCallback
 
+from adisp import async
+
 
 class Client(object):
     """The Client class is a wrapper for ``Pool``, ``BatchQuery`` and
@@ -84,6 +86,10 @@ class Client(object):
         """Close all connections in the connection pool.
         """
         self._pool.close()
+
+
+class AdispClient(Client):
+    execute = async(Client.execute)
 
 
 class Pool(object):
