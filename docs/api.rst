@@ -9,10 +9,10 @@ module. The tutorial explains how to use these.
 .. module:: momoko
 
 
-Momoko Object
+Client Object
 -------------
 
-.. autoclass:: Momoko
+.. autoclass:: Client
    :members:
    :inherited-members:
 

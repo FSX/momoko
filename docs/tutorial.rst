@@ -10,7 +10,7 @@ Connecting
 
 Connecting to a database server is very simple::
 
-    db = Momoko({
+    db = momoko.Client({
         'host': 'localhost',
         'database': 'mydatabsename',
         'user': 'myusername',
@@ -23,11 +23,13 @@ Connecting to a database server is very simple::
 The above code can be integrated into a request handler. The following code
 creates a database object if there isn't one yet::
 
+    import momoko
+
     class BaseHandler(tornado.web.RequestHandler):
         @property
         def db(self):
             if not hasattr(self.application, 'db'):
-                self.application.db = Momoko({
+                self.application.db = momoko.Client({
                     'host': 'localhost',
                     'database': 'infunadb',
                     'user': 'infuna',
