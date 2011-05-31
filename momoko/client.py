@@ -15,7 +15,7 @@ import functools
 import psycopg2
 from tornado.ioloop import IOLoop, PeriodicCallback
 
-from adisp import async
+from adisp import async, process
 
 
 class Client(object):
@@ -90,6 +90,13 @@ class Client(object):
 
 class AdispClient(Client):
     execute = async(Client.execute)
+    callproc = async(Client.callproc)
+
+    @async
+    @process
+    def chain(self, links, callback):
+        for query, parameters in links:
+             yield self.execute(query, parameters)
 
 
 class Pool(object):

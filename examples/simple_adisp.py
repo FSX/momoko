@@ -34,11 +34,27 @@ class MainHandler(BaseHandler):
         self.finish()
 
 
+class ChainHandler(BaseHandler):
+    @tornado.web.asynchronous
+    @momoko.process
+    def get(self):
+        cursors = yield self.db.chain((
+            ['SELECT 42, 12, 40, 11;', ()],
+            ['SELECT 45, 14;', ()]
+        ))
+        #cursors = yield [self.db.execute('SELECT 42, 12, 40, 11;'), self.db.execute('SELECT 45, 14;')]
+        print cursors
+
+        self.write('Query results: %s' % 'cursor.fetchall()')
+        self.finish()
+
+
 def main():
     try:
         tornado.options.parse_command_line()
         application = tornado.web.Application([
-            (r'/', MainHandler)
+            (r'/', MainHandler),
+            (r'/chain', ChainHandler)
         ])
         http_server = tornado.httpserver.HTTPServer(application)
         http_server.bind(8888)
