@@ -42,10 +42,8 @@ class ChainHandler(BaseHandler):
             ['SELECT 42, 12, 40, 11;', ()],
             ['SELECT 45, 14;', ()]
         ))
-        #cursors = yield [self.db.execute('SELECT 42, 12, 40, 11;'), self.db.execute('SELECT 45, 14;')]
-        print cursors
-
-        self.write('Query results: %s' % 'cursor.fetchall()')
+        for cursor in cursors:
+            self.write('Query results: %s<br>' % cursor.fetchall())
         self.finish()
 
 
@@ -55,7 +53,7 @@ def main():
         application = tornado.web.Application([
             (r'/', MainHandler),
             (r'/chain', ChainHandler)
-        ])
+        ], debug=True)
         http_server = tornado.httpserver.HTTPServer(application)
         http_server.bind(8888)
         http_server.start(0) # Forks multiple sub-processes
