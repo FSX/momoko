@@ -39,9 +39,22 @@ class ChainHandler(BaseHandler):
     @momoko.process
     def get(self):
         cursors = yield self.db.chain((
-            ['SELECT 42, 12, 40, 11;', ()],
-            ['SELECT 45, 14;', ()]
+            ['SELECT pg_sleep(5); SELECT 42, 12, 40, 11;', ()],
+            ['SELECT pg_sleep(5); SELECT 45, 14;', ()]
         ))
+        for cursor in cursors:
+            self.write('Query results: %s<br>' % cursor.fetchall())
+        self.finish()
+
+
+class BatchHandler(BaseHandler):
+    @tornado.web.asynchronous
+    @momoko.process
+    def get(self):
+        cursors = yield map(self.db.batch, [
+            'SELECT 42, 12, 40, 11;',
+            'SELECT 45, 14;'
+        ])
         for cursor in cursors:
             self.write('Query results: %s<br>' % cursor.fetchall())
         self.finish()
@@ -52,7 +65,8 @@ def main():
         tornado.options.parse_command_line()
         application = tornado.web.Application([
             (r'/', MainHandler),
-            (r'/chain', ChainHandler)
+            (r'/chain', ChainHandler),
+            (r'/batch', BatchHandler)
         ], debug=True)
         http_server = tornado.httpserver.HTTPServer(application)
         http_server.bind(8888)

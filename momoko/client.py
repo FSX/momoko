@@ -101,6 +101,12 @@ class AdispClient(Client):
             results.append(cursor)
         callback(results)
 
+    @async
+    @process
+    def batch(self, query, callback):
+        cursor = yield self.execute(query)
+        callback(cursor)
+
 
 class Pool(object):
     """A connection pool that manages PostgreSQL connections and cursors.
