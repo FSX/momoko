@@ -323,16 +323,16 @@ class QueryChain(object):
         link = self._links.pop()
         if callable(link):
             results = link(*args, **kwargs)
-            if type(results) is type([]) or type(results) is type(()):
+            if isinstance(results, list) or isinstance(results, tuple):
                 self._collect(*results)
-            elif type(results) is type({}):
+            elif isinstance(results, dict):
                 self._collect(**results)
             else:
                 self._collect(results)
         else:
             if len(link) < 2:
                 link.append(args)
-            elif type(link[1]) is type([]):
+            elif isinstance(link[1], list):
                 link[1].extend(args)
             self._db.execute(*link, callback=self._collect)
 
