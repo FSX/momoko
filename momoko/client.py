@@ -95,17 +95,34 @@ class AdispClient(Client):
     @async
     @process
     def chain(self, links, callback):
-        results = []
-        for query, parameters in links:
-            cursor = yield self.execute(query, parameters)
-            results.append(cursor)
-        callback(results)
+        cursors = []
+        results = None
+        for link in links:
+            if callable(link):
+                results = link(cursors.pop())
+            else:
+                if isinstance(link, str):
+                    cursor = yield self.execute(link)
+                else:
+                    if len(link) < 2 and results:
+                        link.append(results)
+                    cursor = yield self.execute(*link)
+                cursors.append(cursor)
+                results = None
+        callback(cursors)
 
     @async
     @process
-    def batch(self, query, callback):
-        cursor = yield self.execute(query)
-        callback(cursor)
+    def batch(self, queries, callback):
+        def _exec_query(query, callback):
+            if isinstance(query, str):
+                cursor = yield self.execute(query)
+            else:
+                cursor = yield self.execute(*query)
+            callback(cursor)
+        cursors = yield map(async(process(_exec_query)), queries)
+        callback(cursors)
+
 
 
 class Pool(object):

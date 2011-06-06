@@ -39,21 +39,25 @@ class ChainHandler(BaseHandler):
     @momoko.process
     def get(self):
         cursors = yield self.db.chain((
-            ['SELECT pg_sleep(5); SELECT 42, 12, 40, 11;', ()],
-            ['SELECT pg_sleep(5); SELECT 45, 14;', ()]
+            'SELECT 22, 44, 55, 11;',
+            self._chain_link_1,
+            ['SELECT %s, %s, %s, %s;']
         ))
         for cursor in cursors:
             self.write('Query results: %s<br>' % cursor.fetchall())
         self.finish()
+
+    def _chain_link_1(self, cursor):
+        return [i*2 for i in cursor.fetchall()[0]]
 
 
 class BatchHandler(BaseHandler):
     @tornado.web.asynchronous
     @momoko.process
     def get(self):
-        cursors = yield map(self.db.batch, [
+        cursors = yield self.db.batch([
             'SELECT 42, 12, 40, 11;',
-            'SELECT 45, 14;'
+            ['SELECT %s, %s;', (45, 14)]
         ])
         for cursor in cursors:
             self.write('Query results: %s<br>' % cursor.fetchall())
