@@ -5,3 +5,4 @@ dist/
 *.pyc
 tmp/
 docs/_build/
+*.sublime-project
