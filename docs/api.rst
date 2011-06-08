@@ -17,6 +17,15 @@ Client Object
    :inherited-members:
 
 
+AdispClient Object
+------------------
+
+.. autoclass:: AdispClient
+   :members:
+   :inherited-members:
+   :undoc-members:
+
+
 Pool Object
 -----------------
 

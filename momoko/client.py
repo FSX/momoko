@@ -89,12 +89,43 @@ class Client(object):
 
 
 class AdispClient(Client):
+    """The AdispClient class is a wrapper for ``Pool`` and uses adisp to
+    let the developer use the ``execute``, ``callproc``, ``chain`` and ``batch``
+    functions in a blocking style. The ``chain`` and ``batch`` functions are
+    slightly different than the two in ``Client``.
+
+    :param settings: A dictionary that is passed to the ``Pool`` object.
+    """
+
     execute = async(Client.execute)
+    execute.__doc__ = Client.execute.__doc__
     callproc = async(Client.callproc)
+    callproc.__doc__ = Client.callproc.__doc__
 
     @async
     @process
-    def chain(self, links, callback):
+    def chain(self, links, callback=None):
+        """The ``chain`` function executes a set of queries and functions in a
+        certain order. All the cursors from the executes queries are returned.
+
+        ``chain`` accepts a list/tuple with "links" (as in "links in a chain").
+        A link can be a string, an SQL query without paramaters; a list with
+        two elements, an SQL query and a tuple with parameters; or a callable
+        that accepts one argument, the cursor of the previous link (if it was a
+        query) or the results of a callable.
+
+        A cursor is not included in the returned result if it's been used in a
+        callable. That means if link one is a query and link two is a callable,
+        the cursor from link 1 will be pass to link 2 and will not be included
+        in the returned result.
+
+        The data that is returned by a callable is not included in the returned
+        results. It will be passed to the next link. If the next link is a query
+        the data can be used as query parameters if that query does not have
+        paramaters.
+
+        :param links: A list with all the links in the chain.
+        """
         cursors = []
         results = None
         for link in links:
@@ -113,7 +144,15 @@ class AdispClient(Client):
 
     @async
     @process
-    def batch(self, queries, callback):
+    def batch(self, queries, callback=None):
+        """``batch`` runs a batch of queries all at once. This also creates a
+        new connection for each query, since only one query can be executed per
+        connection at the same time.
+
+        :param queries: A list with queries. A list element can be a string
+                        (only an SQL query) or a list/tuple with an SQL query
+                        and a tuple with paramaters (or not).
+        """
         def _exec_query(query, callback):
             if isinstance(query, str):
                 cursor = yield self.execute(query)
