@@ -97,7 +97,7 @@ class CallbackDispatcher(object):
         self.io_loop = IOLoop.instance()
         self.g = generator
         try:
-            self.call(self.g.next())
+            self.call(next(self.g))
         except StopIteration:
             pass
 

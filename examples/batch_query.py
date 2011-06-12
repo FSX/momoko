@@ -34,7 +34,7 @@ class MainHandler(BaseHandler):
         }, self._on_response).run()
 
     def _on_response(self, cursors):
-        for key, cursor in cursors.items():
+        for key, cursor in list(cursors.items()):
             self.write('Query results: %s = %s<br>' % (key, cursor.fetchall()))
         self.write('Done')
         self.finish()
@@ -51,7 +51,7 @@ def main():
         http_server.start(0) # Forks multiple sub-processes
         tornado.ioloop.IOLoop.instance().start()
     except KeyboardInterrupt:
-        print 'Exit'
+        print('Exit')
 
 
 if __name__ == '__main__':

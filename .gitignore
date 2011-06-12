@@ -1,8 +1,10 @@
 MANIFEST
-env/
+*env/
 build/
 dist/
 *.pyc
 tmp/
 docs/_build/
 *.sublime-project
+*.bak
+modules/

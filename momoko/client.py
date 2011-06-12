@@ -15,7 +15,8 @@ import functools
 import psycopg2
 from tornado.ioloop import IOLoop, PeriodicCallback
 
-from momoko.adisp import async, process
+from .adisp import async, process
+import collections
 
 
 class Client(object):
@@ -129,7 +130,7 @@ class AdispClient(Client):
         cursors = []
         results = None
         for link in links:
-            if callable(link):
+            if isinstance(link, collections.Callable):
                 results = link(cursors.pop())
             else:
                 if isinstance(link, str):
@@ -159,7 +160,7 @@ class AdispClient(Client):
             else:
                 cursor = yield self.execute(*query)
             callback(cursor)
-        cursors = yield map(async(process(_exec_query)), queries)
+        cursors = yield list(map(async(process(_exec_query)), queries))
         callback(cursors)
 
 
@@ -360,7 +361,7 @@ class QueryChain(object):
         if not self._links:
             return
         link = self._links.pop()
-        if callable(link):
+        if isinstance(link, collections.Callable):
             results = link(*args, **kwargs)
             if isinstance(results, list) or isinstance(results, tuple):
                 self._collect(*results)
@@ -416,7 +417,7 @@ class BatchQuery(object):
         self._args = {}
         self._size = len(queries)
 
-        for key, query in queries.items():
+        for key, query in list(queries.items()):
             if len(query) < 2:
                 query.append(())
             query.append(functools.partial(self._collect, key))
@@ -431,7 +432,7 @@ class BatchQuery(object):
     def run(self):
         """Run the batch with queries.
         """
-        for query in self._queries.values():
+        for query in list(self._queries.values()):
             self._db.execute(*query)
 
 

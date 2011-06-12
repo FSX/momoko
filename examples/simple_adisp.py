@@ -77,7 +77,7 @@ def main():
         http_server.start(0) # Forks multiple sub-processes
         tornado.ioloop.IOLoop.instance().start()
     except KeyboardInterrupt:
-        print 'Exit'
+        print('Exit')
 
 
 if __name__ == '__main__':

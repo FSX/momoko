@@ -15,5 +15,5 @@ __version__ = '0.3.0'
 __license__ = 'MIT'
 
 
-from client import Client, AdispClient, Pool, QueryChain, BatchQuery, Poller
-from adisp import process, async
+from .client import Client, AdispClient, Pool, QueryChain, BatchQuery, Poller
+from .adisp import process, async

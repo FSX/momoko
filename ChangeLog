@@ -2,10 +2,12 @@ News/Changelog
 ==============
 
 
-0.3.0 (2011-05-??)
+0.3.0 (2011-06-??)
 ------------------
 
 * Renamed ``momoko.Momoko`` to ``momoko.Client``.
+* Programming in blocking-style is now possible with ``AdispClient`.
+* Support for Python 3 has been added.
 
 
 0.2.0 (2011-04-30)
