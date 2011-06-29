@@ -459,9 +459,11 @@ class Poller(object):
             for callback in self._callbacks:
                 callback()
         elif state == psycopg2.extensions.POLL_READ:
-            self._ioloop.add_handler(self._connection.fileno(), self._io_callback, IOLoop.READ)
+            self._ioloop.add_handler(self._connection.fileno(),
+                self._io_callback, IOLoop.READ)
         elif state == psycopg2.extensions.POLL_WRITE:
-            self._ioloop.add_handler(self._connection.fileno(), self._io_callback, IOLoop.WRITE)
+            self._ioloop.add_handler(self._connection.fileno(),
+                self._io_callback, IOLoop.WRITE)
 
     def _io_callback(self, *args):
         self._ioloop.remove_handler(self._connection.fileno())

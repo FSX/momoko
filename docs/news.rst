@@ -6,7 +6,7 @@ News/Changelog
 ------------------
 
 * Renamed ``momoko.Momoko`` to ``momoko.Client``.
-* Programming in blocking-style is now possible with ``AdispClient`.
+* Programming in blocking-style is now possible with ``AdispClient``.
 * Support for Python 3 has been added.
 
 

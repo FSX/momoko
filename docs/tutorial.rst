@@ -1,8 +1,7 @@
 Tutorial
 ========
 
-This tutorial shows some simple examples. More information will be added in
-the future.
+See the :ref:`api` for a more detailed decription of all methods.
 
 
 Connecting
