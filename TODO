@@ -1,0 +1,16 @@
+A list of things that needs to be done before the 0.3.0 release.
+
+ - Make sure that the behaviour between the callback and blocking style API
+   is consistent. Both APIs need to accept the same argument and return the
+   same results. Exceptions are allowed when needed.
+
+ - Documentation must be improved. The API documentation must follow the
+   following template:
+
+    - One line description.
+    - Detailed description.
+    - List of arguments.
+    - Description of returned results.
+
+   The examples page shows how the API is used with code snippets. The examples
+   must also be in the examples directory.
