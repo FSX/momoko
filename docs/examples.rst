@@ -1,5 +1,7 @@
-Tutorial
+Examples
 ========
+
+Examples for each functionality in callback and blocking style.
 
 See the :ref:`api` for a more detailed decription of all methods.
 
@@ -20,7 +22,7 @@ Connecting to a database server is very simple::
     })
 
 The above code can be integrated into a request handler. The following code
-creates a database object if there isn't one yet::
+creates a database object in the application object if there isn't one yet::
 
     import momoko
 
@@ -30,20 +32,23 @@ creates a database object if there isn't one yet::
             if not hasattr(self.application, 'db'):
                 self.application.db = momoko.Client({
                     'host': 'localhost',
-                    'database': 'infunadb',
-                    'user': 'infuna',
-                    'password': 'password',
+                    'database': 'mydatabsename',
+                    'user': 'myusername',
+                    'password': 'mypassword',
                     'min_conn': 1,
                     'max_conn': 20,
                     'cleanup_timeout': 10
                 })
             return self.application.db
 
+When you want to use the blocking style API the ``AdispClient`` class needs to
+be used instead if the ``Client`` class.
+
 
 Queries
 -------
 
-A simple query::
+A single query::
 
     class MainHandler(BaseHandler):
         @tornado.web.asynchronous
@@ -51,6 +56,16 @@ A simple query::
             self.db.execute('SELECT 42, 12, 40, 11;', callback=self._on_response)
 
         def _on_response(self, cursor):
+            self.write('Query results: %s' % cursor.fetchall())
+            self.finish()
+
+And in blocking style::
+
+    class MainHandler(BaseHandler):
+        @tornado.web.asynchronous
+        @momoko.process
+        def get(self):
+            cursor = yield self.db.execute('SELECT 42, 12, 40, 11;')
             self.write('Query results: %s' % cursor.fetchall())
             self.finish()
 
@@ -73,6 +88,20 @@ A batch of queries::
             for key, cursor in cursors.items():
                 self.write('Query results: %s = %s<br>' % (key, cursor.fetchall()))
             self.write('Done')
+            self.finish()
+
+Blocking style::
+
+    class BatchHandler(BaseHandler):
+        @tornado.web.asynchronous
+        @momoko.process
+        def get(self):
+            cursors = yield self.db.batch([
+                'SELECT 42, 12, 40, 11;',
+                ['SELECT %s, %s;', (45, 14)]
+            ])
+            for cursor in cursors:
+                self.write('Query results: %s<br>' % cursor.fetchall())
             self.finish()
 
 
@@ -115,3 +144,22 @@ A query chain::
             self.write('Results of the last query in the chain: %s' % \
                 cursor.fetchall())
             self.finish()
+
+Blocking style::
+
+    class ChainHandler(BaseHandler):
+        @tornado.web.asynchronous
+        @momoko.process
+        def get(self):
+            cursors = yield self.db.chain((
+                'SELECT 22, 44, 55, 11;',
+                self._chain_link_1,
+                ['SELECT %s, %s, %s, %s;']
+            ))
+            for cursor in cursors:
+                self.write('Query results: %s<br>' % cursor.fetchall())
+            self.finish()
+
+        def _chain_link_1(self, cursor):
+            return [i*2 for i in cursor.fetchall()[0]]
+

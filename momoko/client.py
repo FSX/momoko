@@ -99,9 +99,7 @@ class AdispClient(Client):
     """
 
     execute = async(Client.execute)
-    execute.__doc__ = Client.execute.__doc__
     callproc = async(Client.callproc)
-    callproc.__doc__ = Client.callproc.__doc__
 
     @async
     @process
@@ -143,6 +141,7 @@ class AdispClient(Client):
                 results = None
         callback(cursors)
 
+    #TODO: Queries must be in a dictionary instead of a list
     @async
     @process
     def batch(self, queries, callback=None):

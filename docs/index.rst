@@ -17,7 +17,7 @@ Downloads can be found at PyPi_ and the lastest source code at Github_.
 
    news
    installation
-   tutorial
+   examples
    api
 
 Indices and tables
