@@ -355,6 +355,7 @@ class QueryChain(object):
         self._args = None
         self._links = links
         self._links.reverse()
+        self._collect(None)
 
     def _collect(self, *args, **kwargs):
         if not self._links:
@@ -369,16 +370,13 @@ class QueryChain(object):
             else:
                 self._collect(results)
         else:
+            if isinstance(link, str):
+                link = [link]
             if len(link) < 2:
                 link.append(args)
             elif isinstance(link[1], list):
                 link[1].extend(args)
             self._db.execute(*link, callback=self._collect)
-
-    def run(self):
-        """Run the query chain.
-        """
-        self._collect(None)
 
 
 class BatchQuery(object):
@@ -417,22 +415,19 @@ class BatchQuery(object):
         self._size = len(queries)
 
         for key, query in list(queries.items()):
-            if len(query) < 2:
-                query.append(())
+            if isinstance(query, str):
+                query = [query, ()]
             query.append(functools.partial(self._collect, key))
             self._queries[key] = query
+
+        for query in list(self._queries.values()):
+            self._db.execute(*query)
 
     def _collect(self, key, cursor):
         self._size = self._size - 1
         self._args[key] = cursor
         if not self._size:
             self._callback(self._args)
-
-    def run(self):
-        """Run the batch with queries.
-        """
-        for query in list(self._queries.values()):
-            self._db.execute(*query)
 
 
 class Poller(object):
