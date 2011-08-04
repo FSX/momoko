@@ -66,36 +66,14 @@ class BatchQueryHandler(BaseHandler):
 class QueryChainHandler(BaseHandler):
     @tornado.web.asynchronous
     def get(self):
-        self.db.chain([
+        self.db.chain((
             ['SELECT 42, 12, %s, 11;', (23,)],
-            self._after_first_query,
-            self._after_first_callable,
-            'SELECT 1, 2, 3, 4, 5;',
-            self._before_last_query,
-            'SELECT %s, %s, %s, %s, %s;',
-            self._on_response
-        ])
+            'SELECT 1, 2, 3, 4, 5;'
+        ), self._on_response)
 
-    def _after_first_query(self, cursor):
-        results = cursor.fetchall()
-        return {
-            'p1': results[0][0],
-            'p2': results[0][1],
-            'p3': results[0][2],
-            'p4': results[0][3]
-        }
-
-    def _after_first_callable(self, p1, p2, p3, p4):
-        self.write('Results of the first query in the chain: %s, %s, %s, %s<br>' % \
-            (p1, p2, p3, p4))
-
-    def _before_last_query(self, cursor):
-        results = cursor.fetchall()
-        return [i*16 for i in results[0]]
-
-    def _on_response(self, cursor):
-        self.write('Results of the last query in the chain: %s' % \
-            cursor.fetchall())
+    def _on_response(self, cursors):
+        for cursor in cursors:
+            self.write('Query results: %s<br>' % cursor.fetchall())
         self.finish()
 
 

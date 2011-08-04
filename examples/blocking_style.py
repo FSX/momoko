@@ -60,6 +60,19 @@ class BatchQueryHandler(BaseHandler):
         self.finish()
 
 
+class QueryChainHandler(BaseHandler):
+    @tornado.web.asynchronous
+    @momoko.process
+    def get(self):
+        cursors = yield self.db.chain((
+            ['SELECT 42, 12, %s, 11;', (23,)],
+            'SELECT 1, 2, 3, 4, 5;'
+        ))
+        for cursor in cursors:
+            self.write('Query results: %s<br>' % cursor.fetchall())
+        self.finish()
+
+
 def main():
     try:
         tornado.options.parse_command_line()
@@ -67,7 +80,7 @@ def main():
             (r'/', OverviewHandler),
             (r'/query', SingleQueryHandler),
             (r'/batch', BatchQueryHandler),
-            # (r'/chain', QueryChainHandler),
+            (r'/chain', QueryChainHandler),
         ], debug=True)
         http_server = tornado.httpserver.HTTPServer(application)
         http_server.listen(8888)

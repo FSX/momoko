@@ -41,14 +41,14 @@ class Client(object):
         """
         return BatchQuery(self, queries, callback)
 
-    def chain(self, links):
+    def chain(self, links, callback):
         """Run a chain of queries and callables in a certain order. This is a
         wrapper around ``QueryChain``. See the documentation of ``QueryChain``
         for a more detailed description.
 
         :param links: A list with all the links in the chain.
         """
-        return QueryChain(self, links)
+        return QueryChain(self, links, callback)
 
     def execute(self, operation, parameters=(), callback=None):
         """Prepare and execute a database operation (query or command).
@@ -126,22 +126,14 @@ class AdispClient(Client):
         :param links: A list with all the links in the chain.
         """
         cursors = []
-        results = None
         for link in links:
-            if isinstance(link, collections.Callable):
-                results = link(cursors.pop())
+            if isinstance(link, str):
+                cursor = yield self.execute(link)
             else:
-                if isinstance(link, str):
-                    cursor = yield self.execute(link)
-                else:
-                    if len(link) < 2 and results:
-                        link.append(results)
-                    cursor = yield self.execute(*link)
-                cursors.append(cursor)
-                results = None
+                cursor = yield self.execute(*link)
+            cursors.append(cursor)
         callback(cursors)
 
-    #TODO: Queries must be in a dictionary instead of a list
     @async
     @process
     def batch(self, queries, callback=None):
@@ -350,33 +342,24 @@ class QueryChain(object):
     :param db: A ``Momoko`` instance.
     :param links: All the queries and callables that need to be executed.
     """
-    def __init__(self, db, links):
+    def __init__(self, db, links, callback):
         self._db = db
-        self._args = None
-        self._links = links
+        self._cursors = []
+        self._links = list(links)
         self._links.reverse()
+        self._callback = callback
         self._collect(None)
 
-    def _collect(self, *args, **kwargs):
+    def _collect(self, cursor):
+        if cursor is not None:
+            self._cursors.append(cursor)
         if not self._links:
+            self._callback(self._cursors)
             return
         link = self._links.pop()
-        if isinstance(link, collections.Callable):
-            results = link(*args, **kwargs)
-            if isinstance(results, list) or isinstance(results, tuple):
-                self._collect(*results)
-            elif isinstance(results, dict):
-                self._collect(**results)
-            else:
-                self._collect(results)
-        else:
-            if isinstance(link, str):
-                link = [link]
-            if len(link) < 2:
-                link.append(args)
-            elif isinstance(link[1], list):
-                link[1].extend(args)
-            self._db.execute(*link, callback=self._collect)
+        if isinstance(link, str):
+            link = [link]
+        self._db.execute(*link, callback=self._collect)
 
 
 class BatchQuery(object):
