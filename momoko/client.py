@@ -154,13 +154,13 @@ class AdispClient(Client):
                         and a tuple with paramaters (or not).
         """
         def _exec_query(query, callback):
-            if isinstance(query, str):
-                cursor = yield self.execute(query)
+            if isinstance(query[1], str):
+                cursor = yield self.execute(query[1])
             else:
-                cursor = yield self.execute(*query)
-            callback(cursor)
-        cursors = yield list(map(async(process(_exec_query)), queries))
-        callback(cursors)
+                cursor = yield self.execute(*query[1])
+            callback((query[0], cursor))
+        cursors = yield list(map(async(process(_exec_query)), queries.items()))
+        callback(dict(cursors))
 
 
 
