@@ -11,6 +11,8 @@ import momoko
 class BaseHandler(tornado.web.RequestHandler):
     @property
     def db(self):
+        # Create a database connection when a request handler is called
+        # and store the connection in the application object.
         if not hasattr(self.application, 'db'):
             self.application.db = momoko.AdispClient({
                 'host': 'localhost',
@@ -41,6 +43,7 @@ class SingleQueryHandler(BaseHandler):
     @tornado.web.asynchronous
     @momoko.process
     def get(self):
+        # One simple query
         cursor = yield self.db.execute('SELECT 42, 12, 40, 11;')
         self.write('Query results: %s' % cursor.fetchall())
         self.finish()
@@ -50,6 +53,9 @@ class BatchQueryHandler(BaseHandler):
     @tornado.web.asynchronous
     @momoko.process
     def get(self):
+        # These queries are executed all at once and therefore they need to be
+        # stored in an dictionary so you know where the resulting cursors
+        # come from, because they won't arrive in the same order.
         cursors = yield self.db.batch({
             'query1': ['SELECT 42, 12, %s, %s;', (23, 56)],
             'query2': 'SELECT 1, 2, 3, 4, 5;',
@@ -64,6 +70,7 @@ class QueryChainHandler(BaseHandler):
     @tornado.web.asynchronous
     @momoko.process
     def get(self):
+        # Execute a list of queries in the order you specified
         cursors = yield self.db.chain((
             ['SELECT 42, 12, %s, 11;', (23,)],
             'SELECT 1, 2, 3, 4, 5;'
