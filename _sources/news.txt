@@ -1,5 +1,17 @@
+.. _news:
+
 News/Changelog
 ==============
+
+
+0.3.0 (2011-08-07)
+------------------
+
+* Renamed ``momoko.Momoko`` to ``momoko.Client``.
+* Programming in blocking-style is now possible with ``AdispClient``.
+* Support for Python 3 has been added.
+* The batch and chain fucntion now accepts different arguments. See the
+  documentation for details.
 
 
 0.2.0 (2011-04-30)

@@ -6,13 +6,13 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>Tutorial &mdash; Momoko v0.2.0 documentation</title>
+    <title>Tutorial &mdash; Momoko v0.3.0 documentation</title>
     <link rel="stylesheet" href="_static/nature.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '',
-        VERSION:     '0.2.0',
+        VERSION:     '0.3.0',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -21,7 +21,7 @@
     <script type="text/javascript" src="_static/jquery.js"></script>
     <script type="text/javascript" src="_static/underscore.js"></script>
     <script type="text/javascript" src="_static/doctools.js"></script>
-    <link rel="top" title="Momoko v0.2.0 documentation" href="index.html" />
+    <link rel="top" title="Momoko v0.3.0 documentation" href="index.html" />
     <link rel="next" title="API" href="api.html" />
     <link rel="prev" title="Installation" href="installation.html" /> 
   </head>
@@ -41,7 +41,7 @@
         <li class="right" >
           <a href="installation.html" title="Installation"
              accesskey="P">previous</a> |</li>
-        <li><a href="index.html">Momoko v0.2.0 documentation</a> &raquo;</li> 
+        <li><a href="index.html">Momoko v0.3.0 documentation</a> &raquo;</li> 
       </ul>
     </div>  
 
@@ -52,12 +52,11 @@
             
   <div class="section" id="tutorial">
 <h1>Tutorial<a class="headerlink" href="#tutorial" title="Permalink to this headline">¶</a></h1>
-<p>This tutorial shows some simple examples. More information will be added in
-the future.</p>
+<p>See the <a class="reference internal" href="api.html#api"><em>API</em></a> for a more detailed decription of all methods.</p>
 <div class="section" id="connecting">
 <h2>Connecting<a class="headerlink" href="#connecting" title="Permalink to this headline">¶</a></h2>
 <p>Connecting to a database server is very simple:</p>
-<div class="highlight-python"><div class="highlight"><pre><span class="n">db</span> <span class="o">=</span> <span class="n">Momoko</span><span class="p">({</span>
+<div class="highlight-python"><div class="highlight"><pre><span class="n">db</span> <span class="o">=</span> <span class="n">momoko</span><span class="o">.</span><span class="n">Client</span><span class="p">({</span>
     <span class="s">&#39;host&#39;</span><span class="p">:</span> <span class="s">&#39;localhost&#39;</span><span class="p">,</span>
     <span class="s">&#39;database&#39;</span><span class="p">:</span> <span class="s">&#39;mydatabsename&#39;</span><span class="p">,</span>
     <span class="s">&#39;user&#39;</span><span class="p">:</span> <span class="s">&#39;myusername&#39;</span><span class="p">,</span>
@@ -70,11 +69,13 @@ the future.</p>
 </div>
 <p>The above code can be integrated into a request handler. The following code
 creates a database object if there isn&#8217;t one yet:</p>
-<div class="highlight-python"><div class="highlight"><pre><span class="k">class</span> <span class="nc">BaseHandler</span><span class="p">(</span><span class="n">tornado</span><span class="o">.</span><span class="n">web</span><span class="o">.</span><span class="n">RequestHandler</span><span class="p">):</span>
+<div class="highlight-python"><div class="highlight"><pre><span class="kn">import</span> <span class="nn">momoko</span>
+
+<span class="k">class</span> <span class="nc">BaseHandler</span><span class="p">(</span><span class="n">tornado</span><span class="o">.</span><span class="n">web</span><span class="o">.</span><span class="n">RequestHandler</span><span class="p">):</span>
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">db</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">application</span><span class="p">,</span> <span class="s">&#39;db&#39;</span><span class="p">):</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">application</span><span class="o">.</span><span class="n">db</span> <span class="o">=</span> <span class="n">Momoko</span><span class="p">({</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">application</span><span class="o">.</span><span class="n">db</span> <span class="o">=</span> <span class="n">momoko</span><span class="o">.</span><span class="n">Client</span><span class="p">({</span>
                 <span class="s">&#39;host&#39;</span><span class="p">:</span> <span class="s">&#39;localhost&#39;</span><span class="p">,</span>
                 <span class="s">&#39;database&#39;</span><span class="p">:</span> <span class="s">&#39;infunadb&#39;</span><span class="p">,</span>
                 <span class="s">&#39;user&#39;</span><span class="p">:</span> <span class="s">&#39;infuna&#39;</span><span class="p">,</span>
@@ -223,7 +224,7 @@ creates a database object if there isn&#8217;t one yet:</p>
         <li class="right" >
           <a href="installation.html" title="Installation"
              >previous</a> |</li>
-        <li><a href="index.html">Momoko v0.2.0 documentation</a> &raquo;</li> 
+        <li><a href="index.html">Momoko v0.3.0 documentation</a> &raquo;</li> 
       </ul>
     </div>
     <div class="footer">

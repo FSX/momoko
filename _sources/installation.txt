@@ -1,16 +1,17 @@
+.. _installation:
+
 Installation
 ============
 
-Momoko is only tested on Python 2.7, but it should run on any Python version
-that is supported by `Tornado`_ and `Psycopg2`_. Except Python 3.
+Momoko supports Python 2 and 3 (tested with 2.7 and 3.2). PyPy is not
+supported, because there is no usable Psycopg2 module for PyPy.
 
-Only two dependencies need to be installed: Tornado and Psycopg2. Both  are
-hosted on `PyPi`_ and can be installed manually (by downloading the sources),
-with *easy_install* or `pip`_.
+Momoko only depends on two modules. Tornado_ and and Psycopg2_ (2.2.0 or higher).
+Psycopg2 must have support for asynchronous connections.
 
-Momoko itself can also be installed from PyPi with::
+Momoko can be installed with *easy_install* or pip_::
 
-   pip install momoko
+	pip install momoko
 
 The latest sources can be cloned from the `Github repository`_ and
 installed with::
@@ -20,7 +21,5 @@ installed with::
 
 .. _Tornado: http://www.tornadoweb.org/
 .. _Psycopg2: http://initd.org/psycopg/
-.. _PyPi: http://pypi.python.org/pypi
 .. _pip: http://www.pip-installer.org/
 .. _Github repository: https://github.com/FSX/momoko
-

@@ -6,13 +6,13 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>Installation &mdash; Momoko v0.2.0 documentation</title>
+    <title>Installation &mdash; Momoko v0.3.0 documentation</title>
     <link rel="stylesheet" href="_static/nature.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '',
-        VERSION:     '0.2.0',
+        VERSION:     '0.3.0',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -21,8 +21,8 @@
     <script type="text/javascript" src="_static/jquery.js"></script>
     <script type="text/javascript" src="_static/underscore.js"></script>
     <script type="text/javascript" src="_static/doctools.js"></script>
-    <link rel="top" title="Momoko v0.2.0 documentation" href="index.html" />
-    <link rel="next" title="Tutorial" href="tutorial.html" />
+    <link rel="top" title="Momoko v0.3.0 documentation" href="index.html" />
+    <link rel="next" title="Examples" href="examples.html" />
     <link rel="prev" title="News/Changelog" href="news.html" /> 
   </head>
   <body>
@@ -36,12 +36,12 @@
           <a href="py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
         <li class="right" >
-          <a href="tutorial.html" title="Tutorial"
+          <a href="examples.html" title="Examples"
              accesskey="N">next</a> |</li>
         <li class="right" >
           <a href="news.html" title="News/Changelog"
              accesskey="P">previous</a> |</li>
-        <li><a href="index.html">Momoko v0.2.0 documentation</a> &raquo;</li> 
+        <li><a href="index.html">Momoko v0.3.0 documentation</a> &raquo;</li> 
       </ul>
     </div>  
 
@@ -51,13 +51,12 @@
           <div class="body">
             
   <div class="section" id="installation">
-<h1>Installation<a class="headerlink" href="#installation" title="Permalink to this headline">¶</a></h1>
-<p>Momoko is only tested on Python 2.7, but it should run on any Python version
-that is supported by <a class="reference external" href="http://www.tornadoweb.org/">Tornado</a> and <a class="reference external" href="http://initd.org/psycopg/">Psycopg2</a>. Except Python 3.</p>
-<p>Only two dependencies need to be installed: Tornado and Psycopg2. Both  are
-hosted on <a class="reference external" href="http://pypi.python.org/pypi">PyPi</a> and can be installed manually (by downloading the sources),
-with <em>easy_install</em> or <a class="reference external" href="http://www.pip-installer.org/">pip</a>.</p>
-<p>Momoko itself can also be installed from PyPi with:</p>
+<span id="id1"></span><h1>Installation<a class="headerlink" href="#installation" title="Permalink to this headline">¶</a></h1>
+<p>Momoko supports Python 2 and 3 (tested with 2.7 and 3.2). PyPy is not
+supported, because there is no usable Psycopg2 module for PyPy.</p>
+<p>Momoko only depends on two modules. <a class="reference external" href="http://www.tornadoweb.org/">Tornado</a> and and <a class="reference external" href="http://initd.org/psycopg/">Psycopg2</a> (2.2.0 or higher).
+Psycopg2 must have support for asynchronous connections.</p>
+<p>Momoko can be installed with <em>easy_install</em> or <a class="reference external" href="http://www.pip-installer.org/">pip</a>:</p>
 <div class="highlight-python"><pre>pip install momoko</pre>
 </div>
 <p>The latest sources can be cloned from the <a class="reference external" href="https://github.com/FSX/momoko">Github repository</a> and
@@ -76,8 +75,8 @@ installed with:</p>
   <p class="topless"><a href="news.html"
                         title="previous chapter">News/Changelog</a></p>
   <h4>Next topic</h4>
-  <p class="topless"><a href="tutorial.html"
-                        title="next chapter">Tutorial</a></p>
+  <p class="topless"><a href="examples.html"
+                        title="next chapter">Examples</a></p>
   <h3>This Page</h3>
   <ul class="this-page-menu">
     <li><a href="_sources/installation.txt"
@@ -110,12 +109,12 @@ installed with:</p>
           <a href="py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
         <li class="right" >
-          <a href="tutorial.html" title="Tutorial"
+          <a href="examples.html" title="Examples"
              >next</a> |</li>
         <li class="right" >
           <a href="news.html" title="News/Changelog"
              >previous</a> |</li>
-        <li><a href="index.html">Momoko v0.2.0 documentation</a> &raquo;</li> 
+        <li><a href="index.html">Momoko v0.3.0 documentation</a> &raquo;</li> 
       </ul>
     </div>
     <div class="footer">
