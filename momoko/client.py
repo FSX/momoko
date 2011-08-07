@@ -29,26 +29,51 @@ class Client(object):
         self._pool = Pool(**settings)
 
     def batch(self, queries, callback):
-        """Run a batch of queries all at once. This is a wrapper around
-        ``BatchQuery``. See the documentation of ``BatchQuery`` for a more
-        detailed description.
+        """Run a batch of queries all at once.
 
-        :param queries: A dictionary with all the queries. The key is the name
-                        of the query and the value is a list with a string
-                        (the query) and a tuple (optional) with parameters.
+        **Note:** Every query needs a free connection. So if three queries are
+        are executed, three free connections are used.
+
+        A dictionary with queries looks like this::
+
+            {
+                'query1': ['SELECT 42, 12, %s, %s;', (23, 56)],
+                'query2': 'SELECT 1, 2, 3, 4, 5;',
+                'query3': 'SELECT 465767, 4567, 3454;'
+            }
+
+        A query with paramaters is contained in a list: ``['some sql
+        here %s, %s', ('and some', 'paramaters here')]``. A query
+        without paramaters doesn't need to be in a list.
+
+        :param queries: A dictionary with all the queries.
         :param callback: The function that needs to be executed once all the
                          queries are finished.
+        :return: A dictionary with the same keys as the given queries with the
+                 resulting cursors as values.
         """
         return BatchQuery(self, queries, callback)
 
-    def chain(self, links, callback):
-        """Run a chain of queries and callables in a certain order. This is a
-        wrapper around ``QueryChain``. See the documentation of ``QueryChain``
-        for a more detailed description.
+    def chain(self, queries, callback):
+        """Run a chain of queries in the given order.
 
-        :param links: A list with all the links in the chain.
+        A list/tuple with queries looks like this::
+
+            (
+                ['SELECT 42, 12, %s, 11;', (23,)],
+                'SELECT 1, 2, 3, 4, 5;'
+            )
+
+        A query with paramaters is contained in a list: ``['some sql
+        here %s, %s', ('and some', 'paramaters here')]``. A query
+        without paramaters doesn't need to be in a list.
+
+        :param queries: A tuple or with all the queries.
+        :param callback: The function that needs to be executed once all the
+                         queries are finished.
+        :return: A list with the resulting cursors.
         """
-        return QueryChain(self, links, callback)
+        return QueryChain(self, queries, callback)
 
     def execute(self, operation, parameters=(), callback=None):
         """Prepare and execute a database operation (query or command).
@@ -68,11 +93,12 @@ class Client(object):
         self._pool.new_cursor('execute', (operation, parameters), callback)
 
     def callproc(self, procname, parameters=None, callback=None):
-        """Call a stored database procedure with the given name. The sequence
-        of parameters must contain one entry for each argument that the procedure
-        expects. The result of the call is returned as modified copy of the input
-        sequence. Input parameters are left untouched, output and input/output
-        parameters replaced with possibly new values.
+        """Call a stored database procedure with the given name.
+
+        The sequence of parameters must contain one entry for each argument that
+        the procedure expects. The result of the call is returned as modified
+        copy of the input sequence. Input parameters are left untouched, output
+        and input/output parameters replaced with possibly new values.
 
         The procedure may also provide a result set as output. This must then
         be made available through the standard ``fetch*()`` methods.
@@ -103,47 +129,59 @@ class AdispClient(Client):
 
     @async
     @process
-    def chain(self, links, callback=None):
-        """The ``chain`` function executes a set of queries and functions in a
-        certain order. All the cursors from the executes queries are returned.
+    def chain(self, queries, callback=None):
+        """Run a chain of queries in the given order.
 
-        ``chain`` accepts a list/tuple with "links" (as in "links in a chain").
-        A link can be a string, an SQL query without paramaters; a list with
-        two elements, an SQL query and a tuple with parameters; or a callable
-        that accepts one argument, the cursor of the previous link (if it was a
-        query) or the results of a callable.
+        A list/tuple with queries looks like this::
 
-        A cursor is not included in the returned result if it's been used in a
-        callable. That means if link one is a query and link two is a callable,
-        the cursor from link 1 will be pass to link 2 and will not be included
-        in the returned result.
+            (
+                ['SELECT 42, 12, %s, 11;', (23,)],
+                'SELECT 1, 2, 3, 4, 5;'
+            )
 
-        The data that is returned by a callable is not included in the returned
-        results. It will be passed to the next link. If the next link is a query
-        the data can be used as query parameters if that query does not have
-        paramaters.
+        A query with paramaters is contained in a list: ``['some sql
+        here %s, %s', ('and some', 'paramaters here')]``. A query
+        without paramaters doesn't need to be in a list.
 
-        :param links: A list with all the links in the chain.
+        :param queries: A tuple or with all the queries.
+        :param callback: The function that needs to be executed once all the
+                         queries are finished.
+        :return: A list with the resulting cursors.
         """
         cursors = []
-        for link in links:
-            if isinstance(link, str):
-                cursor = yield self.execute(link)
+        for query in queries:
+            if isinstance(query, str):
+                cursor = yield self.execute(query)
             else:
-                cursor = yield self.execute(*link)
+                cursor = yield self.execute(*query)
             cursors.append(cursor)
         callback(cursors)
 
     @async
     @process
     def batch(self, queries, callback=None):
-        """``batch`` runs a batch of queries all at once. This also creates a
-        new connection for each query, since only one query can be executed per
-        connection at the same time.
+        """Run a batch of queries all at once.
 
-        :param queries: A list with queries. A list element can be a string
-                        (only an SQL query) or a list/tuple with an SQL query
-                        and a tuple with paramaters (or not).
+        **Note:** Every query needs a free connection. So if three queries are
+        are executed, three free connections are used.
+
+        A dictionary with queries looks like this::
+
+            {
+                'query1': ['SELECT 42, 12, %s, %s;', (23, 56)],
+                'query2': 'SELECT 1, 2, 3, 4, 5;',
+                'query3': 'SELECT 465767, 4567, 3454;'
+            }
+
+        A query with paramaters is contained in a list: ``['some sql
+        here %s, %s', ('and some', 'paramaters here')]``. A query
+        without paramaters doesn't need to be in a list.
+
+        :param queries: A dictionary with all the queries.
+        :param callback: The function that needs to be executed once all the
+                         queries are finished.
+        :return: A dictionary with the same keys as the given queries with the
+                 resulting cursors as values.
         """
         def _exec_query(query, callback):
             if isinstance(query[1], str):
@@ -190,8 +228,10 @@ class Pool(object):
             self._cleaner.start()
 
     def _new_conn(self, new_cursor_args={}):
-        """Create a new connection. If `new_cursor_args` is provided a new
-        cursor is created when the callback is executed.
+        """Create a new connection.
+
+        If `new_cursor_args` is provided a new cursor is created when the
+        callback is executed.
 
         :param new_cursor_args: Arguments (dictionary) for a new cursor.
         """
@@ -208,17 +248,20 @@ class Pool(object):
             Poller(conn, (add_conn,)).start()
 
     def _add_conn(self, conn):
-        """Add a connection to the pool. This function is used by `_new_conn`
-        as a callback to add the created connection to the pool.
+        """Add a connection to the pool.
+
+        This function is used by `_new_conn` as a callback to add the created
+        connection to the pool.
 
         :param conn: A database connection.
         """
         self._pool.append(conn)
 
     def new_cursor(self, function, func_args=(), callback=None, connection=None):
-        """Create a new cursor. If there's no connection available, a new
-        connection will be created and `new_cursor` will be called again after
-        the connection has been made.
+        """Create a new cursor.
+
+        If there's no connection available, a new connection will be created and
+        `new_cursor` will be called again after the connection has been made.
 
         :param function: ``execute``, ``executemany`` or ``callproc``.
         :param func_args: A tuple with the arguments for the specified function.
@@ -243,8 +286,9 @@ class Pool(object):
         Poller(cursor.connection, (callback,)).start()
 
     def _get_free_conn(self):
-        """Look for a free connection and return it. `None` is returned when no
-        free connection can be found.
+        """Look for a free connection and return it.
+
+        `None` is returned when no free connection can be found.
         """
         if self.closed:
             raise PoolError('connection pool is closed')
@@ -282,113 +326,69 @@ class Pool(object):
 
 
 class QueryChain(object):
-    """A query chain that excutes a list of queries and callables in the
-    specified order. Cursors will be passed to callables and the results of a
-    callable will be passed to another callable or query. A chain is defined
-    like this::
+    """Run a chain of queries in the given order.
 
-        QueryChain(db, [
+    A list/tuple with queries looks like this::
+
+        (
             ['SELECT 42, 12, %s, 11;', (23,)],
-            _after_first_query,
-            _after_first_callable,
-            ['SELECT 1, 2, 3, 4, 5;'],
-            _before_last_query,
-            ['SELECT %s, %s, %s, %s, %s;'],
-            _last_callable
-        ])
+            'SELECT 1, 2, 3, 4, 5;'
+        )
 
-    A query is defined in a list with an SQL operation and a sequence of
-    parameters.
+    A query with paramaters is contained in a list: ``['some sql
+    here %s, %s', ('and some', 'paramaters here')]``. A query
+    without paramaters doesn't need to be in a list.
 
-    Once a query is executed and the next "link" is a callable, the callable
-    will receive a cursor from the query that can be used to fetch the data.
-    ``_after_first_query`` could look like this::
-
-        def _after_first_query(cursor):
-            results = cursor.fetchall()
-            return {
-                'p1': results[0][0],
-                'p2': results[0][1],
-                'p3': results[0][2],
-                'p4': results[0][3]
-            }
-
-    ``_after_first_callable`` will be executed once ``_after_first_query`` is
-    executed, but ``_after_first_query`` returned a dictionary so this dictionary
-    will be passed to ``_after_first_callable``. So ``_after_first_callable``
-    looks like this::
-
-        def _after_first_callable(p1, p2, p3, p4):
-            print '%s, %s, %s, %s<br>' % (p1, p2, p3, p4)
-
-    Since ``_after_first_callable`` returns nothing the next query won't get
-    any data from this callable. ``_before_last_query`` is more interesting.
-    It receives a cursor from the previous query and does something with the
-    fetched data and passes it to the next query. That data is used in the
-    query. Here are the last two callables::
-
-        def _before_last_query(cursor):
-            results = cursor.fetchall()
-            return [i*16 for i in results[0]]
-
-        # ['SELECT %s, %s, %s, %s, %s;'] is executed here
-
-        def _last_callable(cursor):
-            print '%s' % cursor.fetchall()
-
-    ``_last_callable`` prints the numbers that were modified in
-    ``_before_last_query``.
-
-    :param db: A ``Momoko`` instance.
-    :param links: All the queries and callables that need to be executed.
+    :param db: A ``momoko.Client`` or ``momoko.AdispClient`` instance.
+    :param queries: A tuple or with all the queries.
+    :param callback: The function that needs to be executed once all the
+                     queries are finished.
+    :return: A list with the resulting cursors is passed on to the callback.
     """
-    def __init__(self, db, links, callback):
+    def __init__(self, db, queries, callback):
         self._db = db
         self._cursors = []
-        self._links = list(links)
-        self._links.reverse()
+        self._queries = list(queries)
+        self._queries.reverse()
         self._callback = callback
         self._collect(None)
 
     def _collect(self, cursor):
         if cursor is not None:
             self._cursors.append(cursor)
-        if not self._links:
+        if not self._queries:
             self._callback(self._cursors)
             return
-        link = self._links.pop()
-        if isinstance(link, str):
-            link = [link]
-        self._db.execute(*link, callback=self._collect)
+        query = self._queries.pop()
+        if isinstance(query, str):
+            query = [query]
+        self._db.execute(*query, callback=self._collect)
 
 
 class BatchQuery(object):
-    """The ``BatchQuery`` class executes a batch of queries all at the same time.
-    Once all the queries are done a callback will be executed and all the cursors
-    will be passed to the callback. The downside of this class is that for every
-    query a new database connection will be created.
+    """Run a batch of queries all at once.
 
-    A batch is defined like this::
+    **Note:** Every query needs a free connection. So if three queries are
+    are executed, three free connections are used.
 
-        BatchQuery(db, {
-            'query1': ['SELECT 42, 12, %s, 11;', (23,)],
-            'query2': ['SELECT 1, 2, 3, 4, 5;'],
-            'query3': ['SELECT 465767, 4567, 3454;']
-        }, _batch_is_done)
+    A dictionary with queries looks like this::
 
-    A query is defined in a list with an SQL operation and a sequence of
-    parameters. The dictionary keys must be unique, because they are used to
-    identify the cursors that are passed to the callback.
+        {
+            'query1': ['SELECT 42, 12, %s, %s;', (23, 56)],
+            'query2': 'SELECT 1, 2, 3, 4, 5;',
+            'query3': 'SELECT 465767, 4567, 3454;'
+        }
 
-    The callback could look like this::
+    A query with paramaters is contained in a list: ``['some sql
+    here %s, %s', ('and some', 'paramaters here')]``. A query
+    without paramaters doesn't need to be in a list.
 
-        def _batch_is_done(cursors):
-            for key, cursor in cursors.items():
-                print 'Query results: %s = %s<br>' % (key, cursor.fetchall())
-            print 'Done'
-
-    :param db: A ``Momoko`` instance.
-    :param queries: A dictionary with queries.
+    :param db: A ``momoko.Client`` or ``momoko.AdispClient`` instance.
+    :param queries: A dictionary with all the queries.
+    :param callback: The function that needs to be executed once all the
+                     queries are finished.
+    :return: A dictionary with the same keys as the given queries with the
+             resulting cursors as values is passed on to the callback.
     """
     def __init__(self, db, queries, callback):
         self._db = db

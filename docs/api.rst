@@ -3,8 +3,8 @@
 API
 ===
 
-This page only lists all the classes and methods available in the Momoko
-module. The tutorial explains how to use these.
+All public methods included in the module. See the :ref:`examples` pages for
+some usage examples.
 
 .. module:: momoko
 

@@ -27,7 +27,6 @@ class BaseHandler(tornado.web.RequestHandler):
 
 
 class OverviewHandler(BaseHandler):
-    @tornado.web.asynchronous
     def get(self):
         self.write('''
 <ul>

@@ -2,7 +2,7 @@ News/Changelog
 ==============
 
 
-0.3.0 (2011-08-??)
+0.3.0 (2011-08-07)
 ------------------
 
  * Renamed ``momoko.Momoko`` to ``momoko.Client``.

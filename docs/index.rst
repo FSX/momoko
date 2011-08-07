@@ -1,7 +1,9 @@
+.. _overview:
+
 Momoko
 ======
 
-Asynchronous Psycopg2_ wrapper/client for Tornado_.
+An asynchronous Psycopg2_ wrapper for Tornado_.
 
 Momoko makes use of the asynchronous support in Psycopg2, Tornado's IOLoop and
 **adisp** to provide asynchronous queries in callback and blocking style.
