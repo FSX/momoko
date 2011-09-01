@@ -124,7 +124,8 @@ class CallbackDispatcher(object):
             self._queue_send_result(results, single)
         else:
             for count, caller in enumerate(callers):
-                caller(callback=partial(self.callback, results, count, single))
+                if callable(caller):
+                    caller(callback=partial(self.callback, results, count, single))
 
     def callback(self, results, index, single, arg):
         self.call_count -= 1
