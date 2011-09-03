@@ -14,7 +14,7 @@ class BaseHandler(tornado.web.RequestHandler):
         # Create a database connection when a request handler is called
         # and store the connection in the application object.
         if not hasattr(self.application, 'db'):
-            self.application.db = momoko.Client({
+            self.application.db = momoko.AsyncClient({
                 'host': 'localhost',
                 'database': 'momoko',
                 'user': 'frank',
