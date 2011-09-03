@@ -11,9 +11,10 @@
 
 
 __authors__ = ('Frank Smit <frank@61924.nl>',)
-__version__ = '0.3.0'
+__version__ = '0.4.0'
 __license__ = 'MIT'
 
 
-from .client import Client, AdispClient, Pool, QueryChain, BatchQuery, Poller
+from .clients import AsyncClient, AdispClient
+from .pools import AsyncPool
 from .adisp import process, async

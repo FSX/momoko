@@ -5,7 +5,7 @@ from distutils.core import setup
 
 setup(
     name='Momoko',
-    version='0.3.0',
+    version='0.4.0',
     description='An asynchronous Psycopg2 wrapper for Tornado.',
     long_description=open('README.txt').read(),
     author='Frank Smit',

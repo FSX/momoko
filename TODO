@@ -1,12 +1,13 @@
-A list of things that needs to be done before the 0.3.0 release.
+Momoko also needs to support blocking connections next to asynchronous
+connections. All asynchronous classes must be renamed and blocking code has
+to be added.
 
- - Documentation must be improved. The API documentation must follow the
-   following template:
-
-    - One line description.
-    - Detailed description.
-    - List of arguments.
-    - Description of returned results.
-
-   The examples page shows how the API is used with code snippets. The examples
-   must also be in the examples directory.
+ - Rename `Client` to `AsyncClient`.
+ - Rename `Pool` to `AsyncPool`.
+ - Add a pool for blocking connections based on the existing asynchronous pool.
+   Maybe `SimpleConnectionPool` from the Psycopg2 module can be used:
+   http://initd.org/psycopg/docs/pool.html#psycopg2.pool.SimpleConnectionPool
+   https://github.com/dvarrazzo/psycopg/blob/devel/lib/pool.py
+ - Add a client for the blocking pool.
+ - Move pools to pools.py.
+ - Move Clients to clients.py
