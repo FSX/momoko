@@ -11,15 +11,38 @@
 
 
 import functools
+from contextlib import contextmanager
 
-from .pools import AsyncPool
+from .pools import AsyncPool, BlockingPool
 from .adisp import async, process
-from .utils import BatchQuery, QueryChain
+from .utils import ExtendedCursor, BatchQuery, QueryChain
+
+
+class BlockingClient(object):
+    """The ``BlockingClient`` class is a wrapper around the ``psycopg2`` module.
+
+    :param settings: A dictionary that is passed to the ``BlockingPool`` object.
+    """
+    def __init__(self, settings):
+        self._pool = BlockingPool(**settings)
+
+    @contextmanager
+    def connection(self):
+        conn = self._pool.get_connection()
+        try:
+            yield conn
+        except:
+            conn.rollback()
+            raise
+        else:
+            conn.commit()
+
 
 
 class AsyncClient(object):
-    """The Client class is a wrapper for ``AsyncPool``, ``BatchQuery`` and
-    ``QueryChain``. It also provides the ``execute`` and ``callproc`` functions.
+    """The ``AsyncClient`` class is a wrapper for ``AsyncPool``, ``BatchQuery``
+     and ``QueryChain``. It also provides the ``execute`` and ``callproc``
+     functions.
 
     :param settings: A dictionary that is passed to the ``AsyncPool`` object.
     """

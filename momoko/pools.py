@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
     momoko.pools
-    ~~~~~~~~~~~~~~
+    ~~~~~~~~~~~~
 
     This module contains all the connection pools.
 
@@ -13,13 +13,110 @@
 import functools
 
 import psycopg2
+from psycopg2.extensions import STATUS_READY
 from tornado.ioloop import PeriodicCallback
 
 from  .utils import Poller
 
 
+class BlockingPool(object):
+    """A connection pool that manages blocking PostgreSQL connections
+    and cursors.
+
+    :param min_conn: The minimum amount of connections that is created when a
+                     connection pool is created.
+    :param max_conn: The maximum amount of connections the connection pool can
+                     have. If the amount of connections exceeds the limit a
+                     ``PoolError`` exception is raised.
+    :param host: The database host address (defaults to UNIX socket if not provided)
+    :param database: The database name
+    :param user: User name used to authenticate
+    :param password: Password used to authenticate
+    """
+    def __init__(self, min_conn=1, max_conn=20, cleanup_timeout=10,
+                 *args, **kwargs):
+        self.min_conn = min_conn
+        self.max_conn = max_conn
+        self.closed = False
+
+        self._args = args
+        self._kwargs = kwargs
+
+        self._pool = []
+
+        for i in range(self.min_conn):
+            self._new_conn()
+
+        # Create a periodic callback that tries to close inactive connections
+        if cleanup_timeout > 0:
+            self._cleaner = PeriodicCallback(self._clean_pool,
+                cleanup_timeout * 1000)
+            self._cleaner.start()
+
+    def _new_conn(self):
+        """Create a new connection.
+        """
+        if len(self._pool) > self.max_conn:
+            raise PoolError('connection pool exausted')
+        conn = psycopg2.connect(*self._args, **self._kwargs)
+        self._pool.append(conn)
+
+        return conn
+
+    def _get_free_conn(self):
+        """Look for a free connection and return it.
+
+        `None` is returned when no free connection can be found.
+        """
+        if self.closed:
+            raise PoolError('connection pool is closed')
+        for conn in self._pool:
+            if conn.status == STATUS_READY:
+                return conn
+        return None
+
+    def get_connection(self):
+        """Get a connection from the pool.
+
+        If there's no free connection available, a new connection will be created.
+        """
+        connection = self._get_free_conn()
+        if not connection:
+            connection = self._new_conn()
+
+        return connection
+
+    def _clean_pool(self):
+        """Close a number of inactive connections when the number of connections
+        in the pool exceeds the number in `min_conn`.
+        """
+        if self.closed:
+            raise PoolError('connection pool is closed')
+        if len(self._pool) > self.min_conn:
+            conns = len(self._pool) - self.min_conn
+            for conn in self._pool[:]:
+                if conn.status == STATUS_READY:
+                    conn.close()
+                    conns = conns - 1
+                    self._pool.remove(conn)
+                    if conns == 0:
+                        break
+
+    def close(self):
+        """Close all open connections in the pool.
+        """
+        if self.closed:
+            raise PoolError('connection pool is closed')
+        for conn in self._pool:
+            if not conn.closed:
+                conn.close()
+        self._pool = []
+        self.closed = True
+
+
 class AsyncPool(object):
-    """A connection pool that manages PostgreSQL connections and cursors.
+    """A connection pool that manages asynchronous PostgreSQL connections
+    and cursors.
 
     :param min_conn: The minimum amount of connections that is created when a
                      connection pool is created.

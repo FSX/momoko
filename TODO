@@ -11,3 +11,6 @@ to be added.
  - Add a client for the blocking pool.
  - Move pools to pools.py.
  - Move Clients to clients.py
+
+Use connection status to see if connection is not busy:
+http://initd.org/psycopg/docs/extensions.html#connection-status-constants

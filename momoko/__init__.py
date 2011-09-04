@@ -15,6 +15,6 @@ __version__ = '0.4.0'
 __license__ = 'MIT'
 
 
-from .clients import AsyncClient, AdispClient
-from .pools import AsyncPool
+from .clients import BlockingClient, AsyncClient, AdispClient
+from .pools import BlockingPool, AsyncPool
 from .adisp import process, async

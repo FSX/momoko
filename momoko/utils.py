@@ -13,7 +13,16 @@
 import functools
 
 import psycopg2
+import psycopg2.extensions
 from tornado.ioloop import IOLoop
+
+
+class ExtendedCursor(psycopg2.extensions.cursor):
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        print args
 
 
 class QueryChain(object):
