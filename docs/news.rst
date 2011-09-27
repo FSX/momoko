@@ -4,6 +4,18 @@ News/Changelog
 ==============
 
 
+0.4.0 (2011-10-??)
+------------------
+
+* Reorganized classes and files.
+* Renamed ``momoko.Client`` to ``momoko.AsyncClient``.
+* Renamed ``momoko.Pool`` to ``momoko.AsyncPool``.
+* Added a client and pool for blocking connections, ``momoko.BlockingClient``
+  and ``momoko.BlockingPool``.
+* Added ``PoolError`` to the import list in ``__init__.py``.
+* Added an example that uses Tornado's gen module.
+
+
 0.3.0 (2011-08-07)
 ------------------
 

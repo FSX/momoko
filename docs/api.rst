@@ -9,10 +9,18 @@ some usage examples.
 .. module:: momoko
 
 
-Client Object
--------------
+BlockingClient Object
+---------------------
 
-.. autoclass:: Client
+.. autoclass:: momoko.BlockingClient
+   :members:
+   :inherited-members:
+
+
+AsyncClient Object
+------------------
+
+.. autoclass:: momoko.AsyncClient
    :members:
    :inherited-members:
 
@@ -20,16 +28,24 @@ Client Object
 AdispClient Object
 ------------------
 
-.. autoclass:: AdispClient
+.. autoclass:: momoko.AdispClient
    :members:
    :inherited-members:
    :undoc-members:
 
 
-Pool Object
------------------
+BlockingPool Object
+-------------------
 
-.. autoclass:: Pool
+.. autoclass:: momoko.BlockingPool
+   :members:
+   :inherited-members:
+
+
+AsyncPool Object
+----------------
+
+.. autoclass:: momoko.AsyncPool
    :members:
    :inherited-members:
 
@@ -37,7 +53,7 @@ Pool Object
 QueryChain Object
 -----------------
 
-.. autoclass:: QueryChain
+.. autoclass:: momoko.utils.QueryChain
    :members:
    :inherited-members:
 
@@ -45,7 +61,7 @@ QueryChain Object
 BatchQuery Object
 -----------------
 
-.. autoclass:: BatchQuery
+.. autoclass:: momoko.utils.BatchQuery
    :members:
    :inherited-members:
 
@@ -53,6 +69,6 @@ BatchQuery Object
 Poller Object
 -------------
 
-.. autoclass:: Poller
+.. autoclass:: momoko.utils.Poller
    :members:
    :inherited-members:

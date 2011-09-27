@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-    momoko.clients
-    ~~~~~~~~~~~~~~
+    momoko.utils
+    ~~~~~~~~~~~~
 
-    This module contains clients (blocking, non-blocking/async and adisp).
+    Utilities for Momoko.
 
     :copyright: (c) 2011 by Frank Smit.
     :license: MIT, see LICENSE for more details.

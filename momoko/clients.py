@@ -19,7 +19,8 @@ from .utils import ExtendedCursor, BatchQuery, QueryChain
 
 
 class BlockingClient(object):
-    """The ``BlockingClient`` class is a wrapper around the ``psycopg2`` module.
+    """The ``BlockingClient`` class is a wrapper around the ``psycopg2`` module
+    and provides some extra functionality.
 
     :param settings: A dictionary that is passed to the ``BlockingPool`` object.
     """
@@ -28,6 +29,14 @@ class BlockingClient(object):
 
     @contextmanager
     def connection(self):
+        """Create a context for a connection and commit changes on exit.
+
+        For example::
+
+            with self.db.connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute('SELECT 42, 12, 40, 11;')
+        """
         conn = self._pool.get_connection()
         try:
             yield conn

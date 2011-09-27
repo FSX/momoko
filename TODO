@@ -1,16 +1,5 @@
-Momoko also needs to support blocking connections next to asynchronous
-connections. All asynchronous classes must be renamed and blocking code has
-to be added.
+TODO
 
- - Rename `Client` to `AsyncClient`.
- - Rename `Pool` to `AsyncPool`.
- - Add a pool for blocking connections based on the existing asynchronous pool.
-   Maybe `SimpleConnectionPool` from the Psycopg2 module can be used:
-   http://initd.org/psycopg/docs/pool.html#psycopg2.pool.SimpleConnectionPool
-   https://github.com/dvarrazzo/psycopg/blob/devel/lib/pool.py
- - Add a client for the blocking pool.
- - Move pools to pools.py.
- - Move Clients to clients.py
-
-Use connection status to see if connection is not busy:
-http://initd.org/psycopg/docs/extensions.html#connection-status-constants
+ - Do some for testing with the blocking client.
+ - Expand the example for the blocking client.
+ - Updates examples pages in documentation.
