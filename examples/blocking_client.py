@@ -31,8 +31,6 @@ class OverviewHandler(BaseHandler):
         self.write('''
 <ul>
     <li><a href="/query">A single query</a></li>
-    <li><a href="/batch">A batch of queries</a></li>
-    <li><a href="/chain">A chain of queries</a></li>
 </ul>
         ''')
         self.finish()
@@ -40,6 +38,8 @@ class OverviewHandler(BaseHandler):
 
 class SingleQueryHandler(BaseHandler):
     def get(self):
+        # Besides using a with statement everyting is the same as the normal
+        # Psycopg2 module
         with self.db.connection() as conn:
             cursor = conn.cursor()
             cursor.execute('SELECT 42, 12, 40, 11;')
@@ -53,9 +53,7 @@ def main():
         tornado.options.parse_command_line()
         application = tornado.web.Application([
             (r'/', OverviewHandler),
-            (r'/query', SingleQueryHandler),
-            # (r'/batch', BatchQueryHandler),
-            # (r'/chain', QueryChainHandler),
+            (r'/query', SingleQueryHandler)
         ], debug=True)
         http_server = tornado.httpserver.HTTPServer(application)
         http_server.listen(8888)

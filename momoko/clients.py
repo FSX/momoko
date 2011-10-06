@@ -27,6 +27,7 @@ class BlockingClient(object):
     def __init__(self, settings):
         self._pool = BlockingPool(**settings)
 
+    @property
     @contextmanager
     def connection(self):
         """Create a context for a connection and commit changes on exit.
