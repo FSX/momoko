@@ -15,7 +15,7 @@ from contextlib import contextmanager
 
 from .pools import AsyncPool, BlockingPool
 from .adisp import async, process
-from .utils import ExtendedCursor, BatchQuery, QueryChain
+from .utils import BatchQuery, QueryChain
 
 
 class BlockingClient(object):
