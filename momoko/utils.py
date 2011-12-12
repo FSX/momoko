@@ -112,8 +112,8 @@ class Poller(object):
     :param connection: The connection that needs to be polled.
     :param callbacks: A tuple/list of callbacks.
     """
-    def __init__(self, connection, callbacks=()):
-        self._ioloop = IOLoop.instance()
+    def __init__(self, connection, callbacks=(), ioloop=None):
+        self._ioloop = ioloop or IOLoop.instance()
         self._connection = connection
         self._callbacks = callbacks
 
