@@ -14,6 +14,7 @@ import functools
 
 import psycopg2
 from psycopg2.extensions import STATUS_READY
+import tornado.ioloop
 from tornado.ioloop import PeriodicCallback
 
 from  .utils import Poller
@@ -29,6 +30,7 @@ class BlockingPool(object):
                      have. If the amount of connections exceeds the limit a
                      ``PoolError`` exception is raised.
     :param host: The database host address (defaults to UNIX socket if not provided)
+    :param port: The database host port (defaults to 5432 if not provided)
     :param database: The database name
     :param user: User name used to authenticate
     :param password: Password used to authenticate
@@ -58,7 +60,11 @@ class BlockingPool(object):
         """
         if len(self._pool) > self.max_conn:
             raise PoolError('connection pool exausted')
-        conn = psycopg2.connect(*self._args, **self._kwargs)
+        conn = psycopg2.connect(database=self._kwargs.get('database'),
+                                user=self._kwargs.get('user', ''),
+                                password=self._kwargs.get('password', ''),
+                                host=self._kwargs.get('host'),
+                                port=self._kwargs.get('port'))
         self._pool.append(conn)
 
         return conn
@@ -124,16 +130,17 @@ class AsyncPool(object):
                      have. If the amount of connections exceeds the limit a
                      ``PoolError`` exception is raised.
     :param host: The database host address (defaults to UNIX socket if not provided)
+    :param port: The database host port (defaults to 5432 if not provided)
     :param database: The database name
     :param user: User name used to authenticate
     :param password: Password used to authenticate
     """
     def __init__(self, min_conn=1, max_conn=20, cleanup_timeout=10,
-                 *args, **kwargs):
+                 ioloop=None, *args, **kwargs):
         self.min_conn = min_conn
         self.max_conn = max_conn
         self.closed = False
-
+        self._ioloop = ioloop or tornado.ioloop.IOLoop.instance()
         self._args = args
         self._kwargs = kwargs
 
@@ -158,15 +165,20 @@ class AsyncPool(object):
         """
         if len(self._pool) > self.max_conn:
             raise PoolError('connection pool exausted')
-        conn = psycopg2.connect(async=1, *self._args, **self._kwargs)
+        conn = psycopg2.connect(database=self._kwargs.get('database'),
+                                user=self._kwargs.get('user', ''),
+                                password=self._kwargs.get('password', ''),
+                                host=self._kwargs.get('host'),
+                                port=self._kwargs.get('port'),
+                                async=1)
         add_conn = functools.partial(self._add_conn, conn)
 
         if new_cursor_args:
             new_cursor_args['connection'] = conn
             new_cursor = functools.partial(self.new_cursor, **new_cursor_args)
-            Poller(conn, (add_conn, new_cursor)).start()
+            Poller(conn, (add_conn, new_cursor), ioloop=self._ioloop).start()
         else:
-            Poller(conn, (add_conn,)).start()
+            Poller(conn, (add_conn,), ioloop=self._ioloop).start()
 
     def _add_conn(self, conn):
         """Add a connection to the pool.
@@ -204,7 +216,7 @@ class AsyncPool(object):
 
         # Callbacks from cursor fucntion always get the cursor back
         callback = functools.partial(callback, cursor)
-        Poller(cursor.connection, (callback,)).start()
+        Poller(cursor.connection, (callback,), ioloop=self._ioloop).start()
 
     def _get_free_conn(self):
         """Look for a free connection and return it.
