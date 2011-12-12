@@ -60,7 +60,7 @@ class BlockingPool(object):
         """
         if len(self._pool) > self.max_conn:
             raise PoolError('connection pool exausted')
-        conn = psycopg2.connect(database=self._kwargs.get('database',  ''),
+        conn = psycopg2.connect(database=self._kwargs.get('database'),
                                 user=self._kwargs.get('user', ''),
                                 password=self._kwargs.get('password', ''),
                                 host=self._kwargs.get('host'),
@@ -165,7 +165,7 @@ class AsyncPool(object):
         """
         if len(self._pool) > self.max_conn:
             raise PoolError('connection pool exausted')
-        conn = psycopg2.connect(database=self._kwargs.get('database',  ''),
+        conn = psycopg2.connect(database=self._kwargs.get('database'),
                                 user=self._kwargs.get('user', ''),
                                 password=self._kwargs.get('password', ''),
                                 host=self._kwargs.get('host'),
