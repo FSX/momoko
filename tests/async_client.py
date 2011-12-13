@@ -6,6 +6,7 @@ import momoko
 import tornado.ioloop
 import tornado.testing
 import unittest
+from client_settings import client_settings
 
 class AsyncClientTest(tornado.testing.AsyncTestCase):
     '''
@@ -13,16 +14,8 @@ class AsyncClientTest(tornado.testing.AsyncTestCase):
     '''
     def setUp(self):
         super(AsyncClientTest, self).setUp()
-        
-        self.db = momoko.AsyncClient({
-                'host': 'localhost',
-                'database': 'momoko',
-                'user': 'frank',
-                'password': '',
-                'min_conn': 1,
-                'max_conn': 20,
-                'cleanup_timeout': 10,
-                'ioloop': self.io_loop})
+        client_settings["ioloop"] = self.io_loop
+        self.db = momoko.AsyncClient(client_settings)
 
     def tearDown(self):
         super(AsyncClientTest, self).tearDown()
