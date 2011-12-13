@@ -14,10 +14,9 @@ import functools
 
 import psycopg2
 from psycopg2.extensions import STATUS_READY
-import tornado.ioloop
-from tornado.ioloop import PeriodicCallback
+from tornado.ioloop import IOLoop, PeriodicCallback
 
-from  .utils import Poller
+from .utils import Poller
 
 
 class BlockingPool(object):
@@ -60,11 +59,12 @@ class BlockingPool(object):
         """
         if len(self._pool) > self.max_conn:
             raise PoolError('connection pool exausted')
-        conn = psycopg2.connect(database=self._kwargs.get('database'),
-                                user=self._kwargs.get('user', ''),
-                                password=self._kwargs.get('password', ''),
-                                host=self._kwargs.get('host'),
-                                port=self._kwargs.get('port'))
+        conn = psycopg2.connect(
+            database=self._kwargs.get('database'),
+            user=self._kwargs.get('user', ''),
+            password=self._kwargs.get('password', ''),
+            host=self._kwargs.get('host', ''),
+            port=self._kwargs.get('port', 5432))
         self._pool.append(conn)
 
         return conn
@@ -140,7 +140,7 @@ class AsyncPool(object):
         self.min_conn = min_conn
         self.max_conn = max_conn
         self.closed = False
-        self._ioloop = ioloop or tornado.ioloop.IOLoop.instance()
+        self._ioloop = ioloop or IOLoop.instance()
         self._args = args
         self._kwargs = kwargs
 
@@ -165,12 +165,13 @@ class AsyncPool(object):
         """
         if len(self._pool) > self.max_conn:
             raise PoolError('connection pool exausted')
-        conn = psycopg2.connect(database=self._kwargs.get('database'),
-                                user=self._kwargs.get('user', ''),
-                                password=self._kwargs.get('password', ''),
-                                host=self._kwargs.get('host'),
-                                port=self._kwargs.get('port'),
-                                async=1)
+        conn = psycopg2.connect(
+            database=self._kwargs.get('database'),
+            user=self._kwargs.get('user', ''),
+            password=self._kwargs.get('password', ''),
+            host=self._kwargs.get('host', ''),
+            port=self._kwargs.get('port', 5432),
+            async=1)
         add_conn = functools.partial(self._add_conn, conn)
 
         if new_cursor_args:
