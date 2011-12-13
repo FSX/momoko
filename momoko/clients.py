@@ -99,7 +99,7 @@ class AsyncClient(object):
         here %s, %s', ('and some', 'paramaters here')]``. A query
         without paramaters doesn't need to be in a list.
 
-        :param queries: A tuple or with all the queries.
+        :param queries: A tuple or list with all the queries.
         :param callback: The function that needs to be executed once all the
                          queries are finished.
         :return: A list with the resulting cursors.
