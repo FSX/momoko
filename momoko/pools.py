@@ -214,7 +214,7 @@ class AsyncPool(object):
         cursor = connection.cursor()
         getattr(cursor, function)(*func_args)
 
-        # Callbacks from cursor fucntion always get the cursor back
+        # Callbacks from cursor functions always get the cursor back
         callback = functools.partial(callback, cursor)
         Poller(cursor.connection, (callback,), ioloop=self._ioloop).start()
 

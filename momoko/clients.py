@@ -99,7 +99,7 @@ class AsyncClient(object):
         here %s, %s', ('and some', 'paramaters here')]``. A query
         without paramaters doesn't need to be in a list.
 
-        :param queries: A tuple or with all the queries.
+        :param queries: A tuple or list with all the queries.
         :param callback: The function that needs to be executed once all the
                          queries are finished.
         :return: A list with the resulting cursors.
@@ -119,7 +119,7 @@ class AsyncClient(object):
         :param operation: The database operation (an SQL query or command).
         :param parameters: A tuple, list or dictionary with parameters. This is
                            an empty tuple by default.
-        :param callback: A callable that is executed once the operation is finised.
+        :param callback: A callable that is executed once the operation is finished.
         """
         self._pool.new_cursor('execute', (operation, parameters), callback)
 
@@ -136,7 +136,7 @@ class AsyncClient(object):
 
         :param procname: The name of the procedure.
         :param parameters: A sequence with parameters. This is ``None`` by default.
-        :param callback: A callable that is executed once the procedure is finised.
+        :param callback: A callable that is executed once the procedure is finished.
         """
         self._pool.new_cursor('callproc', (procname, parameters), callback)
 
