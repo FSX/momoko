@@ -4,7 +4,7 @@ News/Changelog
 ==============
 
 
-0.4.0 (2011-10-??)
+0.4.0 (2011-12-15)
 ------------------
 
 * Reorganized classes and files.
@@ -13,7 +13,14 @@ News/Changelog
 * Added a client and pool for blocking connections, ``momoko.BlockingClient``
   and ``momoko.BlockingPool``.
 * Added ``PoolError`` to the import list in ``__init__.py``.
-* Added an example that uses Tornado's gen module.
+* Added an example that uses Tornado's gen_ module and Swift_.
+* Callbacks are now optional for ``AsyncClient``.
+* ``AsyncPool`` and ``Poller`` now accept a ioloop argument. [fzzbt_]
+* Unit tests have been added. [fzzbt_]
+
+.. _gen: http://www.tornadoweb.org/documentation/gen.html
+.. _Swift: http://code.naeseth.com/swirl/
+.. _fzzbt: https://github.com/fzzbt
 
 
 0.3.0 (2011-08-07)

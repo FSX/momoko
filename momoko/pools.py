@@ -28,6 +28,8 @@ class BlockingPool(object):
     :param max_conn: The maximum amount of connections the connection pool can
                      have. If the amount of connections exceeds the limit a
                      ``PoolError`` exception is raised.
+    :param cleanup_timeout: Time in seconds between pool cleanups. Connections
+                            will be closed until there are ``min_conn`` left.
     :param host: The database host address (defaults to UNIX socket if not provided)
     :param port: The database host port (defaults to 5432 if not provided)
     :param database: The database name
@@ -129,6 +131,9 @@ class AsyncPool(object):
     :param max_conn: The maximum amount of connections the connection pool can
                      have. If the amount of connections exceeds the limit a
                      ``PoolError`` exception is raised.
+    :param cleanup_timeout: Time in seconds between pool cleanups. Connections
+                            will be closed until there are ``min_conn`` left.
+    :param ioloop: An instance of Tornado's IOLoop.
     :param host: The database host address (defaults to UNIX socket if not provided)
     :param port: The database host port (defaults to 5432 if not provided)
     :param database: The database name
