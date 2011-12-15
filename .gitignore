@@ -6,5 +6,6 @@ dist/
 tmp/
 docs/_build/
 *.sublime-project
+*.sublime-workspace
 *.bak
 modules/

@@ -1,0 +1,1 @@
+make html SPHINXBUILD='python /usr/bin/sphinx-build'
