@@ -7,6 +7,8 @@ import tornado.web
 
 import momoko
 
+import settings
+
 
 class BaseHandler(tornado.web.RequestHandler):
     @property

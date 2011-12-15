@@ -15,6 +15,8 @@ from tornado import gen
 
 import momoko
 
+import settings
+
 
 class BaseHandler(tornado.web.RequestHandler):
     @property

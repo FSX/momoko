@@ -15,6 +15,8 @@ import tornado.web
 import swirl
 import momoko
 
+import settings
+
 
 class BaseHandler(tornado.web.RequestHandler):
     @property

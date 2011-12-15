@@ -7,7 +7,7 @@ setup(
     name='Momoko',
     version='0.4.0',
     description='An asynchronous Psycopg2 wrapper for Tornado.',
-    long_description=open('README.txt').read(),
+    long_description=open('README.rst').read(),
     author='Frank Smit',
     author_email='frank@61924.nl',
     url='http://momoko.61924.nl/',
