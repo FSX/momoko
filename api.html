@@ -2,17 +2,20 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 
+
 <html xmlns="http://www.w3.org/1999/xhtml">
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>API &mdash; Momoko v0.3.0 documentation</title>
+    <title>API &mdash; Momoko 0.4.0 documentation</title>
+    
     <link rel="stylesheet" href="_static/nature.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '',
-        VERSION:     '0.3.0',
+        VERSION:     '0.4.0',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -21,7 +24,7 @@
     <script type="text/javascript" src="_static/jquery.js"></script>
     <script type="text/javascript" src="_static/underscore.js"></script>
     <script type="text/javascript" src="_static/doctools.js"></script>
-    <link rel="top" title="Momoko v0.3.0 documentation" href="index.html" />
+    <link rel="top" title="Momoko 0.4.0 documentation" href="index.html" />
     <link rel="prev" title="Examples" href="examples.html" /> 
   </head>
   <body>
@@ -37,7 +40,7 @@
         <li class="right" >
           <a href="examples.html" title="Examples"
              accesskey="P">previous</a> |</li>
-        <li><a href="index.html">Momoko v0.3.0 documentation</a> &raquo;</li> 
+        <li><a href="index.html">Momoko 0.4.0 documentation</a> &raquo;</li> 
       </ul>
     </div>  
 
@@ -50,24 +53,57 @@
 <span id="id1"></span><h1>API<a class="headerlink" href="#api" title="Permalink to this headline">¶</a></h1>
 <p>All public methods included in the module. See the <a class="reference internal" href="examples.html#examples"><em>Examples</em></a> pages for
 some usage examples.</p>
-<span class="target" id="module-momoko"></span><div class="section" id="client-object">
-<h2>Client Object<a class="headerlink" href="#client-object" title="Permalink to this headline">¶</a></h2>
+<span class="target" id="module-momoko"></span><div class="section" id="blockingclient-object">
+<h2>BlockingClient Object<a class="headerlink" href="#blockingclient-object" title="Permalink to this headline">¶</a></h2>
 <dl class="class">
-<dt id="momoko.Client">
-<em class="property">class </em><tt class="descclassname">momoko.</tt><tt class="descname">Client</tt><big>(</big><em>settings</em><big>)</big><a class="headerlink" href="#momoko.Client" title="Permalink to this definition">¶</a></dt>
-<dd><p>The Client class is a wrapper for <tt class="docutils literal"><span class="pre">Pool</span></tt>, <tt class="docutils literal"><span class="pre">BatchQuery</span></tt> and
-<tt class="docutils literal"><span class="pre">QueryChain</span></tt>. It also provides the <tt class="docutils literal"><span class="pre">execute</span></tt> and <tt class="docutils literal"><span class="pre">callproc</span></tt> functions.</p>
+<dt id="momoko.BlockingClient">
+<em class="property">class </em><tt class="descclassname">momoko.</tt><tt class="descname">BlockingClient</tt><big>(</big><em>settings</em><big>)</big><a class="headerlink" href="#momoko.BlockingClient" title="Permalink to this definition">¶</a></dt>
+<dd><p>The <tt class="docutils literal"><span class="pre">BlockingClient</span></tt> class is a wrapper around the <tt class="docutils literal"><span class="pre">psycopg2</span></tt> module
+and provides some extra functionality.</p>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
 <col class="field-body" />
 <tbody valign="top">
-<tr class="field"><th class="field-name">Parameters:</th><td class="field-body"><strong>settings</strong> &#8211; A dictionary that is passed to the <tt class="docutils literal"><span class="pre">Pool</span></tt> object.</td>
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>settings</strong> &#8211; A dictionary that is passed to the <tt class="docutils literal"><span class="pre">BlockingPool</span></tt> object.</td>
+</tr>
+</tbody>
+</table>
+<dl class="attribute">
+<dt id="momoko.BlockingClient.connection">
+<tt class="descname">connection</tt><a class="headerlink" href="#momoko.BlockingClient.connection" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create a context for a connection and commit changes on exit.</p>
+<p>For example:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">connection</span><span class="p">()</span> <span class="k">as</span> <span class="n">conn</span><span class="p">:</span>
+    <span class="n">cursor</span> <span class="o">=</span> <span class="n">conn</span><span class="o">.</span><span class="n">cursor</span><span class="p">()</span>
+    <span class="n">cursor</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s">&#39;SELECT 42, 12, 40, 11;&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="asyncclient-object">
+<h2>AsyncClient Object<a class="headerlink" href="#asyncclient-object" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="momoko.AsyncClient">
+<em class="property">class </em><tt class="descclassname">momoko.</tt><tt class="descname">AsyncClient</tt><big>(</big><em>settings</em><big>)</big><a class="headerlink" href="#momoko.AsyncClient" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="docutils">
+<dt>The <tt class="docutils literal"><span class="pre">AsyncClient</span></tt> class is a wrapper for <tt class="docutils literal"><span class="pre">AsyncPool</span></tt>, <tt class="docutils literal"><span class="pre">BatchQuery</span></tt></dt>
+<dd>and <tt class="docutils literal"><span class="pre">QueryChain</span></tt>. It also provides the <tt class="docutils literal"><span class="pre">execute</span></tt> and <tt class="docutils literal"><span class="pre">callproc</span></tt>
+functions.</dd>
+</dl>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>settings</strong> &#8211; A dictionary that is passed to the <tt class="docutils literal"><span class="pre">AsyncPool</span></tt> object.</td>
 </tr>
 </tbody>
 </table>
 <dl class="method">
-<dt id="momoko.Client.batch">
-<tt class="descname">batch</tt><big>(</big><em>queries</em>, <em>callback</em><big>)</big><a class="headerlink" href="#momoko.Client.batch" title="Permalink to this definition">¶</a></dt>
+<dt id="momoko.AsyncClient.batch">
+<tt class="descname">batch</tt><big>(</big><em>queries</em>, <em>callback=None</em><big>)</big><a class="headerlink" href="#momoko.AsyncClient.batch" title="Permalink to this definition">¶</a></dt>
 <dd><p>Run a batch of queries all at once.</p>
 <p><strong>Note:</strong> Every query needs a free connection. So if three queries are
 are executed, three free connections are used.</p>
@@ -86,14 +122,14 @@ without paramaters doesn&#8217;t need to be in a list.</p>
 <col class="field-name" />
 <col class="field-body" />
 <tbody valign="top">
-<tr class="field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
 <li><strong>queries</strong> &#8211; A dictionary with all the queries.</li>
 <li><strong>callback</strong> &#8211; The function that needs to be executed once all the
-queries are finished.</li>
+queries are finished. Optional.</li>
 </ul>
 </td>
 </tr>
-<tr class="field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">A dictionary with the same keys as the given queries with the
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">A dictionary with the same keys as the given queries with the
 resulting cursors as values.</p>
 </td>
 </tr>
@@ -102,8 +138,8 @@ resulting cursors as values.</p>
 </dd></dl>
 
 <dl class="method">
-<dt id="momoko.Client.callproc">
-<tt class="descname">callproc</tt><big>(</big><em>procname</em>, <em>parameters=None</em>, <em>callback=None</em><big>)</big><a class="headerlink" href="#momoko.Client.callproc" title="Permalink to this definition">¶</a></dt>
+<dt id="momoko.AsyncClient.callproc">
+<tt class="descname">callproc</tt><big>(</big><em>procname</em>, <em>parameters=None</em>, <em>callback=None</em><big>)</big><a class="headerlink" href="#momoko.AsyncClient.callproc" title="Permalink to this definition">¶</a></dt>
 <dd><p>Call a stored database procedure with the given name.</p>
 <p>The sequence of parameters must contain one entry for each argument that
 the procedure expects. The result of the call is returned as modified
@@ -115,10 +151,11 @@ be made available through the standard <tt class="docutils literal"><span class=
 <col class="field-name" />
 <col class="field-body" />
 <tbody valign="top">
-<tr class="field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
 <li><strong>procname</strong> &#8211; The name of the procedure.</li>
-<li><strong>parameters</strong> &#8211; A sequence with parameters. This is <tt class="xref docutils literal"><span class="pre">None</span></tt> by default.</li>
-<li><strong>callback</strong> &#8211; A callable that is executed once the procedure is finised.</li>
+<li><strong>parameters</strong> &#8211; A sequence with parameters. This is <tt class="docutils literal"><span class="pre">None</span></tt> by default.</li>
+<li><strong>callback</strong> &#8211; A callable that is executed once the procedure is
+finished. Optional.</li>
 </ul>
 </td>
 </tr>
@@ -127,8 +164,8 @@ be made available through the standard <tt class="docutils literal"><span class=
 </dd></dl>
 
 <dl class="method">
-<dt id="momoko.Client.chain">
-<tt class="descname">chain</tt><big>(</big><em>queries</em>, <em>callback</em><big>)</big><a class="headerlink" href="#momoko.Client.chain" title="Permalink to this definition">¶</a></dt>
+<dt id="momoko.AsyncClient.chain">
+<tt class="descname">chain</tt><big>(</big><em>queries</em>, <em>callback=None</em><big>)</big><a class="headerlink" href="#momoko.AsyncClient.chain" title="Permalink to this definition">¶</a></dt>
 <dd><p>Run a chain of queries in the given order.</p>
 <p>A list/tuple with queries looks like this:</p>
 <div class="highlight-python"><div class="highlight"><pre><span class="p">(</span>
@@ -144,14 +181,14 @@ without paramaters doesn&#8217;t need to be in a list.</p>
 <col class="field-name" />
 <col class="field-body" />
 <tbody valign="top">
-<tr class="field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
-<li><strong>queries</strong> &#8211; A tuple or with all the queries.</li>
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>queries</strong> &#8211; A tuple or list with all the queries.</li>
 <li><strong>callback</strong> &#8211; The function that needs to be executed once all the
-queries are finished.</li>
+queries are finished. Optional.</li>
 </ul>
 </td>
 </tr>
-<tr class="field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">A list with the resulting cursors.</p>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">A list with the resulting cursors.</p>
 </td>
 </tr>
 </tbody>
@@ -159,14 +196,14 @@ queries are finished.</li>
 </dd></dl>
 
 <dl class="method">
-<dt id="momoko.Client.close">
-<tt class="descname">close</tt><big>(</big><big>)</big><a class="headerlink" href="#momoko.Client.close" title="Permalink to this definition">¶</a></dt>
+<dt id="momoko.AsyncClient.close">
+<tt class="descname">close</tt><big>(</big><big>)</big><a class="headerlink" href="#momoko.AsyncClient.close" title="Permalink to this definition">¶</a></dt>
 <dd><p>Close all connections in the connection pool.</p>
 </dd></dl>
 
 <dl class="method">
-<dt id="momoko.Client.execute">
-<tt class="descname">execute</tt><big>(</big><em>operation</em>, <em>parameters=()</em>, <em>callback=None</em><big>)</big><a class="headerlink" href="#momoko.Client.execute" title="Permalink to this definition">¶</a></dt>
+<dt id="momoko.AsyncClient.execute">
+<tt class="descname">execute</tt><big>(</big><em>operation</em>, <em>parameters=()</em>, <em>callback=None</em><big>)</big><a class="headerlink" href="#momoko.AsyncClient.execute" title="Permalink to this definition">¶</a></dt>
 <dd><p>Prepare and execute a database operation (query or command).</p>
 <p>Parameters may be provided as sequence or mapping and will be bound to
 variables in the operation. Variables are specified either with
@@ -176,11 +213,12 @@ parameters to SQL queries <a class="reference external" href="http://initd.org/p
 <col class="field-name" />
 <col class="field-body" />
 <tbody valign="top">
-<tr class="field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
 <li><strong>operation</strong> &#8211; The database operation (an SQL query or command).</li>
 <li><strong>parameters</strong> &#8211; A tuple, list or dictionary with parameters. This is
 an empty tuple by default.</li>
-<li><strong>callback</strong> &#8211; A callable that is executed once the operation is finised.</li>
+<li><strong>callback</strong> &#8211; A callable that is executed once the operation is
+finished. Optional.</li>
 </ul>
 </td>
 </tr>
@@ -196,15 +234,17 @@ an empty tuple by default.</li>
 <dl class="class">
 <dt id="momoko.AdispClient">
 <em class="property">class </em><tt class="descclassname">momoko.</tt><tt class="descname">AdispClient</tt><big>(</big><em>settings</em><big>)</big><a class="headerlink" href="#momoko.AdispClient" title="Permalink to this definition">¶</a></dt>
-<dd><p>The AdispClient class is a wrapper for <tt class="docutils literal"><span class="pre">Pool</span></tt> and uses adisp to
+<dd><p>The AdispClient class is a wrapper for <tt class="docutils literal"><span class="pre">AsyncPool</span></tt> and uses adisp to
 let the developer use the <tt class="docutils literal"><span class="pre">execute</span></tt>, <tt class="docutils literal"><span class="pre">callproc</span></tt>, <tt class="docutils literal"><span class="pre">chain</span></tt> and <tt class="docutils literal"><span class="pre">batch</span></tt>
 functions in a blocking style. The <tt class="docutils literal"><span class="pre">chain</span></tt> and <tt class="docutils literal"><span class="pre">batch</span></tt> functions are
 slightly different than the two in <tt class="docutils literal"><span class="pre">Client</span></tt>.</p>
+<p>Adisp handles callbacks and therefore the user/developer does not have
+to provide a callback.</p>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
 <col class="field-body" />
 <tbody valign="top">
-<tr class="field"><th class="field-name">Parameters:</th><td class="field-body"><strong>settings</strong> &#8211; A dictionary that is passed to the <tt class="docutils literal"><span class="pre">Pool</span></tt> object.</td>
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>settings</strong> &#8211; A dictionary that is passed to the <tt class="docutils literal"><span class="pre">AsyncPool</span></tt> object.</td>
 </tr>
 </tbody>
 </table>
@@ -229,14 +269,14 @@ without paramaters doesn&#8217;t need to be in a list.</p>
 <col class="field-name" />
 <col class="field-body" />
 <tbody valign="top">
-<tr class="field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
 <li><strong>queries</strong> &#8211; A dictionary with all the queries.</li>
 <li><strong>callback</strong> &#8211; The function that needs to be executed once all the
 queries are finished.</li>
 </ul>
 </td>
 </tr>
-<tr class="field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">A dictionary with the same keys as the given queries with the
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">A dictionary with the same keys as the given queries with the
 resulting cursors as values.</p>
 </td>
 </tr>
@@ -258,10 +298,11 @@ be made available through the standard <tt class="docutils literal"><span class=
 <col class="field-name" />
 <col class="field-body" />
 <tbody valign="top">
-<tr class="field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
 <li><strong>procname</strong> &#8211; The name of the procedure.</li>
-<li><strong>parameters</strong> &#8211; A sequence with parameters. This is <tt class="xref docutils literal"><span class="pre">None</span></tt> by default.</li>
-<li><strong>callback</strong> &#8211; A callable that is executed once the procedure is finised.</li>
+<li><strong>parameters</strong> &#8211; A sequence with parameters. This is <tt class="docutils literal"><span class="pre">None</span></tt> by default.</li>
+<li><strong>callback</strong> &#8211; A callable that is executed once the procedure is
+finished. Optional.</li>
 </ul>
 </td>
 </tr>
@@ -287,14 +328,14 @@ without paramaters doesn&#8217;t need to be in a list.</p>
 <col class="field-name" />
 <col class="field-body" />
 <tbody valign="top">
-<tr class="field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
 <li><strong>queries</strong> &#8211; A tuple or with all the queries.</li>
 <li><strong>callback</strong> &#8211; The function that needs to be executed once all the
 queries are finished.</li>
 </ul>
 </td>
 </tr>
-<tr class="field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">A list with the resulting cursors.</p>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">A list with the resulting cursors.</p>
 </td>
 </tr>
 </tbody>
@@ -319,11 +360,12 @@ parameters to SQL queries <a class="reference external" href="http://initd.org/p
 <col class="field-name" />
 <col class="field-body" />
 <tbody valign="top">
-<tr class="field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
 <li><strong>operation</strong> &#8211; The database operation (an SQL query or command).</li>
 <li><strong>parameters</strong> &#8211; A tuple, list or dictionary with parameters. This is
 an empty tuple by default.</li>
-<li><strong>callback</strong> &#8211; A callable that is executed once the operation is finised.</li>
+<li><strong>callback</strong> &#8211; A callable that is executed once the operation is
+finished. Optional.</li>
 </ul>
 </td>
 </tr>
@@ -334,23 +376,27 @@ an empty tuple by default.</li>
 </dd></dl>
 
 </div>
-<div class="section" id="pool-object">
-<h2>Pool Object<a class="headerlink" href="#pool-object" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="blockingpool-object">
+<h2>BlockingPool Object<a class="headerlink" href="#blockingpool-object" title="Permalink to this headline">¶</a></h2>
 <dl class="class">
-<dt id="momoko.Pool">
-<em class="property">class </em><tt class="descclassname">momoko.</tt><tt class="descname">Pool</tt><big>(</big><em>min_conn=1</em>, <em>max_conn=20</em>, <em>cleanup_timeout=10</em>, <em>*args</em>, <em>**kwargs</em><big>)</big><a class="headerlink" href="#momoko.Pool" title="Permalink to this definition">¶</a></dt>
-<dd><p>A connection pool that manages PostgreSQL connections and cursors.</p>
+<dt id="momoko.BlockingPool">
+<em class="property">class </em><tt class="descclassname">momoko.</tt><tt class="descname">BlockingPool</tt><big>(</big><em>min_conn=1</em>, <em>max_conn=20</em>, <em>cleanup_timeout=10</em>, <em>*args</em>, <em>**kwargs</em><big>)</big><a class="headerlink" href="#momoko.BlockingPool" title="Permalink to this definition">¶</a></dt>
+<dd><p>A connection pool that manages blocking PostgreSQL connections
+and cursors.</p>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
 <col class="field-body" />
 <tbody valign="top">
-<tr class="field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
 <li><strong>min_conn</strong> &#8211; The minimum amount of connections that is created when a
 connection pool is created.</li>
 <li><strong>max_conn</strong> &#8211; The maximum amount of connections the connection pool can
 have. If the amount of connections exceeds the limit a
 <tt class="docutils literal"><span class="pre">PoolError</span></tt> exception is raised.</li>
+<li><strong>cleanup_timeout</strong> &#8211; Time in seconds between pool cleanups. Connections
+will be closed until there are <tt class="docutils literal"><span class="pre">min_conn</span></tt> left.</li>
 <li><strong>host</strong> &#8211; The database host address (defaults to UNIX socket if not provided)</li>
+<li><strong>port</strong> &#8211; The database host port (defaults to 5432 if not provided)</li>
 <li><strong>database</strong> &#8211; The database name</li>
 <li><strong>user</strong> &#8211; User name used to authenticate</li>
 <li><strong>password</strong> &#8211; Password used to authenticate</li>
@@ -360,14 +406,60 @@ have. If the amount of connections exceeds the limit a
 </tbody>
 </table>
 <dl class="method">
-<dt id="momoko.Pool.close">
-<tt class="descname">close</tt><big>(</big><big>)</big><a class="headerlink" href="#momoko.Pool.close" title="Permalink to this definition">¶</a></dt>
+<dt id="momoko.BlockingPool.close">
+<tt class="descname">close</tt><big>(</big><big>)</big><a class="headerlink" href="#momoko.BlockingPool.close" title="Permalink to this definition">¶</a></dt>
 <dd><p>Close all open connections in the pool.</p>
 </dd></dl>
 
 <dl class="method">
-<dt id="momoko.Pool.new_cursor">
-<tt class="descname">new_cursor</tt><big>(</big><em>function</em>, <em>func_args=()</em>, <em>callback=None</em>, <em>connection=None</em><big>)</big><a class="headerlink" href="#momoko.Pool.new_cursor" title="Permalink to this definition">¶</a></dt>
+<dt id="momoko.BlockingPool.get_connection">
+<tt class="descname">get_connection</tt><big>(</big><big>)</big><a class="headerlink" href="#momoko.BlockingPool.get_connection" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get a connection from the pool.</p>
+<p>If there&#8217;s no free connection available, a new connection will be created.</p>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="asyncpool-object">
+<h2>AsyncPool Object<a class="headerlink" href="#asyncpool-object" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="momoko.AsyncPool">
+<em class="property">class </em><tt class="descclassname">momoko.</tt><tt class="descname">AsyncPool</tt><big>(</big><em>min_conn=1</em>, <em>max_conn=20</em>, <em>cleanup_timeout=10</em>, <em>ioloop=None</em>, <em>*args</em>, <em>**kwargs</em><big>)</big><a class="headerlink" href="#momoko.AsyncPool" title="Permalink to this definition">¶</a></dt>
+<dd><p>A connection pool that manages asynchronous PostgreSQL connections
+and cursors.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>min_conn</strong> &#8211; The minimum amount of connections that is created when a
+connection pool is created.</li>
+<li><strong>max_conn</strong> &#8211; The maximum amount of connections the connection pool can
+have. If the amount of connections exceeds the limit a
+<tt class="docutils literal"><span class="pre">PoolError</span></tt> exception is raised.</li>
+<li><strong>cleanup_timeout</strong> &#8211; Time in seconds between pool cleanups. Connections
+will be closed until there are <tt class="docutils literal"><span class="pre">min_conn</span></tt> left.</li>
+<li><strong>ioloop</strong> &#8211; An instance of Tornado&#8217;s IOLoop.</li>
+<li><strong>host</strong> &#8211; The database host address (defaults to UNIX socket if not provided)</li>
+<li><strong>port</strong> &#8211; The database host port (defaults to 5432 if not provided)</li>
+<li><strong>database</strong> &#8211; The database name</li>
+<li><strong>user</strong> &#8211; User name used to authenticate</li>
+<li><strong>password</strong> &#8211; Password used to authenticate</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<dl class="method">
+<dt id="momoko.AsyncPool.close">
+<tt class="descname">close</tt><big>(</big><big>)</big><a class="headerlink" href="#momoko.AsyncPool.close" title="Permalink to this definition">¶</a></dt>
+<dd><p>Close all open connections in the pool.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="momoko.AsyncPool.new_cursor">
+<tt class="descname">new_cursor</tt><big>(</big><em>function</em>, <em>func_args=()</em>, <em>callback=None</em>, <em>connection=None</em><big>)</big><a class="headerlink" href="#momoko.AsyncPool.new_cursor" title="Permalink to this definition">¶</a></dt>
 <dd><p>Create a new cursor.</p>
 <p>If there&#8217;s no connection available, a new connection will be created and
 <cite>new_cursor</cite> will be called again after the connection has been made.</p>
@@ -375,7 +467,7 @@ have. If the amount of connections exceeds the limit a
 <col class="field-name" />
 <col class="field-body" />
 <tbody valign="top">
-<tr class="field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
 <li><strong>function</strong> &#8211; <tt class="docutils literal"><span class="pre">execute</span></tt>, <tt class="docutils literal"><span class="pre">executemany</span></tt> or <tt class="docutils literal"><span class="pre">callproc</span></tt>.</li>
 <li><strong>func_args</strong> &#8211; A tuple with the arguments for the specified function.</li>
 <li><strong>callback</strong> &#8211; A callable that is executed once the operation is done.</li>
@@ -392,8 +484,8 @@ have. If the amount of connections exceeds the limit a
 <div class="section" id="querychain-object">
 <h2>QueryChain Object<a class="headerlink" href="#querychain-object" title="Permalink to this headline">¶</a></h2>
 <dl class="class">
-<dt id="momoko.QueryChain">
-<em class="property">class </em><tt class="descclassname">momoko.</tt><tt class="descname">QueryChain</tt><big>(</big><em>db</em>, <em>queries</em>, <em>callback</em><big>)</big><a class="headerlink" href="#momoko.QueryChain" title="Permalink to this definition">¶</a></dt>
+<dt id="momoko.utils.QueryChain">
+<em class="property">class </em><tt class="descclassname">momoko.utils.</tt><tt class="descname">QueryChain</tt><big>(</big><em>db</em>, <em>queries</em>, <em>callback</em><big>)</big><a class="headerlink" href="#momoko.utils.QueryChain" title="Permalink to this definition">¶</a></dt>
 <dd><p>Run a chain of queries in the given order.</p>
 <p>A list/tuple with queries looks like this:</p>
 <div class="highlight-python"><div class="highlight"><pre><span class="p">(</span>
@@ -409,7 +501,7 @@ without paramaters doesn&#8217;t need to be in a list.</p>
 <col class="field-name" />
 <col class="field-body" />
 <tbody valign="top">
-<tr class="field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
 <li><strong>db</strong> &#8211; A <tt class="docutils literal"><span class="pre">momoko.Client</span></tt> or <tt class="docutils literal"><span class="pre">momoko.AdispClient</span></tt> instance.</li>
 <li><strong>queries</strong> &#8211; A tuple or with all the queries.</li>
 <li><strong>callback</strong> &#8211; The function that needs to be executed once all the
@@ -417,7 +509,7 @@ queries are finished.</li>
 </ul>
 </td>
 </tr>
-<tr class="field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">A list with the resulting cursors is passed on to the callback.</p>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">A list with the resulting cursors is passed on to the callback.</p>
 </td>
 </tr>
 </tbody>
@@ -428,8 +520,8 @@ queries are finished.</li>
 <div class="section" id="batchquery-object">
 <h2>BatchQuery Object<a class="headerlink" href="#batchquery-object" title="Permalink to this headline">¶</a></h2>
 <dl class="class">
-<dt id="momoko.BatchQuery">
-<em class="property">class </em><tt class="descclassname">momoko.</tt><tt class="descname">BatchQuery</tt><big>(</big><em>db</em>, <em>queries</em>, <em>callback</em><big>)</big><a class="headerlink" href="#momoko.BatchQuery" title="Permalink to this definition">¶</a></dt>
+<dt id="momoko.utils.BatchQuery">
+<em class="property">class </em><tt class="descclassname">momoko.utils.</tt><tt class="descname">BatchQuery</tt><big>(</big><em>db</em>, <em>queries</em>, <em>callback</em><big>)</big><a class="headerlink" href="#momoko.utils.BatchQuery" title="Permalink to this definition">¶</a></dt>
 <dd><p>Run a batch of queries all at once.</p>
 <p><strong>Note:</strong> Every query needs a free connection. So if three queries are
 are executed, three free connections are used.</p>
@@ -448,7 +540,7 @@ without paramaters doesn&#8217;t need to be in a list.</p>
 <col class="field-name" />
 <col class="field-body" />
 <tbody valign="top">
-<tr class="field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
 <li><strong>db</strong> &#8211; A <tt class="docutils literal"><span class="pre">momoko.Client</span></tt> or <tt class="docutils literal"><span class="pre">momoko.AdispClient</span></tt> instance.</li>
 <li><strong>queries</strong> &#8211; A dictionary with all the queries.</li>
 <li><strong>callback</strong> &#8211; The function that needs to be executed once all the
@@ -456,7 +548,7 @@ queries are finished.</li>
 </ul>
 </td>
 </tr>
-<tr class="field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">A dictionary with the same keys as the given queries with the
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">A dictionary with the same keys as the given queries with the
 resulting cursors as values is passed on to the callback.</p>
 </td>
 </tr>
@@ -468,15 +560,15 @@ resulting cursors as values is passed on to the callback.</p>
 <div class="section" id="poller-object">
 <h2>Poller Object<a class="headerlink" href="#poller-object" title="Permalink to this headline">¶</a></h2>
 <dl class="class">
-<dt id="momoko.Poller">
-<em class="property">class </em><tt class="descclassname">momoko.</tt><tt class="descname">Poller</tt><big>(</big><em>connection</em>, <em>callbacks=()</em><big>)</big><a class="headerlink" href="#momoko.Poller" title="Permalink to this definition">¶</a></dt>
+<dt id="momoko.utils.Poller">
+<em class="property">class </em><tt class="descclassname">momoko.utils.</tt><tt class="descname">Poller</tt><big>(</big><em>connection</em>, <em>callbacks=()</em>, <em>ioloop=None</em><big>)</big><a class="headerlink" href="#momoko.utils.Poller" title="Permalink to this definition">¶</a></dt>
 <dd><p>A poller that polls the PostgreSQL connection and calls the callbacks
 when the connection state is <tt class="docutils literal"><span class="pre">POLL_OK</span></tt>.</p>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
 <col class="field-body" />
 <tbody valign="top">
-<tr class="field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
 <li><strong>connection</strong> &#8211; The connection that needs to be polled.</li>
 <li><strong>callbacks</strong> &#8211; A tuple/list of callbacks.</li>
 </ul>
@@ -485,8 +577,8 @@ when the connection state is <tt class="docutils literal"><span class="pre">POLL
 </tbody>
 </table>
 <dl class="method">
-<dt id="momoko.Poller.start">
-<tt class="descname">start</tt><big>(</big><big>)</big><a class="headerlink" href="#momoko.Poller.start" title="Permalink to this definition">¶</a></dt>
+<dt id="momoko.utils.Poller.start">
+<tt class="descname">start</tt><big>(</big><big>)</big><a class="headerlink" href="#momoko.utils.Poller.start" title="Permalink to this definition">¶</a></dt>
 <dd><p>Start polling the connection.</p>
 </dd></dl>
 
@@ -504,9 +596,11 @@ when the connection state is <tt class="docutils literal"><span class="pre">POLL
   <h3><a href="index.html">Table Of Contents</a></h3>
   <ul>
 <li><a class="reference internal" href="#">API</a><ul>
-<li><a class="reference internal" href="#client-object">Client Object</a></li>
+<li><a class="reference internal" href="#blockingclient-object">BlockingClient Object</a></li>
+<li><a class="reference internal" href="#asyncclient-object">AsyncClient Object</a></li>
 <li><a class="reference internal" href="#adispclient-object">AdispClient Object</a></li>
-<li><a class="reference internal" href="#pool-object">Pool Object</a></li>
+<li><a class="reference internal" href="#blockingpool-object">BlockingPool Object</a></li>
+<li><a class="reference internal" href="#asyncpool-object">AsyncPool Object</a></li>
 <li><a class="reference internal" href="#querychain-object">QueryChain Object</a></li>
 <li><a class="reference internal" href="#batchquery-object">BatchQuery Object</a></li>
 <li><a class="reference internal" href="#poller-object">Poller Object</a></li>
@@ -525,7 +619,7 @@ when the connection state is <tt class="docutils literal"><span class="pre">POLL
 <div id="searchbox" style="display: none">
   <h3>Quick search</h3>
     <form class="search" action="search.html" method="get">
-      <input type="text" name="q" size="18" />
+      <input type="text" name="q" />
       <input type="submit" value="Go" />
       <input type="hidden" name="check_keywords" value="yes" />
       <input type="hidden" name="area" value="default" />
@@ -551,12 +645,12 @@ when the connection state is <tt class="docutils literal"><span class="pre">POLL
         <li class="right" >
           <a href="examples.html" title="Examples"
              >previous</a> |</li>
-        <li><a href="index.html">Momoko v0.3.0 documentation</a> &raquo;</li> 
+        <li><a href="index.html">Momoko 0.4.0 documentation</a> &raquo;</li> 
       </ul>
     </div>
     <div class="footer">
         &copy; Copyright 2011, Frank Smit.
-      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.0.7.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.2.
     </div>
   </body>
 </html>

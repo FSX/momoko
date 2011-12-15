@@ -2,17 +2,20 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 
+
 <html xmlns="http://www.w3.org/1999/xhtml">
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>Examples &mdash; Momoko v0.3.0 documentation</title>
+    <title>Examples &mdash; Momoko 0.4.0 documentation</title>
+    
     <link rel="stylesheet" href="_static/nature.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '',
-        VERSION:     '0.3.0',
+        VERSION:     '0.4.0',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -21,7 +24,7 @@
     <script type="text/javascript" src="_static/jquery.js"></script>
     <script type="text/javascript" src="_static/underscore.js"></script>
     <script type="text/javascript" src="_static/doctools.js"></script>
-    <link rel="top" title="Momoko v0.3.0 documentation" href="index.html" />
+    <link rel="top" title="Momoko 0.4.0 documentation" href="index.html" />
     <link rel="next" title="API" href="api.html" />
     <link rel="prev" title="Installation" href="installation.html" /> 
   </head>
@@ -41,7 +44,7 @@
         <li class="right" >
           <a href="installation.html" title="Installation"
              accesskey="P">previous</a> |</li>
-        <li><a href="index.html">Momoko v0.3.0 documentation</a> &raquo;</li> 
+        <li><a href="index.html">Momoko 0.4.0 documentation</a> &raquo;</li> 
       </ul>
     </div>  
 
@@ -52,29 +55,54 @@
             
   <div class="section" id="examples">
 <span id="id1"></span><h1>Examples<a class="headerlink" href="#examples" title="Permalink to this headline">¶</a></h1>
-<p>Some examples for the blocking- and callback-style APIs. Only the relevant code
-is included on this page. Go to the <a class="reference external" href="https://github.com/FSX/momoko/tree/master/examples">examples directory</a> at the Git repository
-to view the complete examples. The examples are simple enough to understand do
-need an extensive manual. See the <a class="reference internal" href="api.html#api"><em>API</em></a> for a more detailed decription of
-all methods.</p>
-<p>The differences between using the blocking-style or callback-style APIs:</p>
-<ul class="simple">
-<li><tt class="docutils literal"><span class="pre">AdispClient</span></tt> is used to make a connection with the blocking-style API.
-For the callback-style API <tt class="docutils literal"><span class="pre">Client</span></tt> is used.</li>
-<li>The function in the callback-style API always need a callback function.</li>
-<li>The blocking-style API requires an extra decorator: <tt class="docutils literal"><span class="pre">momoko.process</span></tt>.</li>
-<li>The blocking-style API requires the <tt class="docutils literal"><span class="pre">yield</span></tt> keyword before a function call.</li>
-</ul>
-<p>Besides that both accept the same paramaters (ignoring the callback function)
-and also return the same results.</p>
-<p>Callback-style:</p>
+<p>Momoko offers a few ways to interact with the database. The first one is the
+blocking client. This is just a small wrapper around Psycopg2. The other two
+are asynchronous clients. The example code can be found on <a class="reference external" href="https://github.com/FSX/momoko/tree/master/examples">Github</a>. Only
+relevant code is shown on this page.</p>
+<div class="section" id="blocking">
+<h2>Blocking<a class="headerlink" href="#blocking" title="Permalink to this headline">¶</a></h2>
+<p>The blocking client:</p>
 <div class="highlight-python"><div class="highlight"><pre><span class="k">class</span> <span class="nc">BaseHandler</span><span class="p">(</span><span class="n">tornado</span><span class="o">.</span><span class="n">web</span><span class="o">.</span><span class="n">RequestHandler</span><span class="p">):</span>
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">db</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="c"># Create a database connection when a request handler is called</span>
         <span class="c"># and store the connection in the application object.</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">application</span><span class="p">,</span> <span class="s">&#39;db&#39;</span><span class="p">):</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">application</span><span class="o">.</span><span class="n">db</span> <span class="o">=</span> <span class="n">momoko</span><span class="o">.</span><span class="n">Client</span><span class="p">({</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">application</span><span class="o">.</span><span class="n">db</span> <span class="o">=</span> <span class="n">momoko</span><span class="o">.</span><span class="n">BlockingClient</span><span class="p">({</span>
+                <span class="s">&#39;host&#39;</span><span class="p">:</span> <span class="s">&#39;localhost&#39;</span><span class="p">,</span>
+                <span class="s">&#39;database&#39;</span><span class="p">:</span> <span class="s">&#39;momoko&#39;</span><span class="p">,</span>
+                <span class="s">&#39;user&#39;</span><span class="p">:</span> <span class="s">&#39;frank&#39;</span><span class="p">,</span>
+                <span class="s">&#39;password&#39;</span><span class="p">:</span> <span class="s">&#39;&#39;</span><span class="p">,</span>
+                <span class="s">&#39;min_conn&#39;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+                <span class="s">&#39;max_conn&#39;</span><span class="p">:</span> <span class="mi">20</span><span class="p">,</span>
+                <span class="s">&#39;cleanup_timeout&#39;</span><span class="p">:</span> <span class="mi">10</span>
+            <span class="p">})</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">application</span><span class="o">.</span><span class="n">db</span>
+
+
+<span class="k">class</span> <span class="nc">SingleQueryHandler</span><span class="p">(</span><span class="n">BaseHandler</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">get</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c"># Besides using a with statement everyting is the same as the normal</span>
+        <span class="c"># Psycopg2 module</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">connection</span><span class="p">()</span> <span class="k">as</span> <span class="n">conn</span><span class="p">:</span>
+            <span class="n">cursor</span> <span class="o">=</span> <span class="n">conn</span><span class="o">.</span><span class="n">cursor</span><span class="p">()</span>
+            <span class="n">cursor</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s">&#39;SELECT 42, 12, 40, 11;&#39;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s">&#39;Query results: </span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="n">cursor</span><span class="o">.</span><span class="n">fetchall</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">finish</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="callback">
+<h2>Callback<a class="headerlink" href="#callback" title="Permalink to this headline">¶</a></h2>
+<p>The asynchronous client that uses callbacks:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="k">class</span> <span class="nc">BaseHandler</span><span class="p">(</span><span class="n">tornado</span><span class="o">.</span><span class="n">web</span><span class="o">.</span><span class="n">RequestHandler</span><span class="p">):</span>
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">db</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c"># Create a database connection when a request handler is called</span>
+        <span class="c"># and store the connection in the application object.</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">application</span><span class="p">,</span> <span class="s">&#39;db&#39;</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">application</span><span class="o">.</span><span class="n">db</span> <span class="o">=</span> <span class="n">momoko</span><span class="o">.</span><span class="n">AsyncClient</span><span class="p">({</span>
                 <span class="s">&#39;host&#39;</span><span class="p">:</span> <span class="s">&#39;localhost&#39;</span><span class="p">,</span>
                 <span class="s">&#39;database&#39;</span><span class="p">:</span> <span class="s">&#39;momoko&#39;</span><span class="p">,</span>
                 <span class="s">&#39;user&#39;</span><span class="p">:</span> <span class="s">&#39;frank&#39;</span><span class="p">,</span>
@@ -130,7 +158,10 @@ and also return the same results.</p>
         <span class="bp">self</span><span class="o">.</span><span class="n">finish</span><span class="p">()</span>
 </pre></div>
 </div>
-<p>Blocking-style:</p>
+</div>
+<div class="section" id="adisp">
+<h2>Adisp<a class="headerlink" href="#adisp" title="Permalink to this headline">¶</a></h2>
+<p>The asynchronous client that uses <tt class="docutils literal"><span class="pre">adisp</span></tt> (included in Momoko):</p>
 <div class="highlight-python"><div class="highlight"><pre><span class="k">class</span> <span class="nc">BaseHandler</span><span class="p">(</span><span class="n">tornado</span><span class="o">.</span><span class="n">web</span><span class="o">.</span><span class="n">RequestHandler</span><span class="p">):</span>
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">db</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -191,6 +222,114 @@ and also return the same results.</p>
 </pre></div>
 </div>
 </div>
+<div class="section" id="tornado-s-gen">
+<h2>Tornado&#8217;s gen<a class="headerlink" href="#tornado-s-gen" title="Permalink to this headline">¶</a></h2>
+<p>And the asynchronous callback-based client using Tornado&#8217;s <a class="reference external" href="http://www.tornadoweb.org/documentation/gen.html">gen</a> module:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="kn">from</span> <span class="nn">tornado</span> <span class="kn">import</span> <span class="n">gen</span>
+
+<span class="k">class</span> <span class="nc">BaseHandler</span><span class="p">(</span><span class="n">tornado</span><span class="o">.</span><span class="n">web</span><span class="o">.</span><span class="n">RequestHandler</span><span class="p">):</span>
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">db</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c"># Create a database connection when a request handler is called</span>
+        <span class="c"># and store the connection in the application object.</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">application</span><span class="p">,</span> <span class="s">&#39;db&#39;</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">application</span><span class="o">.</span><span class="n">db</span> <span class="o">=</span> <span class="n">momoko</span><span class="o">.</span><span class="n">AsyncClient</span><span class="p">({</span>
+                <span class="s">&#39;host&#39;</span><span class="p">:</span> <span class="s">&#39;localhost&#39;</span><span class="p">,</span>
+                <span class="s">&#39;database&#39;</span><span class="p">:</span> <span class="s">&#39;momoko&#39;</span><span class="p">,</span>
+                <span class="s">&#39;user&#39;</span><span class="p">:</span> <span class="s">&#39;frank&#39;</span><span class="p">,</span>
+                <span class="s">&#39;password&#39;</span><span class="p">:</span> <span class="s">&#39;&#39;</span><span class="p">,</span>
+                <span class="s">&#39;min_conn&#39;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+                <span class="s">&#39;max_conn&#39;</span><span class="p">:</span> <span class="mi">20</span><span class="p">,</span>
+                <span class="s">&#39;cleanup_timeout&#39;</span><span class="p">:</span> <span class="mi">10</span>
+            <span class="p">})</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">application</span><span class="o">.</span><span class="n">db</span>
+
+
+<span class="k">class</span> <span class="nc">SingleQueryHandler</span><span class="p">(</span><span class="n">BaseHandler</span><span class="p">):</span>
+    <span class="nd">@tornado.web.asynchronous</span>
+    <span class="nd">@gen.engine</span>
+    <span class="k">def</span> <span class="nf">get</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c"># One simple query</span>
+        <span class="n">cursor</span> <span class="o">=</span> <span class="k">yield</span> <span class="n">gen</span><span class="o">.</span><span class="n">Task</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">execute</span><span class="p">,</span> <span class="s">&#39;SELECT 42, 12, </span><span class="si">%s</span><span class="s">, 11;&#39;</span><span class="p">,</span> <span class="p">(</span><span class="mi">25</span><span class="p">,))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s">&#39;Query results: </span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="n">cursor</span><span class="o">.</span><span class="n">fetchall</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">finish</span><span class="p">()</span>
+
+
+<span class="k">class</span> <span class="nc">BatchQueryHandler</span><span class="p">(</span><span class="n">BaseHandler</span><span class="p">):</span>
+    <span class="nd">@tornado.web.asynchronous</span>
+    <span class="nd">@gen.engine</span>
+    <span class="k">def</span> <span class="nf">get</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c"># These queries are executed all at once and therefore they need to be</span>
+        <span class="c"># stored in an dictionary so you know where the resulting cursors</span>
+        <span class="c"># come from, because they won&#39;t arrive in the same order.</span>
+        <span class="n">cursors</span> <span class="o">=</span> <span class="k">yield</span> <span class="n">gen</span><span class="o">.</span><span class="n">Task</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">batch</span><span class="p">,</span> <span class="p">{</span>
+            <span class="s">&#39;query1&#39;</span><span class="p">:</span> <span class="p">[</span><span class="s">&#39;SELECT 42, 12, </span><span class="si">%s</span><span class="s">, </span><span class="si">%s</span><span class="s">;&#39;</span><span class="p">,</span> <span class="p">(</span><span class="mi">23</span><span class="p">,</span> <span class="mi">56</span><span class="p">)],</span>
+            <span class="s">&#39;query2&#39;</span><span class="p">:</span> <span class="s">&#39;SELECT 1, 2, 3, 4, 5;&#39;</span><span class="p">,</span>
+            <span class="s">&#39;query3&#39;</span><span class="p">:</span> <span class="s">&#39;SELECT 465767, 4567, 3454;&#39;</span>
+        <span class="p">})</span>
+
+        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">cursor</span> <span class="ow">in</span> <span class="n">cursors</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s">&#39;Query results: </span><span class="si">%s</span><span class="s"> = </span><span class="si">%s</span><span class="s">&lt;br&gt;&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">cursor</span><span class="o">.</span><span class="n">fetchall</span><span class="p">()))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">finish</span><span class="p">()</span>
+
+
+<span class="k">class</span> <span class="nc">QueryChainHandler</span><span class="p">(</span><span class="n">BaseHandler</span><span class="p">):</span>
+    <span class="nd">@tornado.web.asynchronous</span>
+    <span class="nd">@gen.engine</span>
+    <span class="k">def</span> <span class="nf">get</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c"># Execute a list of queries in the order you specified</span>
+        <span class="n">cursors</span> <span class="o">=</span> <span class="k">yield</span> <span class="n">gen</span><span class="o">.</span><span class="n">Task</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">chain</span><span class="p">,</span> <span class="p">(</span>
+            <span class="p">[</span><span class="s">&#39;SELECT 42, 12, </span><span class="si">%s</span><span class="s">, 11;&#39;</span><span class="p">,</span> <span class="p">(</span><span class="mi">23</span><span class="p">,)],</span>
+            <span class="s">&#39;SELECT 1, 2, 3, 4, 5;&#39;</span>
+        <span class="p">))</span>
+
+        <span class="k">for</span> <span class="n">cursor</span> <span class="ow">in</span> <span class="n">cursors</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s">&#39;Query results: </span><span class="si">%s</span><span class="s">&lt;br&gt;&#39;</span> <span class="o">%</span> <span class="n">cursor</span><span class="o">.</span><span class="n">fetchall</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">finish</span><span class="p">()</span>
+
+
+<span class="k">class</span> <span class="nc">MultiQueryHandler</span><span class="p">(</span><span class="n">BaseHandler</span><span class="p">):</span>
+    <span class="nd">@tornado.web.asynchronous</span>
+    <span class="nd">@gen.engine</span>
+    <span class="k">def</span> <span class="nf">get</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">cursor1</span><span class="p">,</span> <span class="n">cursor2</span><span class="p">,</span> <span class="n">cursor3</span> <span class="o">=</span> <span class="k">yield</span> <span class="p">[</span>
+            <span class="n">gen</span><span class="o">.</span><span class="n">Task</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">execute</span><span class="p">,</span> <span class="s">&#39;SELECT 42, 12, </span><span class="si">%s</span><span class="s">, 11;&#39;</span><span class="p">,</span> <span class="p">(</span><span class="mi">25</span><span class="p">,)),</span>
+            <span class="n">gen</span><span class="o">.</span><span class="n">Task</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">execute</span><span class="p">,</span> <span class="s">&#39;SELECT 42, 12, </span><span class="si">%s</span><span class="s">, </span><span class="si">%s</span><span class="s">;&#39;</span><span class="p">,</span> <span class="p">(</span><span class="mi">23</span><span class="p">,</span> <span class="mi">56</span><span class="p">)),</span>
+            <span class="n">gen</span><span class="o">.</span><span class="n">Task</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">execute</span><span class="p">,</span> <span class="s">&#39;SELECT 465767, 4567, 3454;&#39;</span><span class="p">)</span>
+        <span class="p">]</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s">&#39;Query 1 results: </span><span class="si">%s</span><span class="s">&lt;br&gt;&#39;</span> <span class="o">%</span> <span class="n">cursor1</span><span class="o">.</span><span class="n">fetchall</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s">&#39;Query 2 results: </span><span class="si">%s</span><span class="s">&lt;br&gt;&#39;</span> <span class="o">%</span> <span class="n">cursor2</span><span class="o">.</span><span class="n">fetchall</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s">&#39;Query 3 results: </span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="n">cursor3</span><span class="o">.</span><span class="n">fetchall</span><span class="p">())</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">finish</span><span class="p">()</span>
+
+
+<span class="k">class</span> <span class="nc">CallbackWaitHandler</span><span class="p">(</span><span class="n">BaseHandler</span><span class="p">):</span>
+    <span class="nd">@tornado.web.asynchronous</span>
+    <span class="nd">@gen.engine</span>
+    <span class="k">def</span> <span class="nf">get</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s">&#39;SELECT 42, 12, </span><span class="si">%s</span><span class="s">, 11;&#39;</span><span class="p">,</span> <span class="p">(</span><span class="mi">25</span><span class="p">,),</span>
+            <span class="n">callback</span><span class="o">=</span><span class="p">(</span><span class="k">yield</span> <span class="n">gen</span><span class="o">.</span><span class="n">Callback</span><span class="p">(</span><span class="s">&#39;q1&#39;</span><span class="p">)))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s">&#39;SELECT 42, 12, </span><span class="si">%s</span><span class="s">, </span><span class="si">%s</span><span class="s">;&#39;</span><span class="p">,</span> <span class="p">(</span><span class="mi">23</span><span class="p">,</span> <span class="mi">56</span><span class="p">),</span>
+            <span class="n">callback</span><span class="o">=</span><span class="p">(</span><span class="k">yield</span> <span class="n">gen</span><span class="o">.</span><span class="n">Callback</span><span class="p">(</span><span class="s">&#39;q2&#39;</span><span class="p">)))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s">&#39;SELECT 465767, 4567, 3454;&#39;</span><span class="p">,</span>
+            <span class="n">callback</span><span class="o">=</span><span class="p">(</span><span class="k">yield</span> <span class="n">gen</span><span class="o">.</span><span class="n">Callback</span><span class="p">(</span><span class="s">&#39;q3&#39;</span><span class="p">)))</span>
+
+        <span class="n">cursor1</span> <span class="o">=</span> <span class="k">yield</span> <span class="n">gen</span><span class="o">.</span><span class="n">Wait</span><span class="p">(</span><span class="s">&#39;q1&#39;</span><span class="p">)</span>
+        <span class="n">cursor2</span> <span class="o">=</span> <span class="k">yield</span> <span class="n">gen</span><span class="o">.</span><span class="n">Wait</span><span class="p">(</span><span class="s">&#39;q2&#39;</span><span class="p">)</span>
+        <span class="n">cursor3</span> <span class="o">=</span> <span class="k">yield</span> <span class="n">gen</span><span class="o">.</span><span class="n">Wait</span><span class="p">(</span><span class="s">&#39;q3&#39;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s">&#39;Query 1 results: </span><span class="si">%s</span><span class="s">&lt;br&gt;&#39;</span> <span class="o">%</span> <span class="n">cursor1</span><span class="o">.</span><span class="n">fetchall</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s">&#39;Query 2 results: </span><span class="si">%s</span><span class="s">&lt;br&gt;&#39;</span> <span class="o">%</span> <span class="n">cursor2</span><span class="o">.</span><span class="n">fetchall</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s">&#39;Query 3 results: </span><span class="si">%s</span><span class="s">&#39;</span> <span class="o">%</span> <span class="n">cursor3</span><span class="o">.</span><span class="n">fetchall</span><span class="p">())</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">finish</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+</div>
 
 
           </div>
@@ -198,6 +337,17 @@ and also return the same results.</p>
       </div>
       <div class="sphinxsidebar">
         <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Examples</a><ul>
+<li><a class="reference internal" href="#blocking">Blocking</a></li>
+<li><a class="reference internal" href="#callback">Callback</a></li>
+<li><a class="reference internal" href="#adisp">Adisp</a></li>
+<li><a class="reference internal" href="#tornado-s-gen">Tornado&#8217;s gen</a></li>
+</ul>
+</li>
+</ul>
+
   <h4>Previous topic</h4>
   <p class="topless"><a href="installation.html"
                         title="previous chapter">Installation</a></p>
@@ -212,7 +362,7 @@ and also return the same results.</p>
 <div id="searchbox" style="display: none">
   <h3>Quick search</h3>
     <form class="search" action="search.html" method="get">
-      <input type="text" name="q" size="18" />
+      <input type="text" name="q" />
       <input type="submit" value="Go" />
       <input type="hidden" name="check_keywords" value="yes" />
       <input type="hidden" name="area" value="default" />
@@ -241,12 +391,12 @@ and also return the same results.</p>
         <li class="right" >
           <a href="installation.html" title="Installation"
              >previous</a> |</li>
-        <li><a href="index.html">Momoko v0.3.0 documentation</a> &raquo;</li> 
+        <li><a href="index.html">Momoko 0.4.0 documentation</a> &raquo;</li> 
       </ul>
     </div>
     <div class="footer">
         &copy; Copyright 2011, Frank Smit.
-      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.0.7.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.2.
     </div>
   </body>
 </html>

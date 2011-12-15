@@ -2,17 +2,20 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 
+
 <html xmlns="http://www.w3.org/1999/xhtml">
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>News/Changelog &mdash; Momoko v0.3.0 documentation</title>
+    <title>News/Changelog &mdash; Momoko 0.4.0 documentation</title>
+    
     <link rel="stylesheet" href="_static/nature.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '',
-        VERSION:     '0.3.0',
+        VERSION:     '0.4.0',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -21,7 +24,7 @@
     <script type="text/javascript" src="_static/jquery.js"></script>
     <script type="text/javascript" src="_static/underscore.js"></script>
     <script type="text/javascript" src="_static/doctools.js"></script>
-    <link rel="top" title="Momoko v0.3.0 documentation" href="index.html" />
+    <link rel="top" title="Momoko 0.4.0 documentation" href="index.html" />
     <link rel="next" title="Installation" href="installation.html" />
     <link rel="prev" title="Momoko" href="index.html" /> 
   </head>
@@ -41,7 +44,7 @@
         <li class="right" >
           <a href="index.html" title="Momoko"
              accesskey="P">previous</a> |</li>
-        <li><a href="index.html">Momoko v0.3.0 documentation</a> &raquo;</li> 
+        <li><a href="index.html">Momoko 0.4.0 documentation</a> &raquo;</li> 
       </ul>
     </div>  
 
@@ -53,7 +56,22 @@
   <div class="section" id="news-changelog">
 <span id="news"></span><h1>News/Changelog<a class="headerlink" href="#news-changelog" title="Permalink to this headline">¶</a></h1>
 <div class="section" id="id1">
-<h2>0.3.0 (2011-08-07)<a class="headerlink" href="#id1" title="Permalink to this headline">¶</a></h2>
+<h2>0.4.0 (2011-12-15)<a class="headerlink" href="#id1" title="Permalink to this headline">¶</a></h2>
+<ul class="simple">
+<li>Reorganized classes and files.</li>
+<li>Renamed <tt class="docutils literal"><span class="pre">momoko.Client</span></tt> to <tt class="docutils literal"><span class="pre">momoko.AsyncClient</span></tt>.</li>
+<li>Renamed <tt class="docutils literal"><span class="pre">momoko.Pool</span></tt> to <tt class="docutils literal"><span class="pre">momoko.AsyncPool</span></tt>.</li>
+<li>Added a client and pool for blocking connections, <tt class="docutils literal"><span class="pre">momoko.BlockingClient</span></tt>
+and <tt class="docutils literal"><span class="pre">momoko.BlockingPool</span></tt>.</li>
+<li>Added <tt class="docutils literal"><span class="pre">PoolError</span></tt> to the import list in <tt class="docutils literal"><span class="pre">__init__.py</span></tt>.</li>
+<li>Added an example that uses Tornado&#8217;s <a class="reference external" href="http://www.tornadoweb.org/documentation/gen.html">gen</a> module and <a class="reference external" href="http://code.naeseth.com/swirl/">Swift</a>.</li>
+<li>Callbacks are now optional for <tt class="docutils literal"><span class="pre">AsyncClient</span></tt>.</li>
+<li><tt class="docutils literal"><span class="pre">AsyncPool</span></tt> and <tt class="docutils literal"><span class="pre">Poller</span></tt> now accept a ioloop argument. [<a class="reference external" href="https://github.com/fzzbt">fzzbt</a>]</li>
+<li>Unit tests have been added. [<a class="reference external" href="https://github.com/fzzbt">fzzbt</a>]</li>
+</ul>
+</div>
+<div class="section" id="id2">
+<h2>0.3.0 (2011-08-07)<a class="headerlink" href="#id2" title="Permalink to this headline">¶</a></h2>
 <ul class="simple">
 <li>Renamed <tt class="docutils literal"><span class="pre">momoko.Momoko</span></tt> to <tt class="docutils literal"><span class="pre">momoko.Client</span></tt>.</li>
 <li>Programming in blocking-style is now possible with <tt class="docutils literal"><span class="pre">AdispClient</span></tt>.</li>
@@ -62,8 +80,8 @@
 documentation for details.</li>
 </ul>
 </div>
-<div class="section" id="id2">
-<h2>0.2.0 (2011-04-30)<a class="headerlink" href="#id2" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="id3">
+<h2>0.2.0 (2011-04-30)<a class="headerlink" href="#id3" title="Permalink to this headline">¶</a></h2>
 <ul class="simple">
 <li>Removed <tt class="docutils literal"><span class="pre">executemany</span></tt> from <tt class="docutils literal"><span class="pre">Momoko</span></tt>, because it can not be used in asynchronous mode.</li>
 <li>Added a wrapper class, <tt class="docutils literal"><span class="pre">Momoko</span></tt>, for <tt class="docutils literal"><span class="pre">Pool</span></tt>, <tt class="docutils literal"><span class="pre">BatchQuery</span></tt> and <tt class="docutils literal"><span class="pre">QueryChain</span></tt>.</li>
@@ -74,8 +92,8 @@ in a certain order.</li>
 connection needed to be closed.</li>
 </ul>
 </div>
-<div class="section" id="id3">
-<h2>0.1.0 (2011-03-13)<a class="headerlink" href="#id3" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="id4">
+<h2>0.1.0 (2011-03-13)<a class="headerlink" href="#id4" title="Permalink to this headline">¶</a></h2>
 <ul class="simple">
 <li>Initial release.</li>
 </ul>
@@ -91,9 +109,10 @@ connection needed to be closed.</li>
   <h3><a href="index.html">Table Of Contents</a></h3>
   <ul>
 <li><a class="reference internal" href="#">News/Changelog</a><ul>
-<li><a class="reference internal" href="#id1">0.3.0 (2011-08-07)</a></li>
-<li><a class="reference internal" href="#id2">0.2.0 (2011-04-30)</a></li>
-<li><a class="reference internal" href="#id3">0.1.0 (2011-03-13)</a></li>
+<li><a class="reference internal" href="#id1">0.4.0 (2011-12-15)</a></li>
+<li><a class="reference internal" href="#id2">0.3.0 (2011-08-07)</a></li>
+<li><a class="reference internal" href="#id3">0.2.0 (2011-04-30)</a></li>
+<li><a class="reference internal" href="#id4">0.1.0 (2011-03-13)</a></li>
 </ul>
 </li>
 </ul>
@@ -112,7 +131,7 @@ connection needed to be closed.</li>
 <div id="searchbox" style="display: none">
   <h3>Quick search</h3>
     <form class="search" action="search.html" method="get">
-      <input type="text" name="q" size="18" />
+      <input type="text" name="q" />
       <input type="submit" value="Go" />
       <input type="hidden" name="check_keywords" value="yes" />
       <input type="hidden" name="area" value="default" />
@@ -141,12 +160,12 @@ connection needed to be closed.</li>
         <li class="right" >
           <a href="index.html" title="Momoko"
              >previous</a> |</li>
-        <li><a href="index.html">Momoko v0.3.0 documentation</a> &raquo;</li> 
+        <li><a href="index.html">Momoko 0.4.0 documentation</a> &raquo;</li> 
       </ul>
     </div>
     <div class="footer">
         &copy; Copyright 2011, Frank Smit.
-      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.0.7.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.2.
     </div>
   </body>
 </html>
