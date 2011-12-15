@@ -49,7 +49,8 @@ class QueryChain(object):
         if cursor is not None:
             self._cursors.append(cursor)
         if not self._queries:
-            self._callback(self._cursors)
+            if self._callback:
+                self._callback(self._cursors)
             return
         query = self._queries.pop()
         if isinstance(query, str):
@@ -101,7 +102,7 @@ class BatchQuery(object):
     def _collect(self, key, cursor):
         self._size = self._size - 1
         self._args[key] = cursor
-        if not self._size:
+        if not self._size and self._callback:
             self._callback(self._args)
 
 

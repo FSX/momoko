@@ -216,8 +216,9 @@ class AsyncPool(object):
         getattr(cursor, function)(*func_args)
 
         # Callbacks from cursor functions always get the cursor back
-        callback = functools.partial(callback, cursor)
-        Poller(cursor.connection, (callback,), ioloop=self._ioloop).start()
+        if callback:
+            callback = functools.partial(callback, cursor)
+            Poller(cursor.connection, (callback,), ioloop=self._ioloop).start()
 
     def _get_free_conn(self):
         """Look for a free connection and return it.

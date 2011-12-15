@@ -59,7 +59,7 @@ class AsyncClient(object):
     def __init__(self, settings):
         self._pool = AsyncPool(**settings)
 
-    def batch(self, queries, callback):
+    def batch(self, queries, callback=None):
         """Run a batch of queries all at once.
 
         **Note:** Every query needs a free connection. So if three queries are
@@ -79,13 +79,13 @@ class AsyncClient(object):
 
         :param queries: A dictionary with all the queries.
         :param callback: The function that needs to be executed once all the
-                         queries are finished.
+                         queries are finished. Optional.
         :return: A dictionary with the same keys as the given queries with the
                  resulting cursors as values.
         """
         return BatchQuery(self, queries, callback)
 
-    def chain(self, queries, callback):
+    def chain(self, queries, callback=None):
         """Run a chain of queries in the given order.
 
         A list/tuple with queries looks like this::
@@ -101,7 +101,7 @@ class AsyncClient(object):
 
         :param queries: A tuple or list with all the queries.
         :param callback: The function that needs to be executed once all the
-                         queries are finished.
+                         queries are finished. Optional.
         :return: A list with the resulting cursors.
         """
         return QueryChain(self, queries, callback)
@@ -119,7 +119,8 @@ class AsyncClient(object):
         :param operation: The database operation (an SQL query or command).
         :param parameters: A tuple, list or dictionary with parameters. This is
                            an empty tuple by default.
-        :param callback: A callable that is executed once the operation is finished.
+        :param callback: A callable that is executed once the operation is
+                         finished. Optional.
         """
         self._pool.new_cursor('execute', (operation, parameters), callback)
 
@@ -136,7 +137,8 @@ class AsyncClient(object):
 
         :param procname: The name of the procedure.
         :param parameters: A sequence with parameters. This is ``None`` by default.
-        :param callback: A callable that is executed once the procedure is finished.
+        :param callback: A callable that is executed once the procedure is
+                         finished. Optional.
         """
         self._pool.new_cursor('callproc', (procname, parameters), callback)
 
@@ -152,6 +154,9 @@ class AdispClient(AsyncClient):
     functions in a blocking style. The ``chain`` and ``batch`` functions are
     slightly different than the two in ``Client``.
 
+    Adisp handles callbacks and therefore the user/developer does not have
+    to provide a callback.
+
     :param settings: A dictionary that is passed to the ``AsyncPool`` object.
     """
 
@@ -160,7 +165,7 @@ class AdispClient(AsyncClient):
 
     @async
     @process
-    def chain(self, queries, callback=None):
+    def chain(self, queries, callback):
         """Run a chain of queries in the given order.
 
         A list/tuple with queries looks like this::
@@ -190,7 +195,7 @@ class AdispClient(AsyncClient):
 
     @async
     @process
-    def batch(self, queries, callback=None):
+    def batch(self, queries, callback):
         """Run a batch of queries all at once.
 
         **Note:** Every query needs a free connection. So if three queries are
