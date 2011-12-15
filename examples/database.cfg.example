@@ -1,0 +1,11 @@
+# See API documentation for information about these settings
+
+[default]
+host=localhost
+port=5432
+database=momoko
+user=frank
+password=
+min_conn=1
+max_conn=20
+cleanup_timeout=10

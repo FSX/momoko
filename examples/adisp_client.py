@@ -15,13 +15,14 @@ class BaseHandler(tornado.web.RequestHandler):
         # and store the connection in the application object.
         if not hasattr(self.application, 'db'):
             self.application.db = momoko.AdispClient({
-                'host': 'localhost',
-                'database': 'momoko',
-                'user': 'frank',
-                'password': '',
-                'min_conn': 1,
-                'max_conn': 20,
-                'cleanup_timeout': 10
+                'host': settings.host,
+                'port': settings.port,
+                'database': settings.database,
+                'user': settings.user,
+                'password': settings.password,
+                'min_conn': settings.min_conn,
+                'max_conn': settings.max_conn,
+                'cleanup_timeout': settings.cleanup_timeout
             })
         return self.application.db
 
