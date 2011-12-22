@@ -35,6 +35,9 @@ class BlockingPool(object):
     :param database: The database name
     :param user: User name used to authenticate
     :param password: Password used to authenticate
+    :param connection_factory: Using the connection_factory parameter a different
+                               class or connections factory can be specified. It
+                               should be a callable object taking a dsn argument.
     """
     def __init__(self, min_conn=1, max_conn=20, cleanup_timeout=10,
                  *args, **kwargs):
@@ -61,12 +64,7 @@ class BlockingPool(object):
         """
         if len(self._pool) > self.max_conn:
             raise PoolError('connection pool exausted')
-        conn = psycopg2.connect(
-            database=self._kwargs.get('database'),
-            user=self._kwargs.get('user', ''),
-            password=self._kwargs.get('password', ''),
-            host=self._kwargs.get('host', ''),
-            port=self._kwargs.get('port', 5432))
+        conn = psycopg2.connect(*self._args, **self._kwargs)
         self._pool.append(conn)
 
         return conn
@@ -139,6 +137,9 @@ class AsyncPool(object):
     :param database: The database name
     :param user: User name used to authenticate
     :param password: Password used to authenticate
+    :param connection_factory: Using the connection_factory parameter a different
+                               class or connections factory can be specified. It
+                               should be a callable object taking a dsn argument.
     """
     def __init__(self, min_conn=1, max_conn=20, cleanup_timeout=10,
                  ioloop=None, *args, **kwargs):
@@ -170,13 +171,7 @@ class AsyncPool(object):
         """
         if len(self._pool) > self.max_conn:
             raise PoolError('connection pool exausted')
-        conn = psycopg2.connect(
-            database=self._kwargs.get('database'),
-            user=self._kwargs.get('user', ''),
-            password=self._kwargs.get('password', ''),
-            host=self._kwargs.get('host', ''),
-            port=self._kwargs.get('port', 5432),
-            async=1)
+        conn = psycopg2.connect(async=1, *self._args, **self._kwargs)
         add_conn = functools.partial(self._add_conn, conn)
 
         if new_cursor_args:
