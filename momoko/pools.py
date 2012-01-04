@@ -174,6 +174,7 @@ class AsyncPool(object):
         conn = psycopg2.connect(async=1, *self._args, **self._kwargs)
         add_conn = functools.partial(self._add_conn, conn)
 
+        # TODO: Pass new argument to indicate a poller is created for a connection
         if new_cursor_args:
             new_cursor_args['connection'] = conn
             new_cursor = functools.partial(self.new_cursor, **new_cursor_args)

@@ -4,6 +4,13 @@ News/Changelog
 ==============
 
 
+0.4.1 (2012-01-??)
+------------------
+
+* Just pass all unspecified arguments to ``BlockingPool`` and ``AsyncPool``. So
+  ``connection_factory`` can be used again.
+
+
 0.4.0 (2011-12-15)
 ------------------
 

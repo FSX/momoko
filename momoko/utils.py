@@ -113,6 +113,7 @@ class Poller(object):
     :param connection: The connection that needs to be polled.
     :param callbacks: A tuple/list of callbacks.
     """
+    # TODO: Accept new argument "is_connection"
     def __init__(self, connection, callbacks=(), ioloop=None):
         self._ioloop = ioloop or IOLoop.instance()
         self._connection = connection
@@ -136,5 +137,8 @@ class Poller(object):
                 self._io_callback, IOLoop.WRITE)
 
     def _io_callback(self, *args):
+        # Maybe keep track of the previous state so you can use update_handler
+        # instead of remove/add (Ben Darnell, mailinglist).
+        # For connections, not cursors. Cursors are closed after usage.
         self._ioloop.remove_handler(self._connection.fileno())
         self._update_handler()
