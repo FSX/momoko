@@ -137,8 +137,5 @@ class Poller(object):
                 self._io_callback, IOLoop.WRITE)
 
     def _io_callback(self, *args):
-        # Maybe keep track of the previous state so you can use update_handler
-        # instead of remove/add (Ben Darnell, mailinglist).
-        # For connections, not cursors. Cursors are closed after usage.
         self._ioloop.remove_handler(self._connection.fileno())
         self._update_handler()

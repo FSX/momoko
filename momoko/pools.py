@@ -9,10 +9,11 @@
     :license: MIT, see LICENSE for more details.
 """
 
-
+import logging
 import functools
 
 import psycopg2
+from psycopg2 import DatabaseError, InterfaceError
 from psycopg2.extensions import STATUS_READY
 from tornado.ioloop import IOLoop, PeriodicCallback
 
@@ -174,7 +175,6 @@ class AsyncPool(object):
         conn = psycopg2.connect(async=1, *self._args, **self._kwargs)
         add_conn = functools.partial(self._add_conn, conn)
 
-        # TODO: Pass new argument to indicate a poller is created for a connection
         if new_cursor_args:
             new_cursor_args['connection'] = conn
             new_cursor = functools.partial(self.new_cursor, **new_cursor_args)
@@ -213,13 +213,27 @@ class AsyncPool(object):
                 self._new_conn(new_cursor_args)
                 return
 
-        cursor = connection.cursor()
-        getattr(cursor, function)(*func_args)
+        try:
+            cursor = connection.cursor()
+            getattr(cursor, function)(*func_args)
 
-        # Callbacks from cursor functions always get the cursor back
-        if callback:
-            callback = functools.partial(callback, cursor)
-            Poller(cursor.connection, (callback,), ioloop=self._ioloop).start()
+            # Callbacks from cursor functions always get the cursor back
+            if callback:
+                cb = functools.partial(callback, cursor)
+                Poller(cursor.connection, (cb,), ioloop=self._ioloop).start()
+        except (DatabaseError, InterfaceError):
+            logging.warning('Requested connection was closed')
+            self._pool.remove(connection)
+            connection = self._get_free_conn()
+            if not connection:
+                new_cursor_args = {
+                    'function': function,
+                    'func_args': func_args,
+                    'callback': callback
+                }
+                self._new_conn(new_cursor_args)
+            else:
+                self.new_cursor(function, func_args, callback, connection)
 
     def _get_free_conn(self):
         """Look for a free connection and return it.
