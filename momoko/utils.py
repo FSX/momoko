@@ -119,9 +119,6 @@ class Poller(object):
         self._connection = connection
         self._callbacks = callbacks
 
-    def start(self):
-        """Start polling the connection.
-        """
         self._update_handler()
 
     def _update_handler(self):

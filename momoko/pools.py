@@ -178,9 +178,9 @@ class AsyncPool(object):
         if new_cursor_args:
             new_cursor_args['connection'] = conn
             new_cursor = functools.partial(self.new_cursor, **new_cursor_args)
-            Poller(conn, (add_conn, new_cursor), ioloop=self._ioloop).start()
+            Poller(conn, (add_conn, new_cursor), ioloop=self._ioloop)
         else:
-            Poller(conn, (add_conn,), ioloop=self._ioloop).start()
+            Poller(conn, (add_conn,), ioloop=self._ioloop)
 
     def _add_conn(self, conn):
         """Add a connection to the pool.
@@ -205,12 +205,11 @@ class AsyncPool(object):
         if not connection:
             connection = self._get_free_conn()
             if not connection:
-                new_cursor_args = {
+                self._new_conn({
                     'function': function,
                     'func_args': func_args,
                     'callback': callback
-                }
-                self._new_conn(new_cursor_args)
+                })
                 return
 
         try:
@@ -219,19 +218,18 @@ class AsyncPool(object):
 
             # Callbacks from cursor functions always get the cursor back
             if callback:
-                cb = functools.partial(callback, cursor)
-                Poller(cursor.connection, (cb,), ioloop=self._ioloop).start()
+                Poller(cursor.connection, (functools.partial(callback, cursor),),
+                    ioloop=self._ioloop)
         except (DatabaseError, InterfaceError):
             logging.warning('Requested connection was closed')
             self._pool.remove(connection)
             connection = self._get_free_conn()
             if not connection:
-                new_cursor_args = {
+                self._new_conn({
                     'function': function,
                     'func_args': func_args,
                     'callback': callback
-                }
-                self._new_conn(new_cursor_args)
+                })
             else:
                 self.new_cursor(function, func_args, callback, connection)
 
