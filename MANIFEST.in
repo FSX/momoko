@@ -1,4 +1,4 @@
 include README.rst LICENSE ChangeLog
-recursive-include docs/ *
-recursive-include examples/ *
-recursive-include tests/ *
+recursive-include docs *
+recursive-include examples *
+recursive-include tests *

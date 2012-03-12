@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 
-from distutils.core import setup
+try:
+    from setuptools import setup, Extension, Command
+except ImportError:
+    from distutils.core import setup, Extension, Command
 
 
 setup(
@@ -13,6 +16,10 @@ setup(
     url='http://momoko.61924.nl/',
     packages=['momoko'],
     license='MIT',
+    install_requires=[
+        'tornado',
+        'psycopg2'
+    ],
     classifiers = [
         'Development Status :: 4 - Beta',
         'Intended Audience :: Developers',
