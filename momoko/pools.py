@@ -117,6 +117,7 @@ class BlockingPool(object):
         for conn in self._pool:
             if not conn.closed:
                 conn.close()
+        self._cleaner.stop()
         self._pool = []
         self.closed = True
 
@@ -269,6 +270,7 @@ class AsyncPool(object):
         for conn in self._pool:
             if not conn.closed:
                 conn.close()
+        self._cleaner.stop()
         self._pool = []
         self.closed = True
 
