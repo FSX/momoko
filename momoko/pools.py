@@ -11,6 +11,7 @@
 
 import logging
 import functools
+from contextlib import contextmanager
 
 import psycopg2
 from psycopg2 import DatabaseError, InterfaceError
@@ -173,15 +174,16 @@ class AsyncPool(object):
         """
         if len(self._pool) > self.max_conn:
             raise PoolError('connection pool exausted')
-        conn = psycopg2.connect(async=1, *self._args, **self._kwargs)
+        conn = AsyncConnection(self._ioloop, *self._args, **self._kwargs)
         add_conn = functools.partial(self._add_conn, conn)
 
         if new_cursor_args:
             new_cursor_args['connection'] = conn
             new_cursor = functools.partial(self.new_cursor, **new_cursor_args)
-            Poller(conn, (add_conn, new_cursor), ioloop=self._ioloop)
+            conn.poller(add_conn, new_cursor)
         else:
-            Poller(conn, (add_conn,), ioloop=self._ioloop)
+            conn.poller(add_conn)
+
 
     def _add_conn(self, conn):
         """Add a connection to the pool.
@@ -214,14 +216,9 @@ class AsyncPool(object):
                 return
 
         try:
-            cursor = connection.cursor()
-            getattr(cursor, function)(*func_args)
-
-            # Callbacks from cursor functions always get the cursor back
-            if callback:
-                Poller(cursor.connection, (functools.partial(callback, cursor),),
-                    ioloop=self._ioloop)
+            connection.exec_cursor(function, func_args, callback)
         except (DatabaseError, InterfaceError):
+            # Recover from lost connection
             logging.warning('Requested connection was closed')
             self._pool.remove(connection)
             connection = self._get_free_conn()
@@ -277,3 +274,37 @@ class AsyncPool(object):
 
 class PoolError(Exception):
     pass
+
+
+class AsyncConnection(object):
+    def __init__(self, ioloop, *args, **kwargs):
+        self._conn = psycopg2.connect(async=1, *args, **kwargs)
+        self._ioloop = ioloop
+
+    def cursor(self, *args, **kwargs):
+        return self._conn.cursor(*args, **kwargs)
+
+    def exec_cursor(self, function, args, callback):
+        cursor = self._conn.cursor()
+        getattr(cursor, function)(*args)
+        self.poller(functools.partial(callback, cursor))
+
+    def close(self):
+        return self._conn.close()
+
+    @property
+    def closed(self):
+        return self._conn.closed
+
+    def isexecuting(self):
+        return self._conn.isexecuting()
+
+    def fileno(self):
+        return self._conn.fileno()
+
+    def poll(self):
+        return self._conn.poll()
+
+    def poller(self, *callbacks):
+        Poller(self._conn, callbacks, ioloop=self._ioloop)
+
