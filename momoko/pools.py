@@ -18,8 +18,6 @@ from psycopg2 import DatabaseError, InterfaceError
 from psycopg2.extensions import STATUS_READY
 from tornado.ioloop import IOLoop, PeriodicCallback
 
-from .utils import Poller
-
 
 class BlockingPool(object):
     """A connection pool that manages blocking PostgreSQL connections
@@ -174,15 +172,15 @@ class AsyncPool(object):
         """
         if len(self._pool) > self.max_conn:
             raise PoolError('connection pool exausted')
-        conn = AsyncConnection(self._ioloop, *self._args, **self._kwargs)
-        add_conn = functools.partial(self._add_conn, conn)
+        conn = AsyncConnection(self._ioloop)
+        callbacks = [functools.partial(self._add_conn, conn)]
 
         if new_cursor_args:
             new_cursor_args['connection'] = conn
             new_cursor = functools.partial(self.new_cursor, **new_cursor_args)
-            conn.poller(add_conn, new_cursor)
-        else:
-            conn.poller(add_conn)
+            callbacks.append(new_cursor)
+
+        conn.open(callbacks, *self._args, **self._kwargs)
 
 
     def _add_conn(self, conn):
@@ -277,17 +275,38 @@ class PoolError(Exception):
 
 
 class AsyncConnection(object):
-    def __init__(self, ioloop, *args, **kwargs):
-        self._conn = psycopg2.connect(async=1, *args, **kwargs)
+    def __init__(self, ioloop):
+        self._conn = None
+        self._fileno = -1
         self._ioloop = ioloop
+        self._callbacks = []
 
-    def cursor(self, *args, **kwargs):
-        return self._conn.cursor(*args, **kwargs)
+    def open(self, callbacks, *args, **kwargs):
+        self._conn = psycopg2.connect(async=1, *args, **kwargs)
+        self._fileno = self._conn.fileno()
+        self._callbacks = callbacks
+
+        # Connection state should be 2 (write)
+        self._ioloop.add_handler(self._fileno, self._io_callback, IOLoop.WRITE)
 
     def exec_cursor(self, function, args, callback):
         cursor = self._conn.cursor()
         getattr(cursor, function)(*args)
-        self.poller(functools.partial(callback, cursor))
+        self._callbacks = [functools.partial(callback, cursor)]
+
+        # Connection state should be 1 (write)
+        self._ioloop.update_handler(self._fileno, IOLoop.READ)
+
+    def _io_callback(self, fd, events):
+        state = self._conn.poll()
+
+        if state == psycopg2.extensions.POLL_OK:
+            for callback in self._callbacks:
+                callback()
+        elif state == psycopg2.extensions.POLL_READ:
+            self._ioloop.update_handler(self._fileno, IOLoop.READ)
+        elif state == psycopg2.extensions.POLL_WRITE:
+            self._ioloop.update_handler(self._fileno, IOLoop.WRITE)
 
     def close(self):
         return self._conn.close()
@@ -298,13 +317,3 @@ class AsyncConnection(object):
 
     def isexecuting(self):
         return self._conn.isexecuting()
-
-    def fileno(self):
-        return self._conn.fileno()
-
-    def poll(self):
-        return self._conn.poll()
-
-    def poller(self, *callbacks):
-        Poller(self._conn, callbacks, ioloop=self._ioloop)
-
