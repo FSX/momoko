@@ -104,35 +104,3 @@ class BatchQuery(object):
         self._args[key] = cursor
         if not self._size and self._callback:
             self._callback(self._args)
-
-
-class Poller(object):
-    """A poller that polls the PostgreSQL connection and calls the callbacks
-    when the connection state is ``POLL_OK``.
-
-    :param connection: The connection that needs to be polled.
-    :param callbacks: A tuple/list of callbacks.
-    """
-    # TODO: Accept new argument "is_connection"
-    def __init__(self, connection, callbacks=(), ioloop=None):
-        self._ioloop = ioloop or IOLoop.instance()
-        self._connection = connection
-        self._callbacks = callbacks
-
-        self._update_handler()
-
-    def _update_handler(self):
-        state = self._connection.poll()
-        if state == psycopg2.extensions.POLL_OK:
-            for callback in self._callbacks:
-                callback()
-        elif state == psycopg2.extensions.POLL_READ:
-            self._ioloop.add_handler(self._connection.fileno(),
-                self._io_callback, IOLoop.READ)
-        elif state == psycopg2.extensions.POLL_WRITE:
-            self._ioloop.add_handler(self._connection.fileno(),
-                self._io_callback, IOLoop.WRITE)
-
-    def _io_callback(self, *args):
-        self._ioloop.remove_handler(self._connection.fileno())
-        self._update_handler()
