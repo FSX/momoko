@@ -11,7 +11,7 @@
 
 
 __authors__ = ('Frank Smit <frank@61924.nl>',)
-__version__ = '0.4.0'
+__version__ = '0.5.0'
 __license__ = 'MIT'
 
 
