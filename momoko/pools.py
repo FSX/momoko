@@ -173,7 +173,7 @@ class AsyncPool(object):
         if len(self._pool) > self.max_conn:
             raise PoolError('connection pool exausted')
         conn = AsyncConnection(self._ioloop)
-        callbacks = [functools.partial(self._add_conn, conn)]
+        callbacks = [functools.partial(self._pool.append, conn)]
 
         if new_cursor_args:
             new_cursor_args['connection'] = conn
@@ -181,17 +181,6 @@ class AsyncPool(object):
             callbacks.append(new_cursor)
 
         conn.open(callbacks, *self._args, **self._kwargs)
-
-
-    def _add_conn(self, conn):
-        """Add a connection to the pool.
-
-        This function is used by `_new_conn` as a callback to add the created
-        connection to the pool.
-
-        :param conn: A database connection.
-        """
-        self._pool.append(conn)
 
     def new_cursor(self, function, func_args=(), callback=None, connection=None):
         """Create a new cursor.
