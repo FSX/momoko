@@ -309,6 +309,7 @@ class AsyncConnection(object):
             self._ioloop.update_handler(self._fileno, IOLoop.WRITE)
 
     def close(self):
+        self._ioloop.remove_handler(self._fileno)
         return self._conn.close()
 
     @property
