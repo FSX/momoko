@@ -17,4 +17,3 @@ __license__ = 'MIT'
 
 from .clients import BlockingClient, AsyncClient
 from .pools import BlockingPool, AsyncPool, PoolError
-from .adisp import process, async
