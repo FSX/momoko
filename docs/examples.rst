@@ -38,7 +38,7 @@ The blocking client::
         def get(self):
             # Besides using a with statement everyting is the same as the normal
             # Psycopg2 module
-            with self.db.connection() as conn:
+            with self.db.connection as conn:
                 cursor = conn.cursor()
                 cursor.execute('SELECT 42, 12, 40, 11;')
 
