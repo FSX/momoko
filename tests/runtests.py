@@ -5,7 +5,6 @@ import unittest
 
 TEST_MODULES = [
     'async_client',
-    'adisp_client',
     'blocking_client'
 ]
 
