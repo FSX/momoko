@@ -21,19 +21,6 @@ import settings
 class BaseHandler(tornado.web.RequestHandler):
     @property
     def db(self):
-        # Create a database connection when a request handler is called
-        # and store the connection in the application object.
-        if not hasattr(self.application, 'db'):
-            self.application.db = momoko.AsyncClient({
-                'host': settings.host,
-                'port': settings.port,
-                'database': settings.database,
-                'user': settings.user,
-                'password': settings.password,
-                'min_conn': settings.min_conn,
-                'max_conn': settings.max_conn,
-                'cleanup_timeout': settings.cleanup_timeout
-            })
         return self.application.db
 
 
@@ -145,6 +132,18 @@ def main():
             (r'/multi_query', MultiQueryHandler),
             (r'/callback_and_wait', CallbackWaitHandler),
         ], debug=True)
+
+        application.db = momoko.AsyncClient({
+            'host': settings.host,
+            'port': settings.port,
+            'database': settings.database,
+            'user': settings.user,
+            'password': settings.password,
+            'min_conn': settings.min_conn,
+            'max_conn': settings.max_conn,
+            'cleanup_timeout': settings.cleanup_timeout
+        })
+
         http_server = tornado.httpserver.HTTPServer(application)
         http_server.listen(8888)
         tornado.ioloop.IOLoop.instance().start()

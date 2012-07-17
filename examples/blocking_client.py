@@ -13,19 +13,6 @@ import settings
 class BaseHandler(tornado.web.RequestHandler):
     @property
     def db(self):
-        # Create a database connection when a request handler is called
-        # and store the connection in the application object.
-        if not hasattr(self.application, 'db'):
-            self.application.db = momoko.BlockingClient({
-                'host': settings.host,
-                'port': settings.port,
-                'database': settings.database,
-                'user': settings.user,
-                'password': settings.password,
-                'min_conn': settings.min_conn,
-                'max_conn': settings.max_conn,
-                'cleanup_timeout': settings.cleanup_timeout
-            })
         return self.application.db
 
 
@@ -58,6 +45,18 @@ def main():
             (r'/', OverviewHandler),
             (r'/query', SingleQueryHandler)
         ], debug=True)
+
+        application.db = momoko.BlockingClient({
+            'host': settings.host,
+            'port': settings.port,
+            'database': settings.database,
+            'user': settings.user,
+            'password': settings.password,
+            'min_conn': settings.min_conn,
+            'max_conn': settings.max_conn,
+            'cleanup_timeout': settings.cleanup_timeout
+        })
+
         http_server = tornado.httpserver.HTTPServer(application)
         http_server.listen(8888)
         tornado.ioloop.IOLoop.instance().start()
