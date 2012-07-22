@@ -10,7 +10,7 @@
 """
 
 import logging
-import functools
+from functools import partial
 from contextlib import contextmanager
 
 import psycopg2
@@ -162,7 +162,7 @@ class AsyncPool(object):
                 cleanup_timeout * 1000)
             self._cleaner.start()
 
-    def _new_conn(self, new_cursor_args={}):
+    def _new_conn(self, new_cursor_args=[]):
         """Create a new connection.
 
         If `new_cursor_args` is provided a new cursor is created when the
@@ -173,50 +173,43 @@ class AsyncPool(object):
         if len(self._pool) > self.max_conn:
             raise PoolError('connection pool exausted')
         conn = AsyncConnection(self._ioloop)
-        callbacks = [functools.partial(self._pool.append, conn)]
 
         if new_cursor_args:
-            new_cursor_args['connection'] = conn
-            new_cursor = functools.partial(self.new_cursor, **new_cursor_args)
-            callbacks.append(new_cursor)
+            new_cursor_args.append(conn)
+            callbacks = [
+                partial(self._pool.append, conn),
+                partial(self.new_cursor, *new_cursor_args)]
+        else:
+            callbacks = [partial(self._pool.append, conn)]
 
         conn.open(callbacks, *self._args, **self._kwargs)
 
-    def new_cursor(self, function, func_args=(), callback=None, connection=None):
+    def new_cursor(self, function, args=(), callback=None, connection=None):
         """Create a new cursor.
 
         If there's no connection available, a new connection will be created and
         `new_cursor` will be called again after the connection has been made.
 
         :param function: ``execute``, ``executemany`` or ``callproc``.
-        :param func_args: A tuple with the arguments for the specified function.
+        :param args: A tuple with the arguments for the specified function.
         :param callback: A callable that is executed once the operation is done.
         """
-        if not connection:
+        if connection is None:
             connection = self._get_free_conn()
-            if not connection:
-                self._new_conn({
-                    'function': function,
-                    'func_args': func_args,
-                    'callback': callback
-                })
+            if connection is None:
+                self._new_conn([function, args, callback])
                 return
 
         try:
-            connection.exec_cursor(function, func_args, callback)
-        except (DatabaseError, InterfaceError):
-            # Recover from lost connection
+            connection.cursor(function, args, callback)
+        except (DatabaseError, InterfaceError):  # Recover from lost connection
             logging.warning('Requested connection was closed')
             self._pool.remove(connection)
             connection = self._get_free_conn()
-            if not connection:
-                self._new_conn({
-                    'function': function,
-                    'func_args': func_args,
-                    'callback': callback
-                })
+            if connection is None:
+                self._new_conn([function, args, callback])
             else:
-                self.new_cursor(function, func_args, callback, connection)
+                self.new_cursor(function, args, callback, connection)
 
     def _get_free_conn(self):
         """Look for a free connection and return it.
@@ -264,6 +257,10 @@ class PoolError(Exception):
 
 
 class AsyncConnection(object):
+    """An asynchronous connection object.
+
+    :param ioloop: An instance of Tornado's IOLoop.
+    """
     def __init__(self, ioloop):
         self._conn = None
         self._fileno = -1
@@ -271,6 +268,17 @@ class AsyncConnection(object):
         self._callbacks = []
 
     def open(self, callbacks, *args, **kwargs):
+        """Open the connection to the database,
+
+        :param host: The database host address (defaults to UNIX socket if not provided)
+        :param port: The database host port (defaults to 5432 if not provided)
+        :param database: The database name
+        :param user: User name used to authenticate
+        :param password: Password used to authenticate
+        :param connection_factory: Using the connection_factory parameter a different
+                                   class or connections factory can be specified. It
+                                   should be a callable object taking a dsn argument.
+        """
         self._conn = psycopg2.connect(async=1, *args, **kwargs)
         self._fileno = self._conn.fileno()
         self._callbacks = callbacks
@@ -278,10 +286,16 @@ class AsyncConnection(object):
         # Connection state should be 2 (write)
         self._ioloop.add_handler(self._fileno, self._io_callback, IOLoop.WRITE)
 
-    def exec_cursor(self, function, args, callback):
+    def cursor(self, function, args, callback):
+        """Get a cursor and execute the requested function
+
+        :param function: ``execute``, ``executemany`` or ``callproc``.
+        :param args: A tuple with the arguments for the specified function.
+        :param callback: A callable that is executed once the operation is done.
+        """
         cursor = self._conn.cursor()
         getattr(cursor, function)(*args)
-        self._callbacks = [functools.partial(callback, cursor)]
+        self._callbacks = [partial(callback, cursor)]
 
         # Connection state should be 1 (write)
         self._ioloop.update_handler(self._fileno, IOLoop.READ)
@@ -298,6 +312,8 @@ class AsyncConnection(object):
             self._ioloop.update_handler(self._fileno, IOLoop.WRITE)
 
     def close(self):
+        """Close connection.
+        """
         self._ioloop.remove_handler(self._fileno)
         return self._conn.close()
 
