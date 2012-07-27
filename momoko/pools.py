@@ -184,8 +184,8 @@ class AsyncPool(object):
 
         conn.open(callbacks, *self._args, **self._kwargs)
 
-    def new_cursor(self, function, function_args=(), callback=None, connection=None,
-                   cursor_kwargs={}):
+    def new_cursor(self, function, function_args=(), callback=None, cursor_kwargs={},
+        connection=None):
         """Create a new cursor.
 
         If there's no connection available, a new connection will be created and
@@ -196,6 +196,7 @@ class AsyncPool(object):
         :param callback: A callable that is executed once the operation is done.
         :param cursor_kwargs: A dictionary with Psycopg's
             `connection.cursor<http://initd.org/psycopg/docs/connection.html#connection.cursor>`_ arguments.
+        :param connection: An ``AsyncConnection`` connection. Optional.
         """
         if connection is None:
             connection = self._get_free_conn()
@@ -300,7 +301,7 @@ class AsyncConnection(object):
             `connection.cursor<http://initd.org/psycopg/docs/connection.html#connection.cursor>`_ arguments.
         """
         cursor = self._conn.cursor(**cursor_kwargs)
-        getattr(cursor, function)(*args)
+        getattr(cursor, function)(*function_args)
         self._callbacks = [partial(callback, cursor)]
 
         # Connection state should be 1 (write)
