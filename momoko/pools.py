@@ -184,32 +184,36 @@ class AsyncPool(object):
 
         conn.open(callbacks, *self._args, **self._kwargs)
 
-    def new_cursor(self, function, args=(), callback=None, connection=None):
+    def new_cursor(self, function, function_args=(), callback=None, connection=None,
+                   cursor_kwargs={}):
         """Create a new cursor.
 
         If there's no connection available, a new connection will be created and
         `new_cursor` will be called again after the connection has been made.
 
         :param function: ``execute``, ``executemany`` or ``callproc``.
-        :param args: A tuple with the arguments for the specified function.
+        :param function_args: A tuple with the arguments for the specified function.
         :param callback: A callable that is executed once the operation is done.
+        :param cursor_kwargs: A dictionary with Psycopg's
+            `connection.cursor<http://initd.org/psycopg/docs/connection.html#connection.cursor>`_ arguments.
         """
         if connection is None:
             connection = self._get_free_conn()
             if connection is None:
-                self._new_conn([function, args, callback])
+                self._new_conn([function, function_args, callback, cursor_kwargs])
                 return
 
         try:
-            connection.cursor(function, args, callback)
+            connection.cursor(function, function_args, callback, cursor_kwargs)
         except (DatabaseError, InterfaceError):  # Recover from lost connection
             logging.warning('Requested connection was closed')
             self._pool.remove(connection)
             connection = self._get_free_conn()
             if connection is None:
-                self._new_conn([function, args, callback])
+                self._new_conn([function, function_args, callback, cursor_kwargs])
             else:
-                self.new_cursor(function, args, callback, connection)
+                self.new_cursor(function, function_args, callback,
+                    connection, cursor_kwargs)
 
     def _get_free_conn(self):
         """Look for a free connection and return it.
@@ -286,14 +290,16 @@ class AsyncConnection(object):
         # Connection state should be 2 (write)
         self._ioloop.add_handler(self._fileno, self._io_callback, IOLoop.WRITE)
 
-    def cursor(self, function, args, callback):
+    def cursor(self, function, function_args, callback, cursor_kwargs={}):
         """Get a cursor and execute the requested function
 
         :param function: ``execute``, ``executemany`` or ``callproc``.
-        :param args: A tuple with the arguments for the specified function.
+        :param function_args: A tuple with the arguments for the specified function.
         :param callback: A callable that is executed once the operation is done.
+        :param cursor_kwargs: A dictionary with Psycopg's
+            `connection.cursor<http://initd.org/psycopg/docs/connection.html#connection.cursor>`_ arguments.
         """
-        cursor = self._conn.cursor()
+        cursor = self._conn.cursor(**cursor_kwargs)
         getattr(cursor, function)(*args)
         self._callbacks = [partial(callback, cursor)]
 
@@ -319,7 +325,12 @@ class AsyncConnection(object):
 
     @property
     def closed(self):
+        """Read-only attribute reporting whether the database connection is
+        open (0) or closed (1).
+        """
         return self._conn.closed
 
     def isexecuting(self):
+        """Return True if the connection is executing an asynchronous operation.
+        """
         return self._conn.isexecuting()

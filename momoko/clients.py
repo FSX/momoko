@@ -58,7 +58,7 @@ class AsyncClient(object):
     def __init__(self, settings):
         self._pool = AsyncPool(**settings)
 
-    def batch(self, queries, callback=None):
+    def batch(self, queries, callback=None, cursor_kwargs={}):
         """Run a batch of queries all at once.
 
         **Note:** Every query needs a free connection. So if three queries are
@@ -79,12 +79,14 @@ class AsyncClient(object):
         :param queries: A dictionary with all the queries.
         :param callback: The function that needs to be executed once all the
                          queries are finished. Optional.
+        :param cursor_kwargs: A dictionary with Psycopg's
+            `connection.cursor<http://initd.org/psycopg/docs/connection.html#connection.cursor>`_ arguments.
         :return: A dictionary with the same keys as the given queries with the
                  resulting cursors as values.
         """
         return BatchQuery(self, queries, callback)
 
-    def chain(self, queries, callback=None):
+    def chain(self, queries, callback=None, cursor_kwargs={}):
         """Run a chain of queries in the given order.
 
         A list/tuple with queries looks like this::
@@ -101,11 +103,13 @@ class AsyncClient(object):
         :param queries: A tuple or list with all the queries.
         :param callback: The function that needs to be executed once all the
                          queries are finished. Optional.
+        :param cursor_kwargs: A dictionary with Psycopg's
+            `connection.cursor<http://initd.org/psycopg/docs/connection.html#connection.cursor>`_ arguments.
         :return: A list with the resulting cursors.
         """
         return QueryChain(self, queries, callback)
 
-    def execute(self, operation, parameters=(), callback=None):
+    def execute(self, operation, parameters=(), callback=None, cursor_kwargs={}):
         """Prepare and execute a database operation (query or command).
 
         Parameters may be provided as sequence or mapping and will be bound to
@@ -120,10 +124,12 @@ class AsyncClient(object):
                            an empty tuple by default.
         :param callback: A callable that is executed once the operation is
                          finished. Optional.
+        :param cursor_kwargs: A dictionary with Psycopg's
+            `connection.cursor<http://initd.org/psycopg/docs/connection.html#connection.cursor>`_ arguments.
         """
-        self._pool.new_cursor('execute', (operation, parameters), callback)
+        self._pool.new_cursor('execute', (operation, parameters), callback, cursor_kwargs)
 
-    def callproc(self, procname, parameters=None, callback=None):
+    def callproc(self, procname, parameters=None, callback=None, cursor_kwargs={}):
         """Call a stored database procedure with the given name.
 
         The sequence of parameters must contain one entry for each argument that
@@ -138,8 +144,10 @@ class AsyncClient(object):
         :param parameters: A sequence with parameters. This is ``None`` by default.
         :param callback: A callable that is executed once the procedure is
                          finished. Optional.
+        :param cursor_kwargs: A dictionary with Psycopg's
+            `connection.cursor<http://initd.org/psycopg/docs/connection.html#connection.cursor>`_ arguments.
         """
-        self._pool.new_cursor('callproc', (procname, parameters), callback)
+        self._pool.new_cursor('callproc', (procname, parameters), callback, cursor_kwargs)
 
     def close(self):
         """Close all connections in the connection pool.

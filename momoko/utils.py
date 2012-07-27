@@ -35,14 +35,17 @@ class QueryChain(object):
     :param queries: A tuple or with all the queries.
     :param callback: The function that needs to be executed once all the
                      queries are finished.
+    :param cursor_kwargs: A dictionary with Psycopg's
+        `connection.cursor<http://initd.org/psycopg/docs/connection.html#connection.cursor>`_ arguments.
     :return: A list with the resulting cursors is passed on to the callback.
     """
-    def __init__(self, db, queries, callback):
+    def __init__(self, db, queries, callback, cursor_kwargs={}):
         self._db = db
         self._cursors = []
         self._queries = list(queries)
         self._queries.reverse()
         self._callback = callback
+        self._cursor_kwargs = cursor_kwargs
         self._collect(None)
 
     def _collect(self, cursor):
@@ -55,7 +58,8 @@ class QueryChain(object):
         query = self._queries.pop()
         if isinstance(query, str):
             query = [query]
-        self._db.execute(*query, callback=self._collect)
+        self._db.execute(*query, callback=self._collect,
+            cursor_kwargs=self._cursor_kwargs)
 
 
 class BatchQuery(object):
@@ -80,12 +84,15 @@ class BatchQuery(object):
     :param queries: A dictionary with all the queries.
     :param callback: The function that needs to be executed once all the
                      queries are finished.
+    :param cursor_kwargs: A dictionary with Psycopg's
+        `connection.cursor<http://initd.org/psycopg/docs/connection.html#connection.cursor>`_ arguments.
     :return: A dictionary with the same keys as the given queries with the
              resulting cursors as values is passed on to the callback.
     """
-    def __init__(self, db, queries, callback):
+    def __init__(self, db, queries, callback, cursor_kwargs={}):
         self._db = db
         self._callback = callback
+        self._cursor_kwargs = cursor_kwargs
         self._queries = {}
         self._args = {}
         self._size = len(queries)
@@ -97,7 +104,7 @@ class BatchQuery(object):
             self._queries[key] = query
 
         for query in list(self._queries.values()):
-            self._db.execute(*query)
+            self._db.execute(*query, cursor_kwargs=self._cursor_kwargs)
 
     def _collect(self, key, cursor):
         self._size = self._size - 1
