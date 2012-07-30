@@ -25,15 +25,6 @@ AsyncClient Object
    :inherited-members:
 
 
-AdispClient Object
-------------------
-
-.. autoclass:: momoko.AdispClient
-   :members:
-   :inherited-members:
-   :undoc-members:
-
-
 BlockingPool Object
 -------------------
 
@@ -50,6 +41,14 @@ AsyncPool Object
    :inherited-members:
 
 
+AsyncConnection Object
+----------------------
+
+.. autoclass:: momoko.pools.AsyncConnection
+   :members:
+   :inherited-members:
+
+
 QueryChain Object
 -----------------
 
@@ -62,13 +61,5 @@ BatchQuery Object
 -----------------
 
 .. autoclass:: momoko.utils.BatchQuery
-   :members:
-   :inherited-members:
-
-
-Poller Object
--------------
-
-.. autoclass:: momoko.utils.Poller
    :members:
    :inherited-members:

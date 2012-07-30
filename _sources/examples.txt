@@ -38,7 +38,7 @@ The blocking client::
         def get(self):
             # Besides using a with statement everyting is the same as the normal
             # Psycopg2 module
-            with self.db.connection() as conn:
+            with self.db.connection as conn:
                 cursor = conn.cursor()
                 cursor.execute('SELECT 42, 12, 40, 11;')
 
@@ -107,70 +107,6 @@ The asynchronous client that uses callbacks::
             ), self._on_response)
 
         def _on_response(self, cursors):
-            for cursor in cursors:
-                self.write('Query results: %s<br>' % cursor.fetchall())
-            self.finish()
-
-
-Adisp
------
-
-The asynchronous client that uses ``adisp`` (included in Momoko)::
-
-    class BaseHandler(tornado.web.RequestHandler):
-        @property
-        def db(self):
-            # Create a database connection when a request handler is called
-            # and store the connection in the application object.
-            if not hasattr(self.application, 'db'):
-                self.application.db = momoko.AdispClient({
-                    'host': 'localhost',
-                    'database': 'momoko',
-                    'user': 'frank',
-                    'password': '',
-                    'min_conn': 1,
-                    'max_conn': 20,
-                    'cleanup_timeout': 10
-                })
-            return self.application.db
-
-
-    class SingleQueryHandler(BaseHandler):
-        @tornado.web.asynchronous
-        @momoko.process
-        def get(self):
-            # One simple query
-            cursor = yield self.db.execute('SELECT 42, 12, 40, 11;')
-            self.write('Query results: %s' % cursor.fetchall())
-            self.finish()
-
-
-    class BatchQueryHandler(BaseHandler):
-        @tornado.web.asynchronous
-        @momoko.process
-        def get(self):
-            # These queries are executed all at once and therefore they need to be
-            # stored in an dictionary so you know where the resulting cursors
-            # come from, because they won't arrive in the same order.
-            cursors = yield self.db.batch({
-                'query1': ['SELECT 42, 12, %s, %s;', (23, 56)],
-                'query2': 'SELECT 1, 2, 3, 4, 5;',
-                'query3': 'SELECT 465767, 4567, 3454;'
-            })
-            for key, cursor in cursors.items():
-                self.write('Query results: %s = %s<br>' % (key, cursor.fetchall()))
-            self.finish()
-
-
-    class QueryChainHandler(BaseHandler):
-        @tornado.web.asynchronous
-        @momoko.process
-        def get(self):
-            # Execute a list of queries in the order you specified
-            cursors = yield self.db.chain((
-                ['SELECT 42, 12, %s, 11;', (23,)],
-                'SELECT 1, 2, 3, 4, 5;'
-            ))
             for cursor in cursors:
                 self.write('Query results: %s<br>' % cursor.fetchall())
             self.finish()

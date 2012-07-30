@@ -59,7 +59,16 @@
   <div class="section" id="news-changelog">
 <span id="news"></span><h1>News/Changelog<a class="headerlink" href="#news-changelog" title="Permalink to this headline">¶</a></h1>
 <div class="section" id="id1">
-<h2>0.4.0 (2011-12-15)<a class="headerlink" href="#id1" title="Permalink to this headline">¶</a></h2>
+<h2>0.5.0 (2012-07-30)<a class="headerlink" href="#id1" title="Permalink to this headline">¶</a></h2>
+<ul class="simple">
+<li>Removed all Adisp related code.</li>
+<li>Refactored connection pool and connection polling.</li>
+<li>Just pass all unspecified arguments to <tt class="docutils literal"><span class="pre">BlockingPool</span></tt> and <tt class="docutils literal"><span class="pre">AsyncPool</span></tt>. So
+<tt class="docutils literal"><span class="pre">connection_factory</span></tt> can be used again.</li>
+</ul>
+</div>
+<div class="section" id="id2">
+<h2>0.4.0 (2011-12-15)<a class="headerlink" href="#id2" title="Permalink to this headline">¶</a></h2>
 <ul class="simple">
 <li>Reorganized classes and files.</li>
 <li>Renamed <tt class="docutils literal"><span class="pre">momoko.Client</span></tt> to <tt class="docutils literal"><span class="pre">momoko.AsyncClient</span></tt>.</li>
@@ -73,8 +82,8 @@ and <tt class="docutils literal"><span class="pre">momoko.BlockingPool</span></t
 <li>Unit tests have been added. [<a class="reference external" href="https://github.com/fzzbt">fzzbt</a>]</li>
 </ul>
 </div>
-<div class="section" id="id2">
-<h2>0.3.0 (2011-08-07)<a class="headerlink" href="#id2" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="id3">
+<h2>0.3.0 (2011-08-07)<a class="headerlink" href="#id3" title="Permalink to this headline">¶</a></h2>
 <ul class="simple">
 <li>Renamed <tt class="docutils literal"><span class="pre">momoko.Momoko</span></tt> to <tt class="docutils literal"><span class="pre">momoko.Client</span></tt>.</li>
 <li>Programming in blocking-style is now possible with <tt class="docutils literal"><span class="pre">AdispClient</span></tt>.</li>
@@ -83,8 +92,8 @@ and <tt class="docutils literal"><span class="pre">momoko.BlockingPool</span></t
 documentation for details.</li>
 </ul>
 </div>
-<div class="section" id="id3">
-<h2>0.2.0 (2011-04-30)<a class="headerlink" href="#id3" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="id4">
+<h2>0.2.0 (2011-04-30)<a class="headerlink" href="#id4" title="Permalink to this headline">¶</a></h2>
 <ul class="simple">
 <li>Removed <tt class="docutils literal"><span class="pre">executemany</span></tt> from <tt class="docutils literal"><span class="pre">Momoko</span></tt>, because it can not be used in asynchronous mode.</li>
 <li>Added a wrapper class, <tt class="docutils literal"><span class="pre">Momoko</span></tt>, for <tt class="docutils literal"><span class="pre">Pool</span></tt>, <tt class="docutils literal"><span class="pre">BatchQuery</span></tt> and <tt class="docutils literal"><span class="pre">QueryChain</span></tt>.</li>
@@ -95,8 +104,8 @@ in a certain order.</li>
 connection needed to be closed.</li>
 </ul>
 </div>
-<div class="section" id="id4">
-<h2>0.1.0 (2011-03-13)<a class="headerlink" href="#id4" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="id5">
+<h2>0.1.0 (2011-03-13)<a class="headerlink" href="#id5" title="Permalink to this headline">¶</a></h2>
 <ul class="simple">
 <li>Initial release.</li>
 </ul>
@@ -114,10 +123,11 @@ connection needed to be closed.</li>
   <h3><a href="index.html">Table Of Contents</a></h3>
   <ul>
 <li><a class="reference internal" href="#">News/Changelog</a><ul>
-<li><a class="reference internal" href="#id1">0.4.0 (2011-12-15)</a></li>
-<li><a class="reference internal" href="#id2">0.3.0 (2011-08-07)</a></li>
-<li><a class="reference internal" href="#id3">0.2.0 (2011-04-30)</a></li>
-<li><a class="reference internal" href="#id4">0.1.0 (2011-03-13)</a></li>
+<li><a class="reference internal" href="#id1">0.5.0 (2012-07-30)</a></li>
+<li><a class="reference internal" href="#id2">0.4.0 (2011-12-15)</a></li>
+<li><a class="reference internal" href="#id3">0.3.0 (2011-08-07)</a></li>
+<li><a class="reference internal" href="#id4">0.2.0 (2011-04-30)</a></li>
+<li><a class="reference internal" href="#id5">0.1.0 (2011-03-13)</a></li>
 </ul>
 </li>
 </ul>

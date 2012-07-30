@@ -57,22 +57,22 @@
  | <a href="#C"><strong>C</strong></a>
  | <a href="#E"><strong>E</strong></a>
  | <a href="#G"><strong>G</strong></a>
+ | <a href="#I"><strong>I</strong></a>
  | <a href="#M"><strong>M</strong></a>
  | <a href="#N"><strong>N</strong></a>
- | <a href="#P"><strong>P</strong></a>
+ | <a href="#O"><strong>O</strong></a>
  | <a href="#Q"><strong>Q</strong></a>
- | <a href="#S"><strong>S</strong></a>
  
 </div>
 <h2 id="A">A</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%" valign="top"><dl>
       
-  <dt><a href="api.html#momoko.AdispClient">AdispClient (class in momoko)</a>
+  <dt><a href="api.html#momoko.AsyncClient">AsyncClient (class in momoko)</a>
   </dt>
 
       
-  <dt><a href="api.html#momoko.AsyncClient">AsyncClient (class in momoko)</a>
+  <dt><a href="api.html#momoko.pools.AsyncConnection">AsyncConnection (class in momoko.pools)</a>
   </dt>
 
   </dl></td>
@@ -88,15 +88,9 @@
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%" valign="top"><dl>
       
-  <dt><a href="api.html#momoko.AdispClient.batch">batch() (momoko.AdispClient method)</a>
+  <dt><a href="api.html#momoko.AsyncClient.batch">batch() (momoko.AsyncClient method)</a>
   </dt>
 
-      <dd><dl>
-        
-  <dt><a href="api.html#momoko.AsyncClient.batch">(momoko.AsyncClient method)</a>
-  </dt>
-
-      </dl></dd>
       
   <dt><a href="api.html#momoko.utils.BatchQuery">BatchQuery (class in momoko.utils)</a>
   </dt>
@@ -118,36 +112,18 @@
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%" valign="top"><dl>
       
-  <dt><a href="api.html#momoko.AdispClient.callproc">callproc() (momoko.AdispClient method)</a>
+  <dt><a href="api.html#momoko.AsyncClient.callproc">callproc() (momoko.AsyncClient method)</a>
   </dt>
 
-      <dd><dl>
-        
-  <dt><a href="api.html#momoko.AsyncClient.callproc">(momoko.AsyncClient method)</a>
-  </dt>
-
-      </dl></dd>
       
-  <dt><a href="api.html#momoko.AdispClient.chain">chain() (momoko.AdispClient method)</a>
+  <dt><a href="api.html#momoko.AsyncClient.chain">chain() (momoko.AsyncClient method)</a>
   </dt>
 
-      <dd><dl>
-        
-  <dt><a href="api.html#momoko.AsyncClient.chain">(momoko.AsyncClient method)</a>
-  </dt>
-
-      </dl></dd>
-  </dl></td>
-  <td style="width: 33%" valign="top"><dl>
       
-  <dt><a href="api.html#momoko.AdispClient.close">close() (momoko.AdispClient method)</a>
+  <dt><a href="api.html#momoko.AsyncClient.close">close() (momoko.AsyncClient method)</a>
   </dt>
 
       <dd><dl>
-        
-  <dt><a href="api.html#momoko.AsyncClient.close">(momoko.AsyncClient method)</a>
-  </dt>
-
         
   <dt><a href="api.html#momoko.AsyncPool.close">(momoko.AsyncPool method)</a>
   </dt>
@@ -156,9 +132,23 @@
   <dt><a href="api.html#momoko.BlockingPool.close">(momoko.BlockingPool method)</a>
   </dt>
 
+        
+  <dt><a href="api.html#momoko.pools.AsyncConnection.close">(momoko.pools.AsyncConnection method)</a>
+  </dt>
+
       </dl></dd>
+  </dl></td>
+  <td style="width: 33%" valign="top"><dl>
+      
+  <dt><a href="api.html#momoko.pools.AsyncConnection.closed">closed (momoko.pools.AsyncConnection attribute)</a>
+  </dt>
+
       
   <dt><a href="api.html#momoko.BlockingClient.connection">connection (momoko.BlockingClient attribute)</a>
+  </dt>
+
+      
+  <dt><a href="api.html#momoko.pools.AsyncConnection.cursor">cursor() (momoko.pools.AsyncConnection method)</a>
   </dt>
 
   </dl></td>
@@ -168,15 +158,9 @@
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%" valign="top"><dl>
       
-  <dt><a href="api.html#momoko.AdispClient.execute">execute() (momoko.AdispClient method)</a>
+  <dt><a href="api.html#momoko.AsyncClient.execute">execute() (momoko.AsyncClient method)</a>
   </dt>
 
-      <dd><dl>
-        
-  <dt><a href="api.html#momoko.AsyncClient.execute">(momoko.AsyncClient method)</a>
-  </dt>
-
-      </dl></dd>
   </dl></td>
 </tr></table>
 
@@ -185,6 +169,16 @@
   <td style="width: 33%" valign="top"><dl>
       
   <dt><a href="api.html#momoko.BlockingPool.get_connection">get_connection() (momoko.BlockingPool method)</a>
+  </dt>
+
+  </dl></td>
+</tr></table>
+
+<h2 id="I">I</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%" valign="top"><dl>
+      
+  <dt><a href="api.html#momoko.pools.AsyncConnection.isexecuting">isexecuting() (momoko.pools.AsyncConnection method)</a>
   </dt>
 
   </dl></td>
@@ -210,11 +204,11 @@
   </dl></td>
 </tr></table>
 
-<h2 id="P">P</h2>
+<h2 id="O">O</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%" valign="top"><dl>
       
-  <dt><a href="api.html#momoko.utils.Poller">Poller (class in momoko.utils)</a>
+  <dt><a href="api.html#momoko.pools.AsyncConnection.open">open() (momoko.pools.AsyncConnection method)</a>
   </dt>
 
   </dl></td>
@@ -225,16 +219,6 @@
   <td style="width: 33%" valign="top"><dl>
       
   <dt><a href="api.html#momoko.utils.QueryChain">QueryChain (class in momoko.utils)</a>
-  </dt>
-
-  </dl></td>
-</tr></table>
-
-<h2 id="S">S</h2>
-<table style="width: 100%" class="indextable genindextable"><tr>
-  <td style="width: 33%" valign="top"><dl>
-      
-  <dt><a href="api.html#momoko.utils.Poller.start">start() (momoko.utils.Poller method)</a>
   </dt>
 
   </dl></td>
