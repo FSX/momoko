@@ -194,9 +194,10 @@ class AsyncPool(object):
         :param function: ``execute``, ``executemany`` or ``callproc``.
         :param function_args: A tuple with the arguments for the specified function.
         :param callback: A callable that is executed once the operation is done.
-        :param cursor_kwargs: A dictionary with Psycopg's
-            `connection.cursor<http://initd.org/psycopg/docs/connection.html#connection.cursor>`_ arguments.
+        :param cursor_kwargs: A dictionary with Psycopg's `connection.cursor`_ arguments.
         :param connection: An ``AsyncConnection`` connection. Optional.
+
+        .. _connection.cursor: http://initd.org/psycopg/docs/connection.html#connection.cursor
         """
         if connection is None:
             connection = self._get_free_conn()
@@ -297,8 +298,9 @@ class AsyncConnection(object):
         :param function: ``execute``, ``executemany`` or ``callproc``.
         :param function_args: A tuple with the arguments for the specified function.
         :param callback: A callable that is executed once the operation is done.
-        :param cursor_kwargs: A dictionary with Psycopg's
-            `connection.cursor<http://initd.org/psycopg/docs/connection.html#connection.cursor>`_ arguments.
+        :param cursor_kwargs: A dictionary with Psycopg's `connection.cursor`_ arguments.
+
+        .. _connection.cursor: http://initd.org/psycopg/docs/connection.html#connection.cursor
         """
         cursor = self._conn.cursor(**cursor_kwargs)
         getattr(cursor, function)(*function_args)

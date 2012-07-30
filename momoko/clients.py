@@ -79,10 +79,11 @@ class AsyncClient(object):
         :param queries: A dictionary with all the queries.
         :param callback: The function that needs to be executed once all the
                          queries are finished. Optional.
-        :param cursor_kwargs: A dictionary with Psycopg's
-            `connection.cursor<http://initd.org/psycopg/docs/connection.html#connection.cursor>`_ arguments.
+        :param cursor_kwargs: A dictionary with Psycopg's `connection.cursor`_ arguments.
         :return: A dictionary with the same keys as the given queries with the
                  resulting cursors as values.
+
+        .. _connection.cursor: http://initd.org/psycopg/docs/connection.html#connection.cursor
         """
         return BatchQuery(self, queries, callback)
 
@@ -103,9 +104,10 @@ class AsyncClient(object):
         :param queries: A tuple or list with all the queries.
         :param callback: The function that needs to be executed once all the
                          queries are finished. Optional.
-        :param cursor_kwargs: A dictionary with Psycopg's
-            `connection.cursor<http://initd.org/psycopg/docs/connection.html#connection.cursor>`_ arguments.
+        :param cursor_kwargs: A dictionary with Psycopg's `connection.cursor`_ arguments.
         :return: A list with the resulting cursors.
+
+        .. _connection.cursor: http://initd.org/psycopg/docs/connection.html#connection.cursor
         """
         return QueryChain(self, queries, callback)
 
@@ -124,8 +126,9 @@ class AsyncClient(object):
                            an empty tuple by default.
         :param callback: A callable that is executed once the operation is
                          finished. Optional.
-        :param cursor_kwargs: A dictionary with Psycopg's
-            `connection.cursor<http://initd.org/psycopg/docs/connection.html#connection.cursor>`_ arguments.
+        :param cursor_kwargs: A dictionary with Psycopg's `connection.cursor`_ arguments.
+
+        .. _connection.cursor: http://initd.org/psycopg/docs/connection.html#connection.cursor
         """
         self._pool.new_cursor('execute', (operation, parameters), callback, cursor_kwargs)
 
@@ -144,8 +147,9 @@ class AsyncClient(object):
         :param parameters: A sequence with parameters. This is ``None`` by default.
         :param callback: A callable that is executed once the procedure is
                          finished. Optional.
-        :param cursor_kwargs: A dictionary with Psycopg's
-            `connection.cursor<http://initd.org/psycopg/docs/connection.html#connection.cursor>`_ arguments.
+        :param cursor_kwargs: A dictionary with Psycopg's `connection.cursor`_ arguments.
+
+        .. _connection.cursor: http://initd.org/psycopg/docs/connection.html#connection.cursor
         """
         self._pool.new_cursor('callproc', (procname, parameters), callback, cursor_kwargs)
 

@@ -35,9 +35,10 @@ class QueryChain(object):
     :param queries: A tuple or with all the queries.
     :param callback: The function that needs to be executed once all the
                      queries are finished.
-    :param cursor_kwargs: A dictionary with Psycopg's
-        `connection.cursor<http://initd.org/psycopg/docs/connection.html#connection.cursor>`_ arguments.
+    :param cursor_kwargs: A dictionary with Psycopg's `connection.cursor`_ arguments.
     :return: A list with the resulting cursors is passed on to the callback.
+
+    .. _connection.cursor: http://initd.org/psycopg/docs/connection.html#connection.cursor
     """
     def __init__(self, db, queries, callback, cursor_kwargs={}):
         self._db = db
@@ -84,10 +85,11 @@ class BatchQuery(object):
     :param queries: A dictionary with all the queries.
     :param callback: The function that needs to be executed once all the
                      queries are finished.
-    :param cursor_kwargs: A dictionary with Psycopg's
-        `connection.cursor<http://initd.org/psycopg/docs/connection.html#connection.cursor>`_ arguments.
+    :param cursor_kwargs: A dictionary with Psycopg's `connection.cursor`_ arguments.
     :return: A dictionary with the same keys as the given queries with the
              resulting cursors as values is passed on to the callback.
+
+    .. _connection.cursor: http://initd.org/psycopg/docs/connection.html#connection.cursor
     """
     def __init__(self, db, queries, callback, cursor_kwargs={}):
         self._db = db

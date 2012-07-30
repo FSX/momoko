@@ -5,8 +5,8 @@ Momoko
 
 An asynchronous Psycopg2_ wrapper for Tornado_.
 
-Momoko makes use of the asynchronous support in Psycopg2, Tornado's IOLoop and
-**adisp** to provide asynchronous queries in callback and blocking style.
+Momoko makes use of the asynchronous support in Psycopg2, Tornado's IOLoop
+to provide asynchronous queries in callback and blocking style.
 Downloads can be found at PyPi_ and the lastest source code at Github_.
 
 .. _Tornado: http://www.tornadoweb.org/

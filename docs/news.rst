@@ -4,9 +4,11 @@ News/Changelog
 ==============
 
 
-0.4.1 (2012-01-??)
+0.5.0 (2012-07-30)
 ------------------
 
+* Removed all Adisp related code.
+* Refactored connection pool and connection polling.
 * Just pass all unspecified arguments to ``BlockingPool`` and ``AsyncPool``. So
   ``connection_factory`` can be used again.
 
