@@ -11,7 +11,6 @@
 
 import logging
 from functools import partial
-from contextlib import contextmanager
 import time
 
 import psycopg2
@@ -205,6 +204,9 @@ class AsyncPool(object):
 
         .. _connection.cursor: http://initd.org/psycopg/docs/connection.html#connection.cursor
         """
+        if connection is None:
+            connection = self._get_free_conn()
+
         if connection is None:
             self._new_conn(callback=self.new_cursor, callback_args=[function, function_args, callback, cursor_kwargs])
         else:

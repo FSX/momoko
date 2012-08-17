@@ -28,6 +28,7 @@ class AsyncClientTest(tornado.testing.AsyncTestCase):
         })
 
     def tearDown(self):
+        self.db.close()
         super(AsyncClientTest, self).tearDown()
 
     def test_single_query(self):
