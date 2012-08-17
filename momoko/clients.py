@@ -26,6 +26,9 @@ class BlockingClient(object):
     def __init__(self, settings):
         self._pool = BlockingPool(**settings)
 
+    def __del__(self):
+        self._pool.close()
+
     @property
     @contextmanager
     def connection(self):
