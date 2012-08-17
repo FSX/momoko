@@ -85,7 +85,31 @@ class AsyncClient(object):
 
         .. _connection.cursor: http://initd.org/psycopg/docs/connection.html#connection.cursor
         """
-        return BatchQuery(self, queries, callback)
+        return BatchQuery(self, queries, callback, cursor_kwargs)
+
+    def transaction(self, statements, callback=None, cursor_kwargs={}):
+        """Run a chain of statements in the given order using a single connection.
+
+        A list/tuple with statements looks like this::
+
+            (
+                ['SELECT 42, 12, %s, 11;', (23,)],
+                'SELECT 1, 2, 3, 4, 5;'
+            )
+
+        A statement with parameters is contained in a list: ``['some sql
+        here %s, %s', ('and some', 'parameters here')]``. A statement
+        without parameters doesn't need to be in a list.
+
+        :param statements: A tuple or list with all the statements.
+        :param callback: The function that needs to be executed once all the
+                         queries are finished. Optional.
+        :param cursor_kwargs: A dictionary with Psycopg's `connection.cursor`_ arguments.
+        :return: A list with the resulting cursors.
+
+        .. _connection.cursor: http://initd.org/psycopg/docs/connection.html#connection.cursor
+        """
+        return TransactionChain(self, statements, callback, cursor_kwargs)
 
     def chain(self, queries, callback=None, cursor_kwargs={}):
         """Run a chain of queries in the given order.
@@ -97,9 +121,9 @@ class AsyncClient(object):
                 'SELECT 1, 2, 3, 4, 5;'
             )
 
-        A query with paramaters is contained in a list: ``['some sql
-        here %s, %s', ('and some', 'paramaters here')]``. A query
-        without paramaters doesn't need to be in a list.
+        A query with parameters is contained in a list: ``['some sql
+        here %s, %s', ('and some', 'parameters here')]``. A query
+        without parameters doesn't need to be in a list.
 
         :param queries: A tuple or list with all the queries.
         :param callback: The function that needs to be executed once all the
@@ -109,7 +133,7 @@ class AsyncClient(object):
 
         .. _connection.cursor: http://initd.org/psycopg/docs/connection.html#connection.cursor
         """
-        return QueryChain(self, queries, callback)
+        return QueryChain(self, queries, callback, cursor_kwargs)
 
     def execute(self, operation, parameters=(), callback=None, cursor_kwargs={}):
         """Prepare and execute a database operation (query or command).

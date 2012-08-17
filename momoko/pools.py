@@ -12,6 +12,7 @@
 import logging
 from functools import partial
 from contextlib import contextmanager
+import time
 
 import psycopg2
 from psycopg2 import DatabaseError, InterfaceError
@@ -30,8 +31,6 @@ class BlockingPool(object):
                      ``PoolError`` exception is raised.
     :param cleanup_timeout: Time in seconds between pool cleanups. Connections
                             will be closed until there are ``min_conn`` left.
-    :param host: The database host address (defaults to UNIX socket if not provided)
-    :param port: The database host port (defaults to 5432 if not provided)
     :param database: The database name
     :param user: User name used to authenticate
     :param password: Password used to authenticate
@@ -63,7 +62,7 @@ class BlockingPool(object):
         """Create a new connection.
         """
         if len(self._pool) > self.max_conn:
-            raise PoolError('connection pool exausted')
+            raise PoolError('connection pool exhausted')
         conn = psycopg2.connect(*self._args, **self._kwargs)
         self._pool.append(conn)
 
@@ -103,7 +102,7 @@ class BlockingPool(object):
             for conn in self._pool[:]:
                 if conn.status == STATUS_READY:
                     conn.close()
-                    conns = conns - 1
+                    conns -= 1
                     self._pool.remove(conn)
                     if conns == 0:
                         break
@@ -150,11 +149,13 @@ class AsyncPool(object):
         self._ioloop = ioloop or IOLoop.instance()
         self._args = args
         self._kwargs = kwargs
+        self._last_reconnect = 0 # prevents DOS'sing the DB server with connect requests
 
         self._pool = []
 
         for i in range(self.min_conn):
             self._new_conn()
+        self._last_reconnect = time.time()
 
         # Create a periodic callback that tries to close inactive connections
         if cleanup_timeout > 0:
@@ -162,7 +163,7 @@ class AsyncPool(object):
                 cleanup_timeout * 1000)
             self._cleaner.start()
 
-    def _new_conn(self, new_cursor_args=[]):
+    def _new_conn(self, callback, callback_args=[]):
         """Create a new connection.
 
         If `new_cursor_args` is provided a new cursor is created when the
@@ -171,18 +172,23 @@ class AsyncPool(object):
         :param new_cursor_args: Arguments (dictionary) for a new cursor.
         """
         if len(self._pool) > self.max_conn:
-            raise PoolError('connection pool exausted')
-        conn = AsyncConnection(self._ioloop)
+            self._clean_pool()
+        if len(self._pool) > self.max_conn:
+            raise PoolError('connection pool exhausted')
+        timeout = self._last_reconnect + .1
+        timenow = time.time()
+        if timenow > timeout or len(self._pool) < self.min_conn:
+            self._last_reconnect = timenow
+            conn = AsyncConnection(self._ioloop)
+            callbacks = [partial(self._pool.append, conn)] # add new connection to the pool
+            if callback_args:
+                callback_args.append(conn)
+                callbacks.append(partial(callback, *callback_args))
 
-        if new_cursor_args:
-            new_cursor_args.append(conn)
-            callbacks = [
-                partial(self._pool.append, conn),
-                partial(self.new_cursor, *new_cursor_args)]
+            conn.open(callbacks, *self._args, **self._kwargs)
         else:
-            callbacks = [partial(self._pool.append, conn)]
+            self._ioloop.add_timeout(timeout,partial(self._new_conn,callback,callback_args))
 
-        conn.open(callbacks, *self._args, **self._kwargs)
 
     def new_cursor(self, function, function_args=(), callback=None, cursor_kwargs={},
         connection=None):
@@ -200,22 +206,18 @@ class AsyncPool(object):
         .. _connection.cursor: http://initd.org/psycopg/docs/connection.html#connection.cursor
         """
         if connection is None:
-            connection = self._get_free_conn()
-            if connection is None:
-                self._new_conn([function, function_args, callback, cursor_kwargs])
-                return
-
-        try:
-            connection.cursor(function, function_args, callback, cursor_kwargs)
-        except (DatabaseError, InterfaceError):  # Recover from lost connection
-            logging.warning('Requested connection was closed')
-            self._pool.remove(connection)
-            connection = self._get_free_conn()
-            if connection is None:
-                self._new_conn([function, function_args, callback, cursor_kwargs])
-            else:
-                self.new_cursor(function, function_args, callback,
-                    connection, cursor_kwargs)
+            self._new_conn(callback=self.new_cursor, callback_args=[function, function_args, callback, cursor_kwargs])
+        else:
+            try:
+                connection.cursor(function, function_args, callback, cursor_kwargs)
+            except (DatabaseError, InterfaceError):  # Recover from lost connection
+                logging.warning('Requested connection was closed')
+                self._pool.remove(connection)
+                connection = self._get_free_conn()
+                if connection is None:
+                    self._new_conn([function, function_args, callback, cursor_kwargs])
+                else:
+                    self.new_cursor(function, function_args, callback, cursor_kwargs, connection)
 
     def _get_free_conn(self):
         """Look for a free connection and return it.
@@ -240,7 +242,7 @@ class AsyncPool(object):
             for conn in self._pool[:]:
                 if not conn.isexecuting():
                     conn.close()
-                    conns = conns - 1
+                    conns -= 1
                     self._pool.remove(conn)
                     if conns == 0:
                         break

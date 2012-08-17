@@ -17,6 +17,53 @@ import psycopg2.extensions
 from tornado.ioloop import IOLoop
 
 
+class TransactionChain(object):
+    """Run queries as a transaction
+
+    A list/tuple with queries looks like this::
+
+        (
+            ['SELECT 42, 12, %s, 11;', (23,)],
+            'SELECT 1, 2, 3, 4, 5;'
+        )
+
+    A query with parameters is contained in a list: ``['some sql
+    here %s, %s', ('and some', 'parameters here')]``. A query
+    without parameters doesn't need to be in a list.
+
+    :param db: A ``momoko.Client`` or ``momoko.AdispClient`` instance.
+    :param queries: A tuple or with all the queries.
+    :param callback: The function that needs to be executed once all the
+                     queries are finished.
+    :param cursor_kwargs: A dictionary with Psycopg's `connection.cursor`_ arguments.
+    :return: A list with the resulting cursors is passed on to the callback.
+
+    .. _connection.cursor: http://initd.org/psycopg/docs/connection.html#connection.cursor
+    """
+    def __init__(self, db, queries, callback, cursor_kwargs={}):
+        self._db = db
+        self._cursors = []
+        self._queries = list(queries)
+        self._queries.reverse()
+        self._callback = callback
+        self._cursor_kwargs = cursor_kwargs
+        self._connection = self._db._get_free_conn
+        self._collect(None)
+
+    def _collect(self, cursor):
+        if cursor is not None:
+            self._cursors.append(cursor)
+        if not self._queries:
+            if self._callback:
+                self._callback(self._cursors)
+            return
+        query = self._queries.pop()
+        if isinstance(query, str):
+            query = [query]
+        self._db.execute(*query, callback=self._collect,
+            cursor_kwargs=self._cursor_kwargs)
+
+
 class QueryChain(object):
     """Run a chain of queries in the given order.
 
@@ -27,9 +74,9 @@ class QueryChain(object):
             'SELECT 1, 2, 3, 4, 5;'
         )
 
-    A query with paramaters is contained in a list: ``['some sql
-    here %s, %s', ('and some', 'paramaters here')]``. A query
-    without paramaters doesn't need to be in a list.
+    A query with parameters is contained in a list: ``['some sql
+    here %s, %s', ('and some', 'parameters here')]``. A query
+    without parameters doesn't need to be in a list.
 
     :param db: A ``momoko.Client`` or ``momoko.AdispClient`` instance.
     :param queries: A tuple or with all the queries.
@@ -77,9 +124,9 @@ class BatchQuery(object):
             'query3': 'SELECT 465767, 4567, 3454;'
         }
 
-    A query with paramaters is contained in a list: ``['some sql
-    here %s, %s', ('and some', 'paramaters here')]``. A query
-    without paramaters doesn't need to be in a list.
+    A query with parameters is contained in a list: ``['some sql
+    here %s, %s', ('and some', 'parameters here')]``. A query
+    without parameters doesn't need to be in a list.
 
     :param db: A ``momoko.Client`` or ``momoko.AdispClient`` instance.
     :param queries: A dictionary with all the queries.
