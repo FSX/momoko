@@ -103,7 +103,7 @@ class BlockingPool(object):
                     conn.close()
                     conns -= 1
                     self._pool.remove(conn)
-                    if conns == 0:
+                    if not conns:
                         break
 
     def close(self):
@@ -148,7 +148,7 @@ class AsyncPool(object):
         self._ioloop = ioloop or IOLoop.instance()
         self._args = args
         self._kwargs = kwargs
-        self._last_reconnect = 0 # prevents DOS'sing the DB server with connect requests
+        self._last_reconnect = 0
 
         self._pool = []
 
@@ -162,35 +162,55 @@ class AsyncPool(object):
                 cleanup_timeout * 1000)
             self._cleaner.start()
 
-    def _new_conn(self, callback, callback_args=[]):
+    def _new_conn(self, callback=None, callback_args=[]):
         """Create a new connection.
 
-        If `new_cursor_args` is provided a new cursor is created when the
-        callback is executed.
-
-        :param new_cursor_args: Arguments (dictionary) for a new cursor.
+        :param callback_args: Parameters for the callback - connection will be appended
+        to the parameters
         """
         if len(self._pool) > self.max_conn:
             self._clean_pool()
         if len(self._pool) > self.max_conn:
             raise PoolError('connection pool exhausted')
-        timeout = self._last_reconnect + .1
+        timeout = self._last_reconnect + .25 # 1/4 second delay between reconnection
         timenow = time.time()
-        if timenow > timeout or len(self._pool) < self.min_conn:
+        if timenow > timeout or len(self._pool) <= self.min_conn:
             self._last_reconnect = timenow
             conn = AsyncConnection(self._ioloop)
             callbacks = [partial(self._pool.append, conn)] # add new connection to the pool
-            if callback_args:
-                callback_args.append(conn)
-                callbacks.append(partial(callback, *callback_args))
+            if callback:
+                callbacks.append(partial(callback, *(callback_args+[conn])))
 
             conn.open(callbacks, *self._args, **self._kwargs)
         else:
+            # recursive timeout call, retaining the parameters
             self._ioloop.add_timeout(timeout,partial(self._new_conn,callback,callback_args))
 
+    def _get_free_conn(self):
+        """Look for a free connection and return it.
 
-    def new_cursor(self, function, function_args=(), callback=None, cursor_kwargs={},
-        connection=None):
+        `None` is returned when no free connection can be found.
+        """
+        if self.closed:
+            raise PoolError('connection pool is closed')
+        for conn in self._pool:
+            if not conn.isexecuting():
+                return conn
+        return None
+
+    def get_connection(self, callback = None, callback_args=[]):
+        """Get a connection, trying available ones, and if not available - create a new one;
+
+        Afterwards, the callback will be called
+        """
+        connection = self._get_free_conn()
+        if connection is None:
+            self._new_conn(callback,callback_args)
+        else:
+            callback(*(callback_args+[connection]))
+
+
+    def new_cursor(self, function, function_args=(), callback=None, cursor_kwargs={}, connection=None, transaction=False):
         """Create a new cursor.
 
         If there's no connection available, a new connection will be created and
@@ -204,34 +224,20 @@ class AsyncPool(object):
 
         .. _connection.cursor: http://initd.org/psycopg/docs/connection.html#connection.cursor
         """
-        if connection is None:
-            connection = self._get_free_conn()
-
-        if connection is None:
-            self._new_conn(callback=self.new_cursor, callback_args=[function, function_args, callback, cursor_kwargs])
-        else:
+        if connection is not None:
             try:
                 connection.cursor(function, function_args, callback, cursor_kwargs)
+                return
             except (DatabaseError, InterfaceError):  # Recover from lost connection
                 logging.warning('Requested connection was closed')
                 self._pool.remove(connection)
-                connection = self._get_free_conn()
-                if connection is None:
-                    self._new_conn([function, function_args, callback, cursor_kwargs])
-                else:
-                    self.new_cursor(function, function_args, callback, cursor_kwargs, connection)
 
-    def _get_free_conn(self):
-        """Look for a free connection and return it.
+        # if no connection, or if exception caught
+        if not transaction:
+            self.get_connection(callback=self.new_cursor, callback_args=[function, function_args, callback, cursor_kwargs])
+        else:
+            raise TransactionError
 
-        `None` is returned when no free connection can be found.
-        """
-        if self.closed:
-            raise PoolError('connection pool is closed')
-        for conn in self._pool:
-            if not conn.isexecuting():
-                return conn
-        return None
 
     def _clean_pool(self):
         """Close a number of inactive connections when the number of connections
@@ -246,7 +252,7 @@ class AsyncPool(object):
                     conn.close()
                     conns -= 1
                     self._pool.remove(conn)
-                    if conns == 0:
+                    if not conns:
                         break
 
     def close(self):
@@ -265,6 +271,8 @@ class AsyncPool(object):
 class PoolError(Exception):
     pass
 
+class TransactionError(Exception):
+    pass
 
 class AsyncConnection(object):
     """An asynchronous connection object.

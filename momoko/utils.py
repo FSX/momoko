@@ -32,7 +32,7 @@ class TransactionChain(object):
     without parameters doesn't need to be in a list.
 
     :param db: A ``momoko.Client`` or ``momoko.AdispClient`` instance.
-    :param queries: A tuple or with all the queries.
+    :param statements: A tuple or with all the queries.
     :param callback: The function that needs to be executed once all the
                      queries are finished.
     :param cursor_kwargs: A dictionary with Psycopg's `connection.cursor`_ arguments.
@@ -40,28 +40,33 @@ class TransactionChain(object):
 
     .. _connection.cursor: http://initd.org/psycopg/docs/connection.html#connection.cursor
     """
-    def __init__(self, db, queries, callback, cursor_kwargs={}):
+    def __init__(self, db, statements, callback, cursor_kwargs={}):
         self._db = db
         self._cursors = []
-        self._queries = list(queries)
-        self._queries.reverse()
+        self._statements = list(statements)
+        self._statements.reverse()
         self._callback = callback
         self._cursor_kwargs = cursor_kwargs
-        self._connection = self._db._get_free_conn
+        self._db._pool.get_connection(self._set_connection)
+
+    def _set_connection(self, conn):
+        self._connection = conn
+        self._db._pool._pool.remove(conn) # don't let other connections mess up the transaction
         self._collect(None)
 
     def _collect(self, cursor):
         if cursor is not None:
             self._cursors.append(cursor)
-        if not self._queries:
+        if not self._statements:
             if self._callback:
                 self._callback(self._cursors)
+            self._db._pool._pool.append(self._connection)
             return
-        query = self._queries.pop()
-        if isinstance(query, str):
-            query = [query]
-        self._db.execute(*query, callback=self._collect,
-            cursor_kwargs=self._cursor_kwargs)
+        statement = self._statements.pop()
+        if isinstance(statement, str):
+            statement = [statement]
+        self._db.execute(*statement, callback=self._collect,
+            cursor_kwargs=self._cursor_kwargs, connection=self._connection)
 
 
 class QueryChain(object):
@@ -156,7 +161,7 @@ class BatchQuery(object):
             self._db.execute(*query, cursor_kwargs=self._cursor_kwargs)
 
     def _collect(self, key, cursor):
-        self._size = self._size - 1
+        self._size -= 1
         self._args[key] = cursor
         if not self._size and self._callback:
             self._callback(self._args)

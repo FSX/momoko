@@ -19,3 +19,4 @@ With pip::
 Or manually::
 
     python setup.py install
+

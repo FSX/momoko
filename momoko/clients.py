@@ -14,7 +14,7 @@ import functools
 from contextlib import contextmanager
 
 from .pools import AsyncPool, BlockingPool
-from .utils import BatchQuery, QueryChain
+from .utils import BatchQuery, QueryChain, TransactionChain
 
 
 class BlockingClient(object):
@@ -53,8 +53,8 @@ class BlockingClient(object):
 
 class AsyncClient(object):
     """The ``AsyncClient`` class is a wrapper for ``AsyncPool``, ``BatchQuery``
-     and ``QueryChain``. It also provides the ``execute`` and ``callproc``
-     functions.
+     ``TransactionChain'' and ``QueryChain``. It also provides the ``execute``
+     and ``callproc`` functions.
 
     :param settings: A dictionary that is passed to the ``AsyncPool`` object.
     """
@@ -92,6 +92,8 @@ class AsyncClient(object):
 
     def transaction(self, statements, callback=None, cursor_kwargs={}):
         """Run a chain of statements in the given order using a single connection.
+        The statements will be wrapped between a "begin;" and a "commit;". The
+        connection will be unavailable while the chain is running.
 
         A list/tuple with statements looks like this::
 
@@ -138,7 +140,7 @@ class AsyncClient(object):
         """
         return QueryChain(self, queries, callback, cursor_kwargs)
 
-    def execute(self, operation, parameters=(), callback=None, cursor_kwargs={}):
+    def execute(self, operation, parameters=(), callback=None, cursor_kwargs={}, connection = None):
         """Prepare and execute a database operation (query or command).
 
         Parameters may be provided as sequence or mapping and will be bound to
@@ -157,7 +159,10 @@ class AsyncClient(object):
 
         .. _connection.cursor: http://initd.org/psycopg/docs/connection.html#connection.cursor
         """
-        self._pool.new_cursor('execute', (operation, parameters), callback, cursor_kwargs)
+        if connection:
+            self._pool.new_cursor('execute', (operation, parameters), callback, cursor_kwargs, connection, transaction=True)
+        else:
+            self._pool.new_cursor('execute', (operation, parameters), callback, cursor_kwargs)
 
     def callproc(self, procname, parameters=None, callback=None, cursor_kwargs={}):
         """Call a stored database procedure with the given name.
