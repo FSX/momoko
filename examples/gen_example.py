@@ -14,7 +14,6 @@ import tornado.web
 from tornado import gen
 
 import momoko
-
 import settings
 
 
@@ -29,8 +28,6 @@ class OverviewHandler(BaseHandler):
         self.write('''
 <ul>
     <li><a href="/query">A single query</a></li>
-    <li><a href="/batch">A batch of queries</a></li>
-    <li><a href="/chain">A chain of queries</a></li>
     <li><a href="/multi_query">Multiple queries executed with gen.Task</a></li>
     <li><a href="/callback_and_wait">Multiple queries executed with gen.Callback and gen.Wait</a></li>
 </ul>
@@ -42,43 +39,48 @@ class SingleQueryHandler(BaseHandler):
     @tornado.web.asynchronous
     @gen.engine
     def get(self):
-        # One simple query
-        cursor = yield gen.Task(self.db.execute, 'SELECT 42, 12, %s, 11;', (25,))
-        self.write('Query results: %s' % cursor.fetchall())
+        try:
+            cursor1 = yield momoko.Op(self.db.execute, 'SELECT 55, 18, %s, 231;', (87,))
+            self.write('Query results: %s<br>' % cursor1.fetchall())
+        except Exception as error:
+            self.write(error)
+
         self.finish()
 
+    # @tornado.web.asynchronous
+    # @gen.engine
+    # def get(self):
+    #     try:
+    #         sql = yield momoko.Op(self.db.mogrify, 'SELECT 55, 18, %s, 231;', (87,))
+    #         self.write('SQL: %s<br>' % sql)
+    #     except Exception as error:
+    #         self.write(error)
 
-class BatchQueryHandler(BaseHandler):
-    @tornado.web.asynchronous
-    @gen.engine
-    def get(self):
-        # These queries are executed all at once and therefore they need to be
-        # stored in an dictionary so you know where the resulting cursors
-        # come from, because they won't arrive in the same order.
-        cursors = yield gen.Task(self.db.batch, {
-            'query1': ['SELECT 42, 12, %s, %s;', (23, 56)],
-            'query2': 'SELECT 1, 2, 3, 4, 5;',
-            'query3': 'SELECT 465767, 4567, 3454;'
-        })
+    #     self.finish()
 
-        for key, cursor in cursors.items():
-            self.write('Query results: %s = %s<br>' % (key, cursor.fetchall()))
-        self.finish()
+    # @tornado.web.asynchronous
+    # @gen.engine
+    # def get(self):
+    #     try:
+    #         cursor1 = yield momoko.Op(self.db.callproc, 'insert_location', ('test_location_momoko',))
+    #         self.write('Query results: %s<br>' % cursor1.fetchall())
+    #     except Exception as error:
+    #         self.write(str(error))
 
+    #     self.finish()
 
-class QueryChainHandler(BaseHandler):
-    @tornado.web.asynchronous
-    @gen.engine
-    def get(self):
-        # Execute a list of queries in the order you specified
-        cursors = yield gen.Task(self.db.chain, (
-            ['SELECT 42, 12, %s, 11;', (23,)],
-            'SELECT 1, 2, 3, 4, 5;'
-        ))
+    # @tornado.web.asynchronous
+    # def get(self):
+    #     self.db.execute('SELECT 42, 12, %s, 11;', (25,), callback=self._done)
+    #     # self.db.execute('SELECT X;', callback=self._done)
 
-        for cursor in cursors:
-            self.write('Query results: %s<br>' % cursor.fetchall())
-        self.finish()
+    # def _done(self, cursor, error):
+    #     if error is None:
+    #         self.write('Query results: %s' % cursor.fetchall())
+    #     else:
+    #         self.write('Error: %r' % error)
+
+    #     self.finish()
 
 
 class MultiQueryHandler(BaseHandler):
@@ -86,9 +88,9 @@ class MultiQueryHandler(BaseHandler):
     @gen.engine
     def get(self):
         cursor1, cursor2, cursor3 = yield [
-            gen.Task(self.db.execute, 'SELECT 42, 12, %s, 11;', (25,)),
-            gen.Task(self.db.execute, 'SELECT 42, 12, %s, %s;', (23, 56)),
-            gen.Task(self.db.execute, 'SELECT 465767, 4567, 3454;')
+            momoko.Op(self.db.execute, 'SELECT 42, 12, %s, 11;', (25,)),
+            momoko.Op(self.db.execute, 'SELECT 42, 12, %s, %s;', (23, 56)),
+            momoko.Op(self.db.execute, 'SELECT 465767, 4567, 3454;')
         ]
 
         self.write('Query 1 results: %s<br>' % cursor1.fetchall())
@@ -110,9 +112,11 @@ class CallbackWaitHandler(BaseHandler):
         self.db.execute('SELECT 465767, 4567, 3454;',
             callback=(yield gen.Callback('q3')))
 
-        cursor1 = yield gen.Wait('q1')
-        cursor2 = yield gen.Wait('q2')
-        cursor3 = yield gen.Wait('q3')
+        # cursor1 = yield momoko.WaitOp('q1')
+        # cursor2 = yield momoko.WaitOp('q2')
+        # cursor3 = yield momoko.WaitOp('q3')
+
+        cursor1, cursor2, cursor3 = yield momoko.WaitAllOps(('q1', 'q2', 'q3'))
 
         self.write('Query 1 results: %s<br>' % cursor1.fetchall())
         self.write('Query 2 results: %s<br>' % cursor2.fetchall())
@@ -127,22 +131,24 @@ def main():
         application = tornado.web.Application([
             (r'/', OverviewHandler),
             (r'/query', SingleQueryHandler),
-            (r'/batch', BatchQueryHandler),
-            (r'/chain', QueryChainHandler),
             (r'/multi_query', MultiQueryHandler),
             (r'/callback_and_wait', CallbackWaitHandler),
         ], debug=True)
 
-        application.db = momoko.AsyncClient({
-            'host': settings.host,
-            'port': settings.port,
-            'database': settings.database,
-            'user': settings.user,
-            'password': settings.password,
-            'min_conn': settings.min_conn,
-            'max_conn': settings.max_conn,
-            'cleanup_timeout': settings.cleanup_timeout
-        })
+        dsn = 'dbname=%s user=%s password=%s host=%s port=%s' % (
+            settings.database,
+            settings.user,
+            settings.password,
+            settings.host,
+            settings.port
+        )
+
+        application.db = momoko.ConnectionPool(
+            dsn=dsn,
+            minconn=settings.min_conn,
+            maxconn=settings.max_conn,
+            cleanup_timeout=settings.cleanup_timeout
+        )
 
         http_server = tornado.httpserver.HTTPServer(application)
         http_server.listen(8888)
