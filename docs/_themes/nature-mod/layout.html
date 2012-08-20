@@ -39,7 +39,7 @@
         VERSION:     '{{ release|e }}',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '{{ '' if no_search_suffix else file_suffix }}',
-        HAS_SOURCE:  {{ has_source|lower }}
+        HAS_SOURCE:  '{{ has_source|lower }}'
       };
     </script>
     {%- for scriptfile in script_files %}
@@ -111,7 +111,7 @@
     <li>
       {%- if not loop.first %}{{ reldelim2 }}{% endif %}
       <a href="{{ pathto(rellink[0]) }}" title="{{ rellink[1]|striptags|e }}"
-         {{ accesskey(rellink[2]) }}>{{ rellink[3] }}</a>
+          {{ accesskey(rellink[2]) }}>{{ rellink[3] }}</a>
       </li>
     {%- endfor %}
   </ul>

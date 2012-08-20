@@ -8,6 +8,7 @@ import tornado.testing
 import momoko
 
 import settings
+import psycopg2
 
 
 class AsyncClientTest(tornado.testing.AsyncTestCase):
@@ -28,6 +29,7 @@ class AsyncClientTest(tornado.testing.AsyncTestCase):
         })
 
     def tearDown(self):
+        self.db.close()
         super(AsyncClientTest, self).tearDown()
 
     def test_single_query(self):
@@ -75,6 +77,32 @@ class AsyncClientTest(tornado.testing.AsyncTestCase):
         for index, cursor in enumerate(cursors):
             self.assertEqual(cursor.fetchall(), expected[index])
 
+    def test_transaction(self):
+        """Test executing a chain query.
+        """
+        input = (
+            ['begin;'],
+            ['create local temporary table async_test on commit drop as select 42;'],
+            ['select * from async_test;'],
+            ['commit;'],
+            ["select 1 from information_schema.tables where table_name='async_test';"]
+            )
+        expected = (
+            None,
+            None,
+            [(42,)],
+            None,
+            []
+        )
+
+        self.db.transaction(input, callback=self.stop)
+        cursors = self.wait()
+
+        for index, cursor in enumerate(cursors):
+            if expected[index] is not None:
+                self.assertEqual(cursor.fetchall(), expected[index])
+            else:
+                self.assertRaises(psycopg2.ProgrammingError,cursor.fetchall)
 
 if __name__ == '__main__':
     unittest.main()

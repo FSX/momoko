@@ -11,12 +11,12 @@ Psycopg2 must have support for asynchronous connections.
 
 Momoko can be installed with *easy_install* or pip_::
 
-	pip install momoko
+    pip install momoko
 
 The latest sources can be cloned from the `Github repository`_ and
 installed with::
 
-   python setup.py install
+    python setup.py install
 
 
 .. _Tornado: http://www.tornadoweb.org/

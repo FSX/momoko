@@ -9,3 +9,9 @@ docs/_build/
 *.sublime-workspace
 *.bak
 modules/
+.idea
+setup.sh
+
+*.pth
+
+tests/database.cfg

@@ -14,7 +14,7 @@ import functools
 from contextlib import contextmanager
 
 from .pools import AsyncPool, BlockingPool
-from .utils import BatchQuery, QueryChain
+from .utils import BatchQuery, QueryChain, TransactionChain
 
 
 class BlockingClient(object):
@@ -25,6 +25,9 @@ class BlockingClient(object):
     """
     def __init__(self, settings):
         self._pool = BlockingPool(**settings)
+
+    def __del__(self):
+        self._pool.close()
 
     @property
     @contextmanager
@@ -50,8 +53,8 @@ class BlockingClient(object):
 
 class AsyncClient(object):
     """The ``AsyncClient`` class is a wrapper for ``AsyncPool``, ``BatchQuery``
-     and ``QueryChain``. It also provides the ``execute`` and ``callproc``
-     functions.
+     ``TransactionChain'' and ``QueryChain``. It also provides the ``execute``
+     and ``callproc`` functions.
 
     :param settings: A dictionary that is passed to the ``AsyncPool`` object.
     """
@@ -85,7 +88,33 @@ class AsyncClient(object):
 
         .. _connection.cursor: http://initd.org/psycopg/docs/connection.html#connection.cursor
         """
-        return BatchQuery(self, queries, callback)
+        return BatchQuery(self, queries, callback, cursor_kwargs)
+
+    def transaction(self, statements, callback=None, cursor_kwargs={}):
+        """Run a chain of statements in the given order using a single connection.
+        The statements will be wrapped between a "begin;" and a "commit;". The
+        connection will be unavailable while the chain is running.
+
+        A list/tuple with statements looks like this::
+
+            (
+                ['SELECT 42, 12, %s, 11;', (23,)],
+                'SELECT 1, 2, 3, 4, 5;'
+            )
+
+        A statement with parameters is contained in a list: ``['some sql
+        here %s, %s', ('and some', 'parameters here')]``. A statement
+        without parameters doesn't need to be in a list.
+
+        :param statements: A tuple or list with all the statements.
+        :param callback: The function that needs to be executed once all the
+                         queries are finished. Optional.
+        :param cursor_kwargs: A dictionary with Psycopg's `connection.cursor`_ arguments.
+        :return: A list with the resulting cursors.
+
+        .. _connection.cursor: http://initd.org/psycopg/docs/connection.html#connection.cursor
+        """
+        return TransactionChain(self, statements, callback, cursor_kwargs)
 
     def chain(self, queries, callback=None, cursor_kwargs={}):
         """Run a chain of queries in the given order.
@@ -97,9 +126,9 @@ class AsyncClient(object):
                 'SELECT 1, 2, 3, 4, 5;'
             )
 
-        A query with paramaters is contained in a list: ``['some sql
-        here %s, %s', ('and some', 'paramaters here')]``. A query
-        without paramaters doesn't need to be in a list.
+        A query with parameters is contained in a list: ``['some sql
+        here %s, %s', ('and some', 'parameters here')]``. A query
+        without parameters doesn't need to be in a list.
 
         :param queries: A tuple or list with all the queries.
         :param callback: The function that needs to be executed once all the
@@ -109,9 +138,9 @@ class AsyncClient(object):
 
         .. _connection.cursor: http://initd.org/psycopg/docs/connection.html#connection.cursor
         """
-        return QueryChain(self, queries, callback)
+        return QueryChain(self, queries, callback, cursor_kwargs)
 
-    def execute(self, operation, parameters=(), callback=None, cursor_kwargs={}):
+    def execute(self, operation, parameters=(), callback=None, cursor_kwargs={}, connection = None):
         """Prepare and execute a database operation (query or command).
 
         Parameters may be provided as sequence or mapping and will be bound to
@@ -130,7 +159,10 @@ class AsyncClient(object):
 
         .. _connection.cursor: http://initd.org/psycopg/docs/connection.html#connection.cursor
         """
-        self._pool.new_cursor('execute', (operation, parameters), callback, cursor_kwargs)
+        if connection:
+            self._pool.new_cursor('execute', (operation, parameters), callback, cursor_kwargs, connection, transaction=True)
+        else:
+            self._pool.new_cursor('execute', (operation, parameters), callback, cursor_kwargs)
 
     def callproc(self, procname, parameters=None, callback=None, cursor_kwargs={}):
         """Call a stored database procedure with the given name.
