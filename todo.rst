@@ -33,8 +33,9 @@ rollback.
 
 Transactions are possible with the ``BEGIN``, ``COMMIT`` and ``ROLLBACK`` SQL
 commands and Tornado gen module makes it easier to run SQL queries sequentially.
+The sequence of queries also need to use the same connection.
 
-Would a small wrapper for convenience be worth adding?
+A wrapper needs to be made for this.
 
 
 COPY TO and COPY FROM
