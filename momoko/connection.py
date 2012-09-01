@@ -308,9 +308,9 @@ class Connection(object):
     def closed(self):
         """
         Read-only attribute reporting whether the database connection is
-        open (0) or closed (1).
+        open (`False`) or closed (`True`).
         """
-        return self._connection.closed
+        return self._connection.closed == 1
 
     def isexecuting(self):
         """
