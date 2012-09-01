@@ -44,6 +44,7 @@ MIT, see LICENSE for more details.
 # 6. Investigate txpostgres and psytornet
 # 7. Investigate and try making an asynchronous ORM suitable for callback based database drivers
 
+
 from functools import partial
 
 from tornado import gen
@@ -110,7 +111,7 @@ class ConnectionPool(object):
         if len(self._pool) > self._maxconn:
             raise PoolError('connection pool exausted')
 
-        connection = Connection(self._ioloop)
+        connection = Connection(ioloop=self._ioloop)
         if callback is not None:
             callbacks = [
                 partial(callback, connection),
@@ -214,15 +215,53 @@ class Connection(object):
     """
     Asynchronous connection class that wraps a Psycopg2 connection.
 
+    If both `channel` and `notify_callback` are set the connection is going to
+    listen to the specified channel and `notify_callback` will be executed.
+    An instance of [Notify][1] will be passed to the callback.
+
+    - **channel** -- The name of the channel that the connection listens to.
+    - **notify_callback** --
+        A callable that is called when a notification is received.
     - **ioloop** -- An instance of Tornado's IOLoop.
+
+    [1]: http://initd.org/psycopg/docs/extensions.html#psycopg2.extensions.Notify
     """
-    def __init__(self, ioloop=None):
+    def __init__(self, channel=None, notify_callback=None, ioloop=None):
         self._connection = None
         self._fileno = None
         self._ioloop = ioloop
         self._callbacks = []
 
-    def open(self, dsn, connection_factory=None, callbacks=()):
+        if channel and notify_callback:
+            if not channel.isidentifier():
+                raise ValueError(
+                    'A channel name can only contain the uppercase and '
+                    'lowercase letters A through Z, the underscore _ and, '
+                    'except for the first character, the digits 0 through 9.')
+
+            if notify_callback and not callable(notify_callback):
+                raise TypeError('notify_callback must be callable!')
+
+        self._channel = channel
+        self._notify_callback = notify_callback
+
+    def _io_callback(self, fd, events):
+        try:
+            error = None
+            state = self._connection.poll()
+        except (psycopg2.Warning, psycopg2.Error) as e:
+            error = e
+            state = psycopg2.extensions.POLL_OK
+
+        if state == psycopg2.extensions.POLL_OK:
+            for callback in self._callbacks:
+                callback(error)
+        elif state == psycopg2.extensions.POLL_READ:
+            self._ioloop.update_handler(self._fileno, IOLoop.READ)
+        elif state == psycopg2.extensions.POLL_WRITE:
+            self._ioloop.update_handler(self._fileno, IOLoop.WRITE)
+
+    def open(self, dsn, connection_factory=None, callbacks=[]):
         """
         Open an asynchronous connection.
 
@@ -255,24 +294,23 @@ class Connection(object):
         self._fileno = self._connection.fileno()
         self._callbacks = callbacks
 
+        if self._channel and self._notify_callback:
+            self._callbacks.append(self._setup_notify)
+
         # Connection state should be 2 (write)
         self._ioloop.add_handler(self._fileno, self._io_callback, IOLoop.WRITE)
 
-    def _io_callback(self, fd, events):
-        try:
-            error = None
-            state = self._connection.poll()
-        except (psycopg2.Warning, psycopg2.Error) as e:
-            error = e
-            state = psycopg2.extensions.POLL_OK
+    def _setup_notify(self, error):
+        cursor = self.cursor()
+        cursor.execute('LISTEN {0};'.format(self._channel))
+        self.set_callbacks(partial(self._poll_notify))
 
-        if state == psycopg2.extensions.POLL_OK:
-            for callback in self._callbacks:
-                callback(error)
-        elif state == psycopg2.extensions.POLL_READ:
-            self._ioloop.update_handler(self._fileno, IOLoop.READ)
-        elif state == psycopg2.extensions.POLL_WRITE:
-            self._ioloop.update_handler(self._fileno, IOLoop.WRITE)
+    def _poll_notify(self, error):
+        while self._connection.notifies:
+            notify = self._connection.notifies.pop()
+            self._notify_callback(notify)
+
+        self.set_callbacks(partial(self._poll_notify))
 
     def close(self):
         """

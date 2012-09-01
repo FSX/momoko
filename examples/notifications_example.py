@@ -2,23 +2,11 @@
 
 import momoko
 import settings
-from tornado import gen
 from tornado.ioloop import IOLoop
-from functools import partial
 
 
-def connection_opened(connection, error):
-    cursor = connection.cursor()
-    cursor.execute('LISTEN test;')
-    connection.set_callbacks(partial(poll_callback, connection))
-
-
-def poll_callback(connection, error):
-    while connection._connection.notifies:
-        notify = connection._connection.notifies.pop()
-        print('Got NOTIFY:', notify.pid, notify.channel, notify.payload)
-
-    connection.set_callbacks(partial(poll_callback, connection))
+def notify_callback(notify):
+    print(notify)
 
 
 def main():
@@ -31,9 +19,8 @@ def main():
             settings.port
         )
 
-        connection = momoko.Connection(IOLoop.instance())
-        connection.open(dsn=dsn, callbacks=(
-            partial(connection_opened, connection),))
+        connection = momoko.Connection('test', notify_callback, IOLoop.instance())
+        connection.open(dsn=dsn)
 
         IOLoop.instance().start()
     except KeyboardInterrupt:
