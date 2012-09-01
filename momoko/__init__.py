@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
 """
-    momoko
-    ~~~~~~
+momoko
+======
 
-    Asynchronous Psycopg wrapper for Tornado.
+Asynchronous Psycopg wrapper for Tornado.
 
-    :copyright: (c) 2011-2012 by Frank Smit.
-    :license: MIT, see LICENSE for more details.
+Copyright 2011-2012 by Frank Smit.
+MIT, see LICENSE for more details.
 """
 
 import psycopg2
@@ -22,6 +22,6 @@ try:
 except AttributeError:
     import warnings
     warnings.warn(RuntimeWarning(
-            'psycopg2 does not have async support. '
-            'You need at least version 2.2.0 of psycopg2 '
-            'to use Momoko.'))
+        'psycopg2 does not have async support. '
+        'You need at least version 2.2.0 of psycopg2 '
+        'to use Momoko.'))

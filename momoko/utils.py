@@ -1,13 +1,14 @@
 # -*- coding: utf-8 -*-
 """
-    momoko.utils
-    ~~~~~~~~~~~~
+momoko.utils
+============
 
-    Extra functionality.
+Extra functionality.
 
-    :copyright: (c) 2011-2012 by Frank Smit.
-    :license: MIT, see LICENSE for more details.
+Copyright 2011-2012 by Frank Smit.
+MIT, see LICENSE for more details.
 """
+
 
 import sys
 from tornado import gen

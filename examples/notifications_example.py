@@ -2,6 +2,7 @@
 
 import momoko
 import settings
+from tornado import gen
 from tornado.ioloop import IOLoop
 from functools import partial
 
@@ -9,10 +10,6 @@ from functools import partial
 def connection_opened(connection, error):
     cursor = connection.cursor()
     cursor.execute('LISTEN test;')
-    connection.set_callbacks(partial(query_callback, connection, cursor))
-
-
-def query_callback(connection, cursor, error):
     connection.set_callbacks(partial(poll_callback, connection))
 
 

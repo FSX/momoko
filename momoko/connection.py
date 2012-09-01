@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
 """
-    momoko.connection
-    ~~~~~~~~~~~~~~~~~
+momoko.connection
+=================
 
-    Connection handling.
+Connection handling.
 
-    :copyright: (c) 2011-2012 by Frank Smit.
-    :license: MIT, see LICENSE for more details.
+Copyright 2011-2012 by Frank Smit.
+MIT, see LICENSE for more details.
 """
 
 # Information
@@ -61,25 +61,30 @@ def _dummy_callback(cursor, error):
 
 
 class BConnectionPool(object):
-    """Blocking connection pool acting as a single connection.
+    """
+    Blocking connection pool acting as a single connection.
     """
     pass
 
 
 class ConnectionPool(object):
-    """Asynchronous connection pool acting as a single connection.
+    """
+    Asynchronous connection pool acting as a single connection.
 
-    ``dsn`` and ``connection_factory`` are passed to :py:class:`momoko.connection.Connection`
-    when a new connection is created. :py:class:`~momoko.connection.Connection`
-    also contains the documentation about these two parameters.
+    `dsn` and `connection_factory` are passed to `momoko.connection.Connection`
+    when a new connection is created. It also contains the documentation about
+    these two parameters.
 
-    :param minconn: Amount of connection created upon initialization.
-    :param maxconn: Maximum amount of connections supported by the pool.
-    :param cleanup_timeout:
-        Time in seconds between pool cleanups. Unused connections are closed and
-        removed from the pool until only ``minconn`` are left. When an integer
-        below ``1`` is used the pool cleaner will be disabled.
-    :param ioloop: An instance of Tornado's IOLoop.
+    - **minconn** --
+        Amount of connection created upon initialization.
+    - **maxconn** --
+        Maximum amount of connections supported by the pool.
+    - **cleanup_timeout** --
+        Time in seconds between pool cleanups. Unused connections
+        are closed and removed from the pool until only `minconn` are left. When
+        an integer below `1` is used the pool cleaner will be disabled.
+    - **ioloop** --
+        An instance of Tornado's IOLoop.
     """
     def __init__(self, dsn, connection_factory=None, minconn=1, maxconn=5,
                  cleanup_timeout=10, ioloop=None):
@@ -117,7 +122,8 @@ class ConnectionPool(object):
 
     @gen.engine
     def _get_connection(self, callback):
-        """Look for a free connection and create a new connection when
+        """
+        Look for a free connection and create a new connection when
         no free connection is available.
         """
         if self.closed:
@@ -135,7 +141,8 @@ class ConnectionPool(object):
         callback(free_connection)
 
     def _clean_pool(self):
-        """Close a number of inactive connections when the number of connections
+        """
+        Close a number of inactive connections when the number of connections
         in the pool exceeds the number in `min_conn`.
         """
         if self.closed:
@@ -204,9 +211,10 @@ class ConnectionPool(object):
 
 
 class Connection(object):
-    """Asynchronous connection class that wraps a Psycopg2 connection.
+    """
+    Asynchronous connection class that wraps a Psycopg2 connection.
 
-    :param ioloop: An instance of Tornado's IOLoop.
+    - **ioloop** -- An instance of Tornado's IOLoop.
     """
     def __init__(self, ioloop=None):
         self._connection = None
@@ -215,31 +223,33 @@ class Connection(object):
         self._callbacks = []
 
     def open(self, dsn, connection_factory=None, callbacks=()):
-        """Open an asynchronous connection.
+        """
+        Open an asynchronous connection.
 
-        :param dsn:
-            A `Data Source Name`_ string containing one of the collowing values:
+        - **dsn** --
+            A [Data Source Name][1] string containing one of the collowing values:
 
-            * **dbname** - the database name
-            * **user** - user name used to authenticate
-            * **password** - password used to authenticate
-            * **host** - database host address (defaults to UNIX socket if not provided)
-            * **port** - connection port number (defaults to 5432 if not provided)
+            + **dbname** - the database name
+            + **user** - user name used to authenticate
+            + **password** - password used to authenticate
+            + **host** - database host address (defaults to UNIX socket if not provided)
+            + **port** - connection port number (defaults to 5432 if not provided)
 
             Or any other parameter supported by PostgreSQL. See the PostgreSQL
-            documentation for a complete list of supported parameters_.
+            documentation for a complete list of supported [parameters][2].
 
-        :param connection_factory:
-            The ``connection_factory`` argument can be used to create non-standard
+        - **connection_factory** --
+            The `connection_factory` argument can be used to create non-standard
             connections. The class returned should be a subclass of
-            `psycopg2.extensions.connection`_.
-        :param callbacks:
-            Sequence of callables. These are executed after the connection
-            has been established.
+            [psycopg2.extensions.connection][3].
 
-        .. _Data Source Name: http://en.wikipedia.org/wiki/Data_Source_Name
-        .. _parameters: http://www.postgresql.org/docs/current/static/libpq-connect.html#LIBPQ-PQCONNECTDBPARAMS
-        .. _psycopg2.extensions.connection: http://initd.org/psycopg/docs/connection.html#connection
+        - **callbacks** --
+            Sequence of callables. These are executed after the connection has
+            been established.
+
+        [1]: http://en.wikipedia.org/wiki/Data_Source_Name
+        [2]: http://www.postgresql.org/docs/current/static/libpq-connect.html#LIBPQ-PQCONNECTDBPARAMS
+        [3]: http://initd.org/psycopg/docs/connection.html#connection
         """
         self._connection = psycopg2.connect(dsn, connection_factory, async=1)
         self._fileno = self._connection.fileno()
@@ -265,26 +275,28 @@ class Connection(object):
             self._ioloop.update_handler(self._fileno, IOLoop.WRITE)
 
     def close(self):
-        """Close asynchronous connection.
+        """
+        Close asynchronous connection.
         """
         self._ioloop.remove_handler(self._fileno)
         self._connection.close()
 
     def cursor(self, cursor_factory=None):
-        """Return a new Psycopg2 cursor object.
+        """
+        Return a new Psycopg2 cursor object.
 
-        :param cursor_factory:
-            The ``cursor_factory`` argument can be used to create non-standard cursors.
-            The class returned should be a subclass of `psycopg2.extensions.cursor`_.
-        :return: A Psycopg2 cursor object.
+        - **cursor_factory** --
+            The `cursor_factory` argument can be used to create non-standard cursors.
+            The class returned should be a subclass of [psycopg2.extensions.cursor][1].
 
-        .. _psycopg2.extensions.cursor: http://initd.org/psycopg/docs/extensions.html#psycopg2.extensions.cursor
+        [1]: http://initd.org/psycopg/docs/extensions.html#psycopg2.extensions.cursor
         """
         cursor_factory = cursor_factory or psycopg2.extensions.cursor
         return self._connection.cursor(cursor_factory=cursor_factory)
 
     def set_callbacks(self, *callbacks):
-        """Set callbacks that need to be executed after the execution of a database
+        """
+        Set callbacks that need to be executed after the execution of a database
         operation using previously aquired cursor.
         """
         self._callbacks = callbacks
@@ -294,12 +306,14 @@ class Connection(object):
 
     @property
     def closed(self):
-        """Read-only attribute reporting whether the database connection is
+        """
+        Read-only attribute reporting whether the database connection is
         open (0) or closed (1).
         """
         return self._connection.closed
 
     def isexecuting(self):
-        """Return True if the connection is executing an asynchronous operation.
+        """
+        Return `True` if the connection is executing an asynchronous operation.
         """
         return self._connection.isexecuting()
