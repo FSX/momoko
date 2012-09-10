@@ -290,7 +290,10 @@ class Connection(object):
         [2]: http://www.postgresql.org/docs/current/static/libpq-connect.html#LIBPQ-PQCONNECTDBPARAMS
         [3]: http://initd.org/psycopg/docs/connection.html#connection
         """
-        self._connection = psycopg2.connect(dsn, connection_factory, async=1)
+        args = []
+        if not connection_factory is None:
+          args.append(connection_factory)
+        self._connection = psycopg2.connect(dsn, *args, async=1)
         self._fileno = self._connection.fileno()
         self._callbacks = callbacks
 
