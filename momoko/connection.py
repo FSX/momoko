@@ -231,6 +231,7 @@ class Connection(object):
         self._fileno = None
         self._ioloop = ioloop
         self._callbacks = []
+        self.isexecuting = lambda: False
 
         if channel and notify_callback:
             if not channel.isidentifier():
@@ -294,6 +295,8 @@ class Connection(object):
         if not connection_factory is None:
           args.append(connection_factory)
         self._connection = psycopg2.connect(dsn, *args, async=1)
+
+        self.isexecuting = self._connection.isexecuting
         self._fileno = self._connection.fileno()
         self._callbacks = callbacks
 
@@ -352,9 +355,3 @@ class Connection(object):
         open (`False`) or closed (`True`).
         """
         return self._connection.closed == 1
-
-    def isexecuting(self):
-        """
-        Return `True` if the connection is executing an asynchronous operation.
-        """
-        return self._connection.isexecuting()
