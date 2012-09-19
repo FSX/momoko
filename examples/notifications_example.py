@@ -19,7 +19,7 @@ def main():
             settings.port
         )
 
-        connection = momoko.Connection('test', notify_callback, IOLoop.instance())
+        connection = momoko.Connection('test', notify_callback)
         connection.open(dsn=dsn)
 
         IOLoop.instance().start()

@@ -229,7 +229,7 @@ class Connection(object):
     def __init__(self, channel=None, notify_callback=None, ioloop=None):
         self._connection = None
         self._fileno = None
-        self._ioloop = ioloop
+        self._ioloop = ioloop or IOLoop.instance()
         self._callbacks = []
         self.isexecuting = lambda: False
 
