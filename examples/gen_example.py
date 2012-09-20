@@ -42,6 +42,8 @@ class SingleQueryHandler(BaseHandler):
         try:
             cursor1 = yield momoko.Op(self.db.execute, 'SELECT 55, 18, %s, 231;', (87,))
             self.write('Query results: %s<br>' % cursor1.fetchall())
+            cursor2 = yield momoko.Op(self.db.mogrify, 'SELECT 55, 18, %s, 231;', (87,))
+            self.write('Mogrify results: %s<br>' % cursor2)
         except Exception as error:
             self.write(error)
 

@@ -46,6 +46,7 @@ MIT, see LICENSE for more details.
 
 
 from functools import partial
+from collections import deque
 
 from tornado import gen
 from tornado.ioloop import IOLoop, PeriodicCallback
@@ -121,11 +122,9 @@ class ConnectionPool(object):
 
         connection.open(self._dsn, self._connection_factory, callbacks)
 
-    @gen.engine
-    def _get_connection(self, callback):
+    def _get_connection(self):
         """
-        Look for a free connection and create a new connection when
-        no free connection is available.
+        Look for a free connection.
         """
         if self.closed:
             raise PoolError('connection pool is closed')
@@ -136,10 +135,7 @@ class ConnectionPool(object):
                 free_connection = connection
                 break
 
-        if free_connection is None:
-            free_connection = yield Op(self._new_connection)
-
-        callback(free_connection)
+        return free_connection
 
     def _clean_pool(self):
         """
@@ -152,51 +148,64 @@ class ConnectionPool(object):
         pool_len = len(self._pool)
         if pool_len > self._minconn:
             overflow = pool_len - self._minconn
-            for i in self._pool[:]:
-                if not i.isexecuting():
-                    i.close()
-                    overflow -= 1
-                    self._pool.remove(i)
-                    if overflow == 0:
-                        break
-
-    @gen.engine
-    def _do_op(self, name, operation, parameters=(), cursor_factory=None,
-               callback=_dummy_callback, retries=5):
-
-        connection = yield gen.Task(self._get_connection)
-        cursor = connection.cursor(cursor_factory)
-        op = getattr(cursor, name)
-
-        try:
-            op(operation, parameters)
-        except (psycopg2.Warning, psycopg2.Error) as e:
-            if retries == 0:
-                raise e
-            if connection in self._pool:
-                self._pool.remove(connection)
-            self._ioloop.add_callback(partial(self._do_op, name, operation,
-                parameters, cursor_factory, callback, retries-1))
-            return
-
-        connection.set_callbacks(partial(callback, cursor))
+            to_be_removed = [i for i in self._pool if not i.isexecuting()]
+            for i in to_be_removed[:overflow]:
+                self._pool.remove(i)
+                i.close()
 
     def execute(self, operation, parameters=(), cursor_factory=None,
-                callback=_dummy_callback, retries=5):
-        self._do_op('execute', operation, parameters, cursor_factory,
-            callback, retries)
+                callback=_dummy_callback, retries=5, connection=None, error=None):
+        connection = connection or self._get_connection()
+        if connection is None:
+            self._new_connection(partial(self.execute, operation,
+                parameters, cursor_factory, callback, retries))
+            return
+
+        try:
+            connection.execute(operation, parameters, cursor_factory, callback)
+        except (psycopg2.Warning, psycopg2.Error) as e:
+            print('Connection lost:', type(e), e.pgcode, e.pgerror)
+            if retries == 0:
+                raise e
+            self._pool.remove(connection)
+            self._ioloop.add_callback(partial(self.execute, operation,
+                parameters, cursor_factory, callback, retries-1))
 
     def callproc(self, procname, parameters=(), cursor_factory=None,
-                callback=_dummy_callback, retries=5):
-        self._do_op('callproc', procname, parameters, cursor_factory,
-            callback, retries)
+                callback=_dummy_callback, retries=5, connection=None, error=None):
+        connection = connection or self._get_connection()
+        if connection is None:
+            self._new_connection(partial(self.callproc, operation,
+                parameters, cursor_factory, callback, retries))
+            return
 
-    @gen.engine
-    def mogrify(self, operation, parameters=(), callback=_dummy_callback):
-        connection = yield gen.Task(self._get_connection)
-        cursor = connection.cursor()
-        result = cursor.mogrify(operation, parameters)
-        self._ioloop.add_callback(partial(callback, result, None))
+        try:
+            connection.callproc(procname, parameters, cursor_factory, callback)
+        except (psycopg2.Warning, psycopg2.Error) as e:
+            print('Connection lost:', type(e), e.pgcode, e.pgerror)
+            if retries == 0:
+                raise e
+            self._pool.remove(connection)
+            self._ioloop.add_callback(partial(self.callproc, operation,
+                parameters, cursor_factory, callback, retries-1))
+
+    def mogrify(self, operation, parameters=(), callback=_dummy_callback,
+                retries=5, connection=None, error=None):
+        connection = connection or self._get_connection()
+        if connection is None:
+            self._new_connection(partial(self.mogrify, operation, parameters,
+                callback, retries))
+            return
+
+        try:
+            connection.mogrify(operation, parameters, callback)
+        except (psycopg2.Warning, psycopg2.Error) as e:
+            print('Connection lost:', type(e), e.pgcode, e.pgerror)
+            if retries == 0:
+                raise e
+            self._pool.remove(connection)
+            self._ioloop.add_callback(partial(self.mogrify, operation,
+                parameters, callback, retries-1))
 
     def close(self):
         if self.closed:
@@ -231,6 +240,7 @@ class Connection(object):
         self._fileno = None
         self._ioloop = ioloop or IOLoop.instance()
         self._callbacks = []
+
         self.isexecuting = lambda: False
 
         if channel and notify_callback:
@@ -303,20 +313,20 @@ class Connection(object):
         if self._channel and self._notify_callback:
             self._callbacks.append(self._setup_notify)
 
-        # Connection state should be 2 (write)
+        # Set connection state (state should be 2 (write))
         self._ioloop.add_handler(self._fileno, self._io_callback, IOLoop.WRITE)
 
     def _setup_notify(self, error):
-        cursor = self.cursor()
-        cursor.execute('LISTEN {0};'.format(self._channel))
-        self.set_callbacks(partial(self._poll_notify))
+        self.execute('LISTEN {0};'.format(self._channel), callback=partial(self._poll_notify))
 
-    def _poll_notify(self, error):
+    def _poll_notify(self, cursor, error):
         while self._connection.notifies:
             notify = self._connection.notifies.pop()
             self._notify_callback(notify)
 
-        self.set_callbacks(partial(self._poll_notify))
+        # Set callback and connection state (state should be 1 (read))
+        self._callbacks = [partial(self._poll_notify, cursor)]
+        self._ioloop.update_handler(self._fileno, IOLoop.READ)
 
     def close(self):
         """
@@ -325,28 +335,30 @@ class Connection(object):
         self._ioloop.remove_handler(self._fileno)
         self._connection.close()
 
-    def cursor(self, cursor_factory=None):
-        """
-        Return a new Psycopg2 cursor object.
+    def execute(self, operation, parameters=(), cursor_factory=None,
+                callback=_dummy_callback):
+        cursor = self._connection.cursor(cursor_factory=
+            cursor_factory or psycopg2.extensions.cursor)
+        cursor.execute(operation, parameters)
 
-        - **cursor_factory** --
-            The `cursor_factory` argument can be used to create non-standard cursors.
-            The class returned should be a subclass of [psycopg2.extensions.cursor][1].
-
-        [1]: http://initd.org/psycopg/docs/extensions.html#psycopg2.extensions.cursor
-        """
-        cursor_factory = cursor_factory or psycopg2.extensions.cursor
-        return self._connection.cursor(cursor_factory=cursor_factory)
-
-    def set_callbacks(self, *callbacks):
-        """
-        Set callbacks that need to be executed after the execution of a database
-        operation using previously aquired cursor.
-        """
-        self._callbacks = callbacks
-
-        # Connection state should be 1 (read)
+        # Set callback and connection state (state should be 1 (read))
+        self._callbacks = [partial(callback, cursor)]
         self._ioloop.update_handler(self._fileno, IOLoop.READ)
+
+    def callproc(self, procname, parameters=(), cursor_factory=None,
+                callback=_dummy_callback):
+        cursor = self._connection.cursor(cursor_factory=
+            cursor_factory or psycopg2.extensions.cursor)
+        cursor.callproc(procname, parameters)
+
+        # Set callback and connection state (state should be 1 (read))
+        self._callbacks = [partial(callback, cursor)]
+        self._ioloop.update_handler(self._fileno, IOLoop.READ)
+
+    def mogrify(self, operation, parameters=(), callback=_dummy_callback):
+        cursor = self._connection.cursor()
+        result = cursor.mogrify(operation, parameters)
+        self._ioloop.add_callback(partial(callback, result, None))
 
     @property
     def closed(self):
