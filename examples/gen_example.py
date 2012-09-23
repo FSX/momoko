@@ -7,6 +7,9 @@ This example uses Tornado's gen_.
 """
 
 
+import string
+import random
+
 import tornado.httpserver
 import tornado.ioloop
 import tornado.options
@@ -28,6 +31,7 @@ class OverviewHandler(BaseHandler):
         self.write('''
 <ul>
     <li><a href="/query">A single query</a></li>
+    <li><a href="/large">A large single query</a></li>
     <li><a href="/multi_query">Multiple queries executed with gen.Task</a></li>
     <li><a href="/callback_and_wait">Multiple queries executed with gen.Callback and gen.Wait</a></li>
 </ul>
@@ -42,47 +46,33 @@ class SingleQueryHandler(BaseHandler):
         try:
             cursor1 = yield momoko.Op(self.db.execute, 'SELECT 55, 18, %s, 231;', (87,))
             self.write('Query results: %s<br>' % cursor1.fetchall())
-            cursor2 = yield momoko.Op(self.db.mogrify, 'SELECT 55, 18, %s, 231;', (87,))
-            self.write('Mogrify results: %s<br>' % cursor2)
+            # cursor2 = yield momoko.Op(self.db.mogrify, 'SELECT 55, 18, %s, 231;', (87,))
+            # self.write('Mogrify results: %s<br>' % cursor2)
         except Exception as error:
             self.write(error)
 
         self.finish()
 
-    # @tornado.web.asynchronous
-    # @gen.engine
-    # def get(self):
-    #     try:
-    #         sql = yield momoko.Op(self.db.mogrify, 'SELECT 55, 18, %s, 231;', (87,))
-    #         self.write('SQL: %s<br>' % sql)
-    #     except Exception as error:
-    #         self.write(error)
 
-    #     self.finish()
+QUERY_SIZE = 60000
+CHARS = string.ascii_letters + string.digits + string.punctuation
 
-    # @tornado.web.asynchronous
-    # @gen.engine
-    # def get(self):
-    #     try:
-    #         cursor1 = yield momoko.Op(self.db.callproc, 'insert_location', ('test_location_momoko',))
-    #         self.write('Query results: %s<br>' % cursor1.fetchall())
-    #     except Exception as error:
-    #         self.write(str(error))
 
-    #     self.finish()
+class LargeSingleQueryHandler(BaseHandler):
+    @tornado.web.asynchronous
+    @gen.engine
+    def get(self):
+        to_be_inserted = ''.join( [random.choice(CHARS) for i in range(QUERY_SIZE)])
 
-    # @tornado.web.asynchronous
-    # def get(self):
-    #     self.db.execute('SELECT 42, 12, %s, 11;', (25,), callback=self._done)
-    #     # self.db.execute('SELECT X;', callback=self._done)
+        try:
+            cursor1 = yield momoko.Op(self.db.execute, 'INSERT INTO test_table (data) VALUES (%s) RETURNING id;',
+                (to_be_inserted,))
+            self.write('Status: {0}<br>'.format(cursor1.statusmessage))
+            self.write('Results: {0}<br>'.format(cursor1.fetchall()))
+        except Exception as error:
+            self.write(error)
 
-    # def _done(self, cursor, error):
-    #     if error is None:
-    #         self.write('Query results: %s' % cursor.fetchall())
-    #     else:
-    #         self.write('Error: %r' % error)
-
-    #     self.finish()
+        self.finish()
 
 
 class MultiQueryHandler(BaseHandler):
@@ -133,6 +123,7 @@ def main():
         application = tornado.web.Application([
             (r'/', OverviewHandler),
             (r'/query', SingleQueryHandler),
+            (r'/large', LargeSingleQueryHandler),
             (r'/multi_query', MultiQueryHandler),
             (r'/callback_and_wait', CallbackWaitHandler),
         ], debug=True)

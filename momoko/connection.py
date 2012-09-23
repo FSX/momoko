@@ -313,7 +313,7 @@ class Connection(object):
         if self._channel and self._notify_callback:
             self._callbacks.append(self._setup_notify)
 
-        # Set connection state (state should be 2 (write))
+        # Set connection state
         self._ioloop.add_handler(self._fileno, self._io_callback, IOLoop.WRITE)
 
     def _setup_notify(self, error):
@@ -324,9 +324,9 @@ class Connection(object):
             notify = self._connection.notifies.pop()
             self._notify_callback(notify)
 
-        # Set callback and connection state (state should be 1 (read))
+        # Set callback and connection state
         self._callbacks = [partial(self._poll_notify, cursor)]
-        self._ioloop.update_handler(self._fileno, IOLoop.READ)
+        self._ioloop.update_handler(self._fileno, IOLoop.WRITE)
 
     def close(self):
         """
@@ -341,9 +341,9 @@ class Connection(object):
             cursor_factory or psycopg2.extensions.cursor)
         cursor.execute(operation, parameters)
 
-        # Set callback and connection state (state should be 1 (read))
+        # Set callback and connection state
         self._callbacks = [partial(callback, cursor)]
-        self._ioloop.update_handler(self._fileno, IOLoop.READ)
+        self._ioloop.update_handler(self._fileno, IOLoop.WRITE)
 
     def callproc(self, procname, parameters=(), cursor_factory=None,
                 callback=_dummy_callback):
@@ -351,9 +351,9 @@ class Connection(object):
             cursor_factory or psycopg2.extensions.cursor)
         cursor.callproc(procname, parameters)
 
-        # Set callback and connection state (state should be 1 (read))
+        # Set callback and connection state
         self._callbacks = [partial(callback, cursor)]
-        self._ioloop.update_handler(self._fileno, IOLoop.READ)
+        self._ioloop.update_handler(self._fileno, IOLoop.WRITE)
 
     def mogrify(self, operation, parameters=(), callback=_dummy_callback):
         cursor = self._connection.cursor()
