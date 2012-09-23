@@ -51,7 +51,7 @@ from collections import deque
 from tornado import gen
 from tornado.ioloop import IOLoop, PeriodicCallback
 
-from .utils import Op, psycopg2
+from .utils import Op, psycopg2, log
 from .exceptions import PoolError
 
 
@@ -164,7 +164,7 @@ class ConnectionPool(object):
         try:
             connection.execute(operation, parameters, cursor_factory, callback)
         except (psycopg2.Warning, psycopg2.Error) as e:
-            print('Connection lost:', type(e), e.pgcode, e.pgerror)
+            log.error('An error occurred: {0}'.format(e))
             if retries == 0:
                 raise e
             self._pool.remove(connection)
@@ -182,7 +182,7 @@ class ConnectionPool(object):
         try:
             connection.callproc(procname, parameters, cursor_factory, callback)
         except (psycopg2.Warning, psycopg2.Error) as e:
-            print('Connection lost:', type(e), e.pgcode, e.pgerror)
+            log.error('An error occurred: {0}'.format(e))
             if retries == 0:
                 raise e
             self._pool.remove(connection)
@@ -200,7 +200,7 @@ class ConnectionPool(object):
         try:
             connection.mogrify(operation, parameters, callback)
         except (psycopg2.Warning, psycopg2.Error) as e:
-            print('Connection lost:', type(e), e.pgcode, e.pgerror)
+            log.error('An error occurred: {0}'.format(e))
             if retries == 0:
                 raise e
             self._pool.remove(connection)

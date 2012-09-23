@@ -11,6 +11,7 @@ MIT, see LICENSE for more details.
 
 
 import sys
+import logging
 from tornado import gen
 
 
@@ -18,6 +19,9 @@ if sys.version_info[0] < 3:
     is_python_3k = False
 else:
     is_python_3k = True
+
+
+log = logging.getLogger('momoko')
 
 
 try:
