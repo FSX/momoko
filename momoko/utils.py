@@ -13,6 +13,7 @@ MIT, see LICENSE for more details.
 import sys
 import logging
 from tornado import gen
+from functools import partial
 
 
 if sys.version_info[0] < 3:
@@ -64,3 +65,32 @@ class WaitAllOps(gen.WaitAll):
                 results.append(result)
 
         return results
+
+
+def transaction(connection, statements, cursor_factory=None, callback=None):
+    statements = ['COMMIT;'] + list(reversed(statements)) + ['BEGIN;']
+    cursors = []
+
+    def error_callback(transaction_error, error):
+        callback(None, error or transaction_error)
+
+    def process(cursor=None, error=None):
+        if error:
+            return connection.execute('ROLLBACK;',
+                cursor_factory=cursor_factory,
+                callback=partial(error_cb, error_callback))
+        if cursor:
+            cursors.append(cursor)
+
+        if not statements:
+            return callback(cursors[1:-1], None)
+
+        statement = statements.pop()
+        if isinstance(statement, str):
+            statement = [statement]
+
+        connection.execute(*statement,
+            cursor_factory=cursor_factory,
+            callback=process)
+
+    process()

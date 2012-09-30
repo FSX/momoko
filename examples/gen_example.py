@@ -32,6 +32,7 @@ class OverviewHandler(BaseHandler):
 <ul>
     <li><a href="/query">A single query</a></li>
     <li><a href="/large">A large single query</a></li>
+    <li><a href="/transaction">A transaction</a></li>
     <li><a href="/multi_query">Multiple queries executed with gen.Task</a></li>
     <li><a href="/callback_and_wait">Multiple queries executed with gen.Callback and gen.Wait</a></li>
 </ul>
@@ -92,6 +93,25 @@ class MultiQueryHandler(BaseHandler):
         self.finish()
 
 
+class TransactionHandler(BaseHandler):
+    @tornado.web.asynchronous
+    @gen.engine
+    def get(self):
+        cursors = yield momoko.Op(self.db.transaction, (
+            'SELECT 42, 12, 22, 11;',
+            'SELECT 55, 22, 78, 13;',
+            'SELECT 34, 13, 12, 34;',
+            'SELECT 23, 12, 22, 23;',
+            'SELECT 42, 23, 22, 11;',
+            ('SELECT 49, %s, 23, 11;', ('STR',)),
+        ))
+
+        for i, cursor in enumerate(cursors):
+            self.write('Query %s results: %s<br>' % (i, cursor.fetchall()))
+
+        self.finish()
+
+
 class CallbackWaitHandler(BaseHandler):
     @tornado.web.asynchronous
     @gen.engine
@@ -124,6 +144,7 @@ def main():
             (r'/', OverviewHandler),
             (r'/query', SingleQueryHandler),
             (r'/large', LargeSingleQueryHandler),
+            (r'/transaction', TransactionHandler),
             (r'/multi_query', MultiQueryHandler),
             (r'/callback_and_wait', CallbackWaitHandler),
         ], debug=True)

@@ -51,8 +51,11 @@ from collections import deque
 from tornado import gen
 from tornado.ioloop import IOLoop, PeriodicCallback
 
-from .utils import Op, psycopg2, log
+from .utils import Op, psycopg2, log, transaction
 from .exceptions import PoolError
+
+
+TRANSACTION_STATUS_IDLE = psycopg2.extensions.TRANSACTION_STATUS_IDLE
 
 
 # The dummy callback is used to keep the asynchronous cursor alive in case no
@@ -131,7 +134,7 @@ class ConnectionPool(object):
 
         free_connection = None
         for connection in self._pool:
-            if not connection.isexecuting():
+            if not connection.busy:
                 free_connection = connection
                 break
 
@@ -148,10 +151,19 @@ class ConnectionPool(object):
         pool_len = len(self._pool)
         if pool_len > self._minconn:
             overflow = pool_len - self._minconn
-            to_be_removed = [i for i in self._pool if not i.isexecuting()]
+            to_be_removed = [i for i in self._pool if not i.busy]
             for i in to_be_removed[:overflow]:
                 self._pool.remove(i)
                 i.close()
+
+    def transaction(self, statements, cursor_factory=None, callback=None, connection=None, error=None):
+        connection = connection or self._get_connection()
+        if connection is None:
+            self._new_connection(partial(self.transaction, statements,
+                cursor_factory, callback))
+            return
+
+        transaction(connection, statements, cursor_factory, callback)
 
     def execute(self, operation, parameters=(), cursor_factory=None,
                 callback=_dummy_callback, retries=5, connection=None, error=None):
@@ -241,7 +253,8 @@ class Connection(object):
         self._ioloop = ioloop or IOLoop.instance()
         self._callbacks = []
 
-        self.isexecuting = lambda: False
+        # Shortcut for getting the transaction status
+        self._transaction_status = lambda: False
 
         if channel and notify_callback:
             if not channel.isidentifier():
@@ -306,7 +319,7 @@ class Connection(object):
           args.append(connection_factory)
         self._connection = psycopg2.connect(dsn, *args, async=1)
 
-        self.isexecuting = self._connection.isexecuting
+        self._transaction_status = self._connection.get_transaction_status
         self._fileno = self._connection.fileno()
         self._callbacks = callbacks
 
@@ -359,6 +372,11 @@ class Connection(object):
         cursor = self._connection.cursor()
         result = cursor.mogrify(operation, parameters)
         self._ioloop.add_callback(partial(callback, result, None))
+
+    @property
+    def busy(self):
+        return self._connection.isexecuting or \
+            self._transaction_status() != TRANSACTION_STATUS_IDLE
 
     @property
     def closed(self):
