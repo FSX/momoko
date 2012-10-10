@@ -375,7 +375,7 @@ class Connection(object):
 
     @property
     def busy(self):
-        return self._connection.isexecuting or \
+        return self._connection.isexecuting() or \
             self._transaction_status() != TRANSACTION_STATUS_IDLE
 
     @property
