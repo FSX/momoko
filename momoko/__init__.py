@@ -12,7 +12,7 @@ MIT, see LICENSE for more details.
 import psycopg2
 from psycopg2 import ProgrammingError
 
-from .connection import ConnectionPool, BConnectionPool, Connection
+from .connection import Pool, Connection
 from .exceptions import PoolError
 from .utils import Op, WaitOp, WaitAllOps
 

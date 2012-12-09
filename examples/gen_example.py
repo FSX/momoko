@@ -17,6 +17,9 @@ import tornado.web
 from tornado import gen
 
 import momoko
+from momoko.utils import psycopg2
+# from momoko.new_connection import Pool
+from momoko.connection import Pool
 import settings
 
 
@@ -45,12 +48,12 @@ class SingleQueryHandler(BaseHandler):
     @gen.engine
     def get(self):
         try:
-            cursor1 = yield momoko.Op(self.db.execute, 'SELECT 55, 18, %s, 231;', (87,))
+            cursor1 = yield momoko.Op(self.db.execute, 'SELECT COUNT(id) FROM test_table;')
             self.write('Query results: %s<br>' % cursor1.fetchall())
             # cursor2 = yield momoko.Op(self.db.mogrify, 'SELECT 55, 18, %s, 231;', (87,))
             # self.write('Mogrify results: %s<br>' % cursor2)
         except Exception as error:
-            self.write(error)
+            self.write(str(error))
 
         self.finish()
 
@@ -97,17 +100,21 @@ class TransactionHandler(BaseHandler):
     @tornado.web.asynchronous
     @gen.engine
     def get(self):
-        cursors = yield momoko.Op(self.db.transaction, (
-            'SELECT 42, 12, 22, 11;',
-            'SELECT 55, 22, 78, 13;',
-            'SELECT 34, 13, 12, 34;',
-            'SELECT 23, 12, 22, 23;',
-            'SELECT 42, 23, 22, 11;',
-            ('SELECT 49, %s, 23, 11;', ('STR',)),
-        ))
+        try:
+            cursors = yield momoko.Op(self.db.transaction, (
+                'SELECT 1, 12, 22, 11;',
+                'SELECT 55, 22, 78, 13;',
+                'SELECT 34, 13, 12, 34;',
+                'SELECT 23, 12, 22, 23;',
+                'SELECT 42, 23, 22, 11;',
+                ('SELECT 49, %s, 23, 11;', ('STR',)),
+            ))
 
-        for i, cursor in enumerate(cursors):
-            self.write('Query %s results: %s<br>' % (i, cursor.fetchall()))
+            for i, cursor in enumerate(cursors):
+                self.write('Query %s results: %s<br>' % (i, cursor.fetchall()))
+        except Exception as error:
+            self.write('Something went wrong!<br><br>')
+            self.write(str(error))
 
         self.finish()
 
@@ -157,7 +164,7 @@ def main():
             settings.port
         )
 
-        application.db = momoko.ConnectionPool(
+        application.db = Pool(
             dsn=dsn,
             minconn=settings.min_conn,
             maxconn=settings.max_conn,
