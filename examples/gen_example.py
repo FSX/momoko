@@ -33,6 +33,7 @@ class OverviewHandler(BaseHandler):
     def get(self):
         self.write('''
 <ul>
+    <li><a href="/mogrify">A mogrify~</a></li>
     <li><a href="/query">A single query</a></li>
     <li><a href="/large">A large single query</a></li>
     <li><a href="/transaction">A transaction</a></li>
@@ -40,6 +41,20 @@ class OverviewHandler(BaseHandler):
     <li><a href="/callback_and_wait">Multiple queries executed with gen.Callback and gen.Wait</a></li>
 </ul>
         ''')
+        self.finish()
+
+
+class MogrifyHandler(BaseHandler):
+    @tornado.web.asynchronous
+    @gen.engine
+    def get(self):
+        try:
+            sql = yield momoko.Op(self.db.mogrify,
+                'SELECT %s, %s, %s, %s, COUNT(id) FROM test_table;', (1, 2, 3, 4))
+            self.write('SQL: %s<br>' % sql)
+        except Exception as error:
+            self.write(str(error))
+
         self.finish()
 
 
@@ -149,6 +164,7 @@ def main():
         tornado.options.parse_command_line()
         application = tornado.web.Application([
             (r'/', OverviewHandler),
+            (r'/mogrify', MogrifyHandler),
             (r'/query', SingleQueryHandler),
             (r'/large', LargeSingleQueryHandler),
             (r'/transaction', TransactionHandler),

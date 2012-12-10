@@ -93,7 +93,7 @@ class Pool:
     def transaction(self,
         statements,
         cursor_factory=None,
-        callback=None,
+        callback=_dummy_callback,
         connection=None
     ):
         connection = connection or self._get_connection()
@@ -129,14 +129,19 @@ class Pool:
     ):
         pass
 
-    # TODO
     def mogrify(self,
         operation,
         parameters=(),
         callback=_dummy_callback,
         connection=None
     ):
-        pass
+        connection = connection or self._get_connection()
+        if connection:
+            connection.mogrify(operation, parameters, callback)
+            return
+
+        self.new(lambda connection: self.mogrify(operation, parameters,
+            callback, connection))
 
     def close(self):
         if self.closed:
@@ -199,6 +204,11 @@ class Connection:
         cursor.execute(operation, parameters)
         self.callback = partial(callback, cursor)
         self.ioloop.update_handler(self.fileno, IOLoop.WRITE)
+
+    def mogrify(self, operation, parameters=(), callback=_dummy_callback):
+        cursor = self.connection.cursor()
+        result = cursor.mogrify(operation, parameters)
+        self.ioloop.add_callback(partial(callback, result, None))
 
     def transaction(self,
         statements,
