@@ -119,7 +119,6 @@ class Pool:
         self.new(lambda connection: self.execute(operation, parameters,
             cursor_factory, callback, connection))
 
-    # TODO
     def callproc(self,
         procname,
         parameters=(),
@@ -127,7 +126,13 @@ class Pool:
         callback=_dummy_callback,
         connection=None
     ):
-        pass
+        connection = connection or self._get_connection()
+        if connection:
+            connection.callproc(procname, parameters, cursor_factory, callback)
+            return
+
+        self.new(lambda connection: self.callproc(procname, parameters,
+            cursor_factory, callback, connection))
 
     def mogrify(self,
         operation,
@@ -202,6 +207,17 @@ class Connection:
     ):
         cursor = self.connection.cursor(cursor_factory=cursor_factory or base_cursor)
         cursor.execute(operation, parameters)
+        self.callback = partial(callback, cursor)
+        self.ioloop.update_handler(self.fileno, IOLoop.WRITE)
+
+    def callproc(self,
+        operation,
+        parameters=(),
+        cursor_factory=None,
+        callback=_dummy_callback
+    ):
+        cursor = self.connection.cursor(cursor_factory=cursor_factory or base_cursor)
+        cursor.callproc(procname, parameters)
         self.callback = partial(callback, cursor)
         self.ioloop.update_handler(self.fileno, IOLoop.WRITE)
 
