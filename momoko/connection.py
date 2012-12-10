@@ -98,38 +98,7 @@ class Pool:
     ):
         connection = connection or self._get_connection()
         if connection:
-            cursors = []
-            queue = deque()
-
-            for statement in statements:
-                if isinstance(statement, str):
-                    queue.append((statement, ()))
-                else:
-                    queue.append(statement[:2])
-
-            queue.appendleft(('BEGIN;', ()))
-            queue.append(('COMMIT;', ()))
-
-            def exec_statement(cursor=None, error=None):
-                if error:
-                    connection.execute('ROLLBACK;',
-                        callback=partial(error_callback, error))
-                    return
-                if cursor:
-                    cursors.append(cursor)
-                if not queue:
-                    callback(cursors[1:-1], None)
-                    return
-
-                operation, parameters = queue.popleft()
-                connection.execute(operation, parameters, cursor_factory, exec_statement)
-
-            def error_callback(statement_error, cursor, rollback_error):
-                log.error('An error occurred, transacion has been rolled back: {0}'
-                    .format(rollback_error or statement_error))
-                callback(None, rollback_error or statement_error)
-
-            self._ioloop.add_callback(exec_statement)
+            connection.transaction(statements, cursor_factory, callback)
             return
 
         self.new(lambda connection: self.transaction(
@@ -203,6 +172,8 @@ class Connection:
         try:
             state = self.connection.poll()
         except (psycopg2.Warning, psycopg2.Error) as error:
+            # When a DatabaseError is raised it means that the connection has been
+            # closed and polling it would raise an exception from then IOLoop.
             if not isinstance(error, psycopg2.DatabaseError):
                 self.ioloop.update_handler(self.fileno, 0)
 
@@ -228,6 +199,44 @@ class Connection:
         cursor.execute(operation, parameters)
         self.callback = partial(callback, cursor)
         self.ioloop.update_handler(self.fileno, IOLoop.WRITE)
+
+    def transaction(self,
+        statements,
+        cursor_factory=None,
+        callback=_dummy_callback
+    ):
+        cursors = []
+        queue = deque()
+
+        for statement in statements:
+            if isinstance(statement, str):
+                queue.append((statement, ()))
+            else:
+                queue.append(statement[:2])
+
+        queue.appendleft(('BEGIN;', ()))
+        queue.append(('COMMIT;', ()))
+
+        def exec_statement(cursor=None, error=None):
+            if error:
+                self.execute('ROLLBACK;',
+                    callback=partial(error_callback, error))
+                return
+            if cursor:
+                cursors.append(cursor)
+            if not queue:
+                callback(cursors[1:-1], None)
+                return
+
+            operation, parameters = queue.popleft()
+            self.execute(operation, parameters, cursor_factory, exec_statement)
+
+        def error_callback(statement_error, cursor, rollback_error):
+            log.error('An error occurred, transacion has been rolled back: {0}'
+                .format(rollback_error or statement_error))
+            callback(None, rollback_error or statement_error)
+
+        self.ioloop.add_callback(exec_statement)
 
     def busy(self):
         return self.connection.isexecuting() or (self.connection.closed == 0 and
