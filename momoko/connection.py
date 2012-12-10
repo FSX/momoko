@@ -211,7 +211,7 @@ class Connection:
         self.ioloop.update_handler(self.fileno, IOLoop.WRITE)
 
     def callproc(self,
-        operation,
+        procname,
         parameters=(),
         cursor_factory=None,
         callback=_dummy_callback
