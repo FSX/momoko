@@ -86,9 +86,18 @@ class Pool:
             if not connection.busy():
                 return connection
 
-    # TODO
     def _clean_pool(self):
-        pass
+        if self.closed:
+            raise PoolError('connection pool is closed')
+        if len(self._pool) > self.minconn:
+            connection_count = len(self._pool) - self.minconn
+            for connection in self._pool[:]:
+                if not connection.busy():
+                    connection.close()
+                    connection_count -= 1
+                    self._pool.remove(connection)
+                    if not connection_count:
+                        break
 
     def transaction(self,
         statements,
