@@ -97,12 +97,11 @@ class Pool:
         connection=None
     ):
         connection = connection or self._get_connection()
-        if connection:
-            connection.transaction(statements, cursor_factory, callback)
-            return
+        if not connection:
+            return self.new(lambda connection: self.transaction(
+                statements, cursor_factory, callback, connection))
 
-        self.new(lambda connection: self.transaction(
-            statements, cursor_factory, callback, connection))
+        connection.transaction(statements, cursor_factory, callback)
 
     def execute(self,
         operation,
@@ -112,12 +111,11 @@ class Pool:
         connection=None
     ):
         connection = connection or self._get_connection()
-        if connection:
-            connection.execute(operation, parameters, cursor_factory, callback)
-            return
+        if not connection:
+            return self.new(lambda connection: self.execute(operation,
+                parameters, cursor_factory, callback, connection))
 
-        self.new(lambda connection: self.execute(operation, parameters,
-            cursor_factory, callback, connection))
+        connection.execute(operation, parameters, cursor_factory, callback)
 
     def callproc(self,
         procname,
@@ -127,12 +125,11 @@ class Pool:
         connection=None
     ):
         connection = connection or self._get_connection()
-        if connection:
-            connection.callproc(procname, parameters, cursor_factory, callback)
-            return
+        if not connection:
+            return self.new(lambda connection: self.callproc(procname,
+                parameters, cursor_factory, callback, connection))
 
-        self.new(lambda connection: self.callproc(procname, parameters,
-            cursor_factory, callback, connection))
+        connection.callproc(procname, parameters, cursor_factory, callback)
 
     def mogrify(self,
         operation,
@@ -141,12 +138,11 @@ class Pool:
         connection=None
     ):
         connection = connection or self._get_connection()
-        if connection:
-            connection.mogrify(operation, parameters, callback)
-            return
+        if not connection:
+            return self.new(lambda connection: self.mogrify(operation,
+                parameters, callback, connection))
 
-        self.new(lambda connection: self.mogrify(operation, parameters,
-            callback, connection))
+        connection.mogrify(operation, parameters, callback)
 
     def close(self):
         if self.closed:
