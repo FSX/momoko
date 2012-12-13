@@ -1,5 +1,15 @@
 #!/usr/bin/env python
 
+# The multiprocessingimport is to prevent the following error
+# after all the tests have been executed.
+# Error in atexit._run_exitfuncs:
+# TypeError: 'NoneType' object is not callable
+
+# From: http://article.gmane.org/gmane.comp.python.peak/2509
+# Work around setuptools bug
+# http://article.gmane.org/gmane.comp.python.peak/2509
+import multiprocessing
+
 try:
     from setuptools import setup, Extension, Command
 except ImportError:
@@ -16,6 +26,7 @@ setup(
     url='http://momoko.61924.nl/',
     packages=['momoko'],
     license='MIT',
+    test_suite = 'momoko.tests',
     install_requires=[
         'tornado',
         'psycopg2'
