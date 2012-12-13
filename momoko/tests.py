@@ -64,11 +64,11 @@ class MomokoTest(AsyncTestCase):
         self.wait()
 
         for n in range(10):
-            to_be_inserted = ''.join( [random.choice(chars) for i in range(query_size)])
-            self.db.execute('INSERT INTO unit_tests (data) VALUES (%s) RETURNING id;',
-                (to_be_inserted,), callback=self.stop_callback)
+            random_data = ''.join( [random.choice(chars) for i in range(query_size)])
+            self.db.execute('INSERT INTO unit_tests (data) VALUES (%s) RETURNING data;',
+                (random_data,), callback=self.stop_callback)
             cursor, error = self.wait()
-            self.assertEqual(cursor.fetchone(), (n+1,))
+            self.assertEqual(cursor.fetchone(), (random_data,))
 
         self.db.execute('SELECT COUNT(*) FROM unit_tests;', callback=self.stop_callback)
         cursor, error = self.wait()
