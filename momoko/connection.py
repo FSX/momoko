@@ -13,22 +13,15 @@ from functools import partial
 from contextlib import contextmanager
 from collections import deque, defaultdict
 
+import psycopg2
+from psycopg2.extensions import (connection as base_connection, cursor as base_cursor,
+    POLL_OK, POLL_READ, POLL_WRITE, POLL_ERROR, TRANSACTION_STATUS_IDLE)
+
 from tornado import gen
 from tornado.ioloop import IOLoop, PeriodicCallback
 
-from .utils import Op, psycopg2, log
+from .utils import Op
 from .exceptions import PoolError
-
-
-base_connection = psycopg2.extensions.connection
-base_cursor = psycopg2.extensions.cursor
-
-POLL_OK = psycopg2.extensions.POLL_OK
-POLL_READ = psycopg2.extensions.POLL_READ
-POLL_WRITE = psycopg2.extensions.POLL_WRITE
-POLL_ERROR = psycopg2.extensions.POLL_ERROR
-
-TRANSACTION_STATUS_IDLE = psycopg2.extensions.TRANSACTION_STATUS_IDLE
 
 
 # The dummy callback is used to keep the asynchronous cursor alive in case no
@@ -266,8 +259,6 @@ class Connection:
             self.execute(operation, parameters, cursor_factory, exec_statement)
 
         def error_callback(statement_error, cursor, rollback_error):
-            log.error('An error occurred, transacion has been rolled back: {0}'
-                .format(rollback_error or statement_error))
             callback(None, rollback_error or statement_error)
 
         self.ioloop.add_callback(exec_statement)

@@ -11,7 +11,6 @@ MIT, see LICENSE for more details.
 
 
 import sys
-import logging
 from tornado import gen
 from functools import partial
 from collections import deque
@@ -21,23 +20,6 @@ if sys.version_info[0] < 3:
     is_python_3k = False
 else:
     is_python_3k = True
-
-
-log = logging.getLogger('momoko')
-
-
-try:
-    import psycopg2
-    log.debug('Using psycopg2')
-except ImportError:
-    if not is_python_3k:
-        try:
-            import psycopg2ct as psycopg2
-            log.debug('Using psycopg2ct')
-        except ImportError:
-            raise ImportError('no module named psycopg2 or psycopg2ct')
-    else:
-        raise ImportError('no module named psycopg2')
 
 
 class Op(gen.Task):
