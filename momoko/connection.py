@@ -50,11 +50,6 @@ class Pool:
         self._ioloop = ioloop or IOLoop.instance()
         self._pool = []
 
-        def after_connect(_):
-            self._connection_count -= 1
-            if self._connection_count == 0:
-                callback()
-
         # Create connections
         if callback:
             self._after_connect = self.minconn
