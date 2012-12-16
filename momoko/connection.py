@@ -38,6 +38,7 @@ class Pool:
         minconn=1,
         maxconn=5,
         cleanup_timeout=10,
+        callback=None,
         ioloop=None
     ):
         self.dsn = dsn
@@ -49,9 +50,25 @@ class Pool:
         self._ioloop = ioloop or IOLoop.instance()
         self._pool = []
 
+        def after_connect(_):
+            self._connection_count -= 1
+            if self._connection_count == 0:
+                callback()
+
         # Create connections
-        for i in range(self.minconn):
-            self.new()
+        if callback:
+            self._after_connect = self.minconn
+
+            def after_connect(_):
+                self._after_connect -= 1
+                if self._after_connect == 0:
+                    callback()
+
+            for i in range(self.minconn):
+                self.new(after_connect)
+        else:
+            for i in range(self.minconn):
+                self.new()
 
         # Create a periodic callback that tries to close inactive connections
         self._cleaner = None
