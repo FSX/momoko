@@ -4,6 +4,8 @@ import random
 import unittest
 
 import momoko
+import psycopg2
+from tornado import gen
 from tornado.testing import AsyncTestCase
 
 
@@ -21,65 +23,67 @@ assert (db_database or db_user or db_password or db_host or db_port) is not None
     'MOMOKO_TEST_HOST, MOMOKO_TEST_PORT')
 
 
-class MomokoTest(AsyncTestCase):
+class BaseTest(AsyncTestCase):
+    def __init__(self, *args, **kwargs):
+        self.assert_equal = self.assertEqual
+        self.assert_raises = self.assertRaises
+        self.assert_is_instance = self.assertIsInstance
+        super(BaseTest, self).__init__(*args, **kwargs)
+
+    def setUp(self):
+        super(BaseTest, self).setUp()
+        self.set_up()
+
+    def tearDown(self):
+        self.tear_down()
+        super(BaseTest, self).tearDown()
+
+    def set_up(self):
+        pass
+
+    def tear_down(self):
+        pass
+
+
+class MomokoTest(BaseTest):
     def stop_callback(self, result, error):
         self.stop((result, error))
 
-    def setUp(self):
-        super(MomokoTest, self).setUp()
-
-        self.db = momoko.Pool(
-            dsn=dsn,
-            minconn=1,
-            maxconn=10,
-            cleanup_timeout=10,
-            ioloop=self.io_loop
-        )
-
-    def tearDown(self):
-        # Clean up if that didn't happen already
-        self.db.execute('DROP TABLE IF EXISTS unit_tests;', callback=self.stop_callback)
+    def run_gen(self, func):
+        func()
         self.wait()
+
+    def wait_for_result(self):
+        cursor, error = self.wait()
+        if error:
+            raise error
+        return cursor
+
+    def clean_db(self):
+        self.db.execute('DROP TABLE IF EXISTS unit_test_large_query;',
+            callback=self.stop_callback)
+        self.wait_for_result()
+        self.db.execute('DROP TABLE IF EXISTS unit_test_transaction;',
+            callback=self.stop_callback)
+        self.wait_for_result()
         self.db.execute('DROP FUNCTION IF EXISTS  unit_test_callproc(integer);',
             callback=self.stop_callback)
-        self.wait()
+        self.wait_for_result()
 
-        self.db.close()
-        super(MomokoTest, self).tearDown()
-
-    def test_single_query(self):
-        self.db.execute('SELECT 6, 19, 24;', callback=self.stop_callback)
-        cursor, error = self.wait()
-        self.assertEqual(cursor.fetchall(), [(6, 19, 24)])
-
-    def test_large_query(self):
-        query_size = 100000
-        chars = string.ascii_letters + string.digits + string.punctuation
+    def prepare_db(self):
+        self.clean_db()
 
         self.db.execute(
-            'CREATE TABLE unit_tests ('
-            'id serial NOT NULL, name character varying, data text, '
-            'CONSTRAINT unit_tests_id_pk PRIMARY KEY (id));',
+            'CREATE TABLE unit_test_large_query ('
+            'id serial NOT NULL, name character varying, data text);',
             callback=self.stop_callback)
-        self.wait()
+        self.wait_for_result()
 
-        for n in range(10):
-            random_data = ''.join( [random.choice(chars) for i in range(query_size)])
-            self.db.execute('INSERT INTO unit_tests (data) VALUES (%s) RETURNING data;',
-                (random_data,), callback=self.stop_callback)
-            cursor, error = self.wait()
-            self.assertEqual(cursor.fetchone(), (random_data,))
-
-        self.db.execute('SELECT COUNT(*) FROM unit_tests;', callback=self.stop_callback)
-        cursor, error = self.wait()
-        self.assertEqual(cursor.fetchone(), (10,))
-
-        self.db.execute('DROP TABLE unit_tests;', callback=self.stop_callback)
-        self.wait()
-
-    def test_callproc(self):
-        query_size = 100000
-        chars = string.ascii_letters + string.digits + string.punctuation
+        self.db.execute(
+            'CREATE TABLE unit_test_transaction ('
+            'id serial NOT NULL, name character varying, data text);',
+            callback=self.stop_callback)
+        self.wait_for_result()
 
         self.db.execute(
             'CREATE OR REPLACE FUNCTION unit_test_callproc(n integer)\n'
@@ -87,12 +91,185 @@ class MomokoTest(AsyncTestCase):
             'RETURN n*n;\n'
             'END;$BODY$ LANGUAGE plpgsql VOLATILE;',
             callback=self.stop_callback)
-        cursor, error = self.wait()
+        self.wait_for_result()
 
-        self.db.callproc('unit_test_callproc', (64,), callback=self.stop_callback)
-        cursor, error = self.wait()
-        self.assertEqual(cursor.fetchone(), (4096,))
-
-        # Destroy test table
-        self.db.execute('DROP FUNCTION unit_test_callproc(integer);', callback=self.stop_callback)
+    def set_up(self):
+        self.db = momoko.Pool(
+            dsn=dsn,
+            minconn=1,
+            maxconn=10,
+            cleanup_timeout=0,
+            callback=self.stop,
+            ioloop=self.io_loop
+        )
         self.wait()
+        self.prepare_db()
+
+    def tear_down(self):
+        self.clean_db()
+        self.db.close()
+
+    def test_single_query(self):
+        self.db.execute('SELECT 6, 19, 24;', callback=self.stop_callback)
+        cursor = self.wait_for_result()
+        self.assert_equal(cursor.fetchall(), [(6, 19, 24)])
+
+    def test_large_query(self):
+        query_size = 100000
+        chars = string.ascii_letters + string.digits + string.punctuation
+
+        for n in range(5):
+            random_data = ''.join( [random.choice(chars) for i in range(query_size)])
+            self.db.execute('INSERT INTO unit_test_large_query (data) VALUES (%s) '
+                'RETURNING data;', (random_data,), callback=self.stop_callback)
+            cursor = self.wait_for_result()
+            self.assert_equal(cursor.fetchone(), (random_data,))
+
+        self.db.execute('SELECT COUNT(*) FROM unit_test_large_query;',
+            callback=self.stop_callback)
+        cursor = self.wait_for_result()
+        self.assert_equal(cursor.fetchone(), (5,))
+
+    def test_callproc(self):
+        self.db.callproc('unit_test_callproc', (64,), callback=self.stop_callback)
+        cursor = self.wait_for_result()
+        self.assert_equal(cursor.fetchone(), (4096,))
+
+    def test_query_error(self):
+        self.db.execute('SELECT DOES NOT WORK!;', callback=self.stop_callback)
+        _, error = self.wait()
+        self.assert_is_instance(error, psycopg2.ProgrammingError)
+
+    def test_mogrify(self):
+        self.db.mogrify('SELECT %s, %s;', ('\'"test"\'', 'SELECT 1;'),
+            callback=self.stop_callback)
+        sql = self.wait_for_result()
+        self.assert_equal(sql, b'SELECT \'\'\'"test"\'\'\', \'SELECT 1;\';')
+
+        self.db.execute(sql, callback=self.stop_callback)
+        _, error = self.wait()
+        self.assert_equal(error, None)
+
+    def test_mogrify_error(self):
+        self.db.mogrify('SELECT %(foos;', {'foo': 'bar'},
+            callback=self.stop_callback)
+        _, error = self.wait()
+        self.assert_is_instance(error, psycopg2.ProgrammingError)
+
+    def test_transaction(self):
+        self.db.transaction((
+            'SELECT 1, 2, 3, 4;',
+            'SELECT 5, 6, 7, 8;',
+            'SELECT 9, 10, 11, 12;',
+            ('SELECT %s+10, %s+10, %s+10, %s+10;', (3, 4, 5, 6)),
+            'SELECT 17, 18, 19, 20;',
+            ('SELECT %s+20, %s+20, %s+20, %s+20;', (1, 2, 3, 4)),
+        ), callback=self.stop_callback)
+        cursors = self.wait_for_result()
+
+        self.assert_equal(len(cursors), 6)
+        self.assert_equal(cursors[0].fetchone(), (1, 2, 3, 4))
+        self.assert_equal(cursors[1].fetchone(), (5, 6, 7, 8))
+        self.assert_equal(cursors[2].fetchone(), (9, 10, 11, 12))
+        self.assert_equal(cursors[3].fetchone(), (13, 14, 15, 16))
+        self.assert_equal(cursors[4].fetchone(), (17, 18, 19, 20))
+        self.assert_equal(cursors[5].fetchone(), (21, 22, 23, 24))
+
+    def test_transaction_rollback(self):
+        chars = string.ascii_letters + string.digits + string.punctuation
+        data = ''.join( [random.choice(chars) for i in range(100)])
+
+        self.db.transaction((
+            ('INSERT INTO unit_test_transaction (data) VALUES (%s);', (data,)),
+            'SELECT DOES NOT WORK!;'
+        ), callback=self.stop_callback)
+        _, error = self.wait()
+        self.assert_is_instance(error, psycopg2.ProgrammingError)
+
+        self.db.execute('SELECT COUNT(*) FROM unit_test_transaction;',
+            callback=self.stop_callback)
+        cursor = self.wait_for_result()
+        self.assert_equal(cursor.fetchone(), (0,))
+
+    def test_pool_cleaner(self):
+        self.db._clean_pool()
+        self.assert_equal(len(self.db._pool), 1)
+
+        @gen.engine
+        def func():
+            yield [
+                gen.Task(self.db.execute, 'SELECT 1;'),
+                gen.Task(self.db.execute, 'SELECT 1;'),
+                gen.Task(self.db.execute, 'SELECT 1;'),
+            ]
+            self.stop()
+
+        self.run_gen(func)
+        self.assert_equal(len(self.db._pool), 3)
+        self.db._clean_pool()
+        self.assert_equal(len(self.db._pool), 1)
+
+    def test_op(self):
+        @gen.engine
+        def func():
+            cursor = yield momoko.Op(self.db.execute, 'SELECT 1;')
+            self.assert_equal(cursor.fetchone(), (1,))
+            self.stop()
+
+        self.run_gen(func)
+
+    def test_op_exception(self):
+        @gen.engine
+        def func():
+            cursor = yield momoko.Op(self.db.execute, 'SELECT DOES NOT WORK!;')
+            self.stop()
+
+        self.assert_raises(psycopg2.ProgrammingError, self.run_gen, func)
+
+    def test_wait_op(self):
+        @gen.engine
+        def func():
+            self.db.execute('SELECT 1;', callback=(yield gen.Callback('q1')))
+            cursor = yield momoko.WaitOp('q1')
+            self.assert_equal(cursor.fetchone(), (1,))
+            self.stop()
+
+        self.run_gen(func)
+
+    def test_wait_op_exception(self):
+        @gen.engine
+        def func():
+            self.db.execute('SELECT DOES NOT WORK!;', callback=(yield gen.Callback('q1')))
+            cursor = yield momoko.WaitOp('q1')
+            self.stop()
+
+        self.assert_raises(psycopg2.ProgrammingError, self.run_gen, func)
+
+    def test_wait_all_ops(self):
+        @gen.engine
+        def func():
+            self.db.execute('SELECT 1;', callback=(yield gen.Callback('q1')))
+            self.db.execute('SELECT 2;', callback=(yield gen.Callback('q2')))
+            self.db.execute('SELECT 3;', callback=(yield gen.Callback('q3')))
+
+            cursor1, cursor2, cursor3 = yield momoko.WaitAllOps(('q1', 'q2', 'q3'))
+
+            self.assert_equal(cursor1.fetchone(), (1,))
+            self.assert_equal(cursor2.fetchone(), (2,))
+            self.assert_equal(cursor3.fetchone(), (3,))
+            self.stop()
+
+        self.run_gen(func)
+
+    def test_wait_all_ops_exception(self):
+        @gen.engine
+        def func():
+            self.db.execute('SELECT asfdsfe;', callback=(yield gen.Callback('q1')))
+            self.db.execute('SELECT DOES NOT WORK!;', callback=(yield gen.Callback('q2')))
+            self.db.execute('SELECT 1;', callback=(yield gen.Callback('q3')))
+
+            cursor1, cursor2, cursor3 = yield momoko.WaitAllOps(('q1', 'q2', 'q3'))
+
+            self.stop()
+
+        self.assert_raises(psycopg2.ProgrammingError, self.run_gen, func)
