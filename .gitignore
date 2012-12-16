@@ -3,15 +3,8 @@ MANIFEST
 build/
 dist/
 *.pyc
-tmp/
+__pycache__
 docs/_build/
 *.sublime-project
 *.sublime-workspace
-*.bak
-modules/
-.idea
-setup.sh
-
 *.pth
-
-tests/database.cfg

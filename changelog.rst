@@ -1,10 +1,25 @@
 News/Changelog
 ==============
 
-1.0.0 (2012-08-??)
+1.0.0b1 (2012-12-16)
 ------------------
 
-* Rewritten. Improvesments include: ???
+This is a beta release. It means that the code has not been tested thoroughly
+yet. This first beta release is meant to provide all the functionality of the
+previous version plus a few additions.
+
+* Most of the code has been rewritten.
+* The mogrify_ method has been added.
+* The query chain and batch have been removed, because ``tornado.gen`` can be used instead.
+* Error reporting has bee improved by passing the raised exception to the callback.
+  A callback accepts two arguments: the cursor and the error.
+* ``Op``, ``WaitOp`` and ``WaitAllOps`` in ``momoko.utils`` are wrappers for
+  classes in ``tornado.gen`` which raise the error again when one occurs.
+  And the user can capture the exception in the request handler.
+* A complete set of tests has been added in the ``momoko`` module: ``momoko.tests``.
+  These can be run with ``python setup.py test``.
+
+.. _mogrify: http://initd.org/psycopg/docs/cursor.html#cursor.mogrify
 
 
 0.5.0 (2012-07-30)
