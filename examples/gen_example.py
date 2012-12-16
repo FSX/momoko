@@ -6,21 +6,29 @@ This example uses Tornado's gen_.
 .. _gen: http://www.tornadoweb.org/documentation/gen.html
 """
 
+import os
 
-import string
-import random
-
-import tornado.httpserver
+import tornado.web
 import tornado.ioloop
 import tornado.options
-import tornado.web
 from tornado import gen
+import tornado.httpserver
 
 import momoko
-from momoko.utils import psycopg2
-# from momoko.new_connection import Pool
-from momoko.connection import Pool
-import settings
+
+
+db_database = os.environ.get('MOMOKO_TEST_DB', None)
+db_user = os.environ.get('MOMOKO_TEST_USER', None)
+db_password = os.environ.get('MOMOKO_TEST_PASSWORD', None)
+db_host = os.environ.get('MOMOKO_TEST_HOST', None)
+db_port = os.environ.get('MOMOKO_TEST_PORT', None)
+dsn = 'dbname=%s user=%s password=%s host=%s port=%s' % (
+    db_database, db_user, db_password, db_host, db_port)
+
+assert (db_database or db_user or db_password or db_host or db_port) is not None, (
+    'Environment variables for the examples are not set. Please set the following '
+    'variables: MOMOKO_TEST_DB, MOMOKO_TEST_USER, MOMOKO_TEST_PASSWORD, '
+    'MOMOKO_TEST_HOST, MOMOKO_TEST_PORT')
 
 
 class BaseHandler(tornado.web.RequestHandler):
@@ -33,9 +41,8 @@ class OverviewHandler(BaseHandler):
     def get(self):
         self.write('''
 <ul>
-    <li><a href="/mogrify">A mogrify~</a></li>
+    <li><a href="/mogrify">Mogrify</a></li>
     <li><a href="/query">A single query</a></li>
-    <li><a href="/large">A large single query</a></li>
     <li><a href="/transaction">A transaction</a></li>
     <li><a href="/multi_query">Multiple queries executed with gen.Task</a></li>
     <li><a href="/callback_and_wait">Multiple queries executed with gen.Callback and gen.Wait</a></li>
@@ -49,8 +56,7 @@ class MogrifyHandler(BaseHandler):
     @gen.engine
     def get(self):
         try:
-            sql = yield momoko.Op(self.db.mogrify,
-                'SELECT %s, %s, %s, %s, COUNT(id) FROM test_table;', (1, 2, 3, 4))
+            sql = yield momoko.Op(self.db.mogrify, 'SELECT %s;', (1,))
             self.write('SQL: %s<br>' % sql)
         except Exception as error:
             self.write(str(error))
@@ -63,33 +69,10 @@ class SingleQueryHandler(BaseHandler):
     @gen.engine
     def get(self):
         try:
-            cursor1 = yield momoko.Op(self.db.execute, 'SELECT COUNT(id) FROM test_table;')
-            self.write('Query results: %s<br>' % cursor1.fetchall())
-            # cursor2 = yield momoko.Op(self.db.mogrify, 'SELECT 55, 18, %s, 231;', (87,))
-            # self.write('Mogrify results: %s<br>' % cursor2)
+            cursor = yield momoko.Op(self.db.execute, 'SELECT %s;', (1,))
+            self.write('Query results: %s<br>' % cursor.fetchall())
         except Exception as error:
             self.write(str(error))
-
-        self.finish()
-
-
-QUERY_SIZE = 60000
-CHARS = string.ascii_letters + string.digits + string.punctuation
-
-
-class LargeSingleQueryHandler(BaseHandler):
-    @tornado.web.asynchronous
-    @gen.engine
-    def get(self):
-        to_be_inserted = ''.join( [random.choice(CHARS) for i in range(QUERY_SIZE)])
-
-        try:
-            cursor1 = yield momoko.Op(self.db.execute, 'INSERT INTO test_table (data) VALUES (%s) RETURNING id;',
-                (to_be_inserted,))
-            self.write('Status: {0}<br>'.format(cursor1.statusmessage))
-            self.write('Results: {0}<br>'.format(cursor1.fetchall()))
-        except Exception as error:
-            self.write(error)
 
         self.finish()
 
@@ -99,9 +82,9 @@ class MultiQueryHandler(BaseHandler):
     @gen.engine
     def get(self):
         cursor1, cursor2, cursor3 = yield [
-            momoko.Op(self.db.execute, 'SELECT 42, 12, %s, 11;', (25,)),
-            momoko.Op(self.db.execute, 'SELECT 42, 12, %s, %s;', (23, 56)),
-            momoko.Op(self.db.execute, 'SELECT 465767, 4567, 3454;')
+            momoko.Op(self.db.execute, 'SELECT 1;'),
+            momoko.Op(self.db.execute, 'SELECT 2;'),
+            momoko.Op(self.db.execute, 'SELECT %s;', (3*1,))
         ]
 
         self.write('Query 1 results: %s<br>' % cursor1.fetchall())
@@ -128,7 +111,6 @@ class TransactionHandler(BaseHandler):
             for i, cursor in enumerate(cursors):
                 self.write('Query %s results: %s<br>' % (i, cursor.fetchall()))
         except Exception as error:
-            self.write('Something went wrong!<br><br>')
             self.write(str(error))
 
         self.finish()
@@ -146,10 +128,12 @@ class CallbackWaitHandler(BaseHandler):
         self.db.execute('SELECT 465767, 4567, 3454;',
             callback=(yield gen.Callback('q3')))
 
+        # Separately...
         # cursor1 = yield momoko.WaitOp('q1')
         # cursor2 = yield momoko.WaitOp('q2')
         # cursor3 = yield momoko.WaitOp('q3')
 
+        # Or all at once
         cursor1, cursor2, cursor3 = yield momoko.WaitAllOps(('q1', 'q2', 'q3'))
 
         self.write('Query 1 results: %s<br>' % cursor1.fetchall())
@@ -166,25 +150,16 @@ def main():
             (r'/', OverviewHandler),
             (r'/mogrify', MogrifyHandler),
             (r'/query', SingleQueryHandler),
-            (r'/large', LargeSingleQueryHandler),
             (r'/transaction', TransactionHandler),
             (r'/multi_query', MultiQueryHandler),
             (r'/callback_and_wait', CallbackWaitHandler),
         ], debug=True)
 
-        dsn = 'dbname=%s user=%s password=%s host=%s port=%s' % (
-            settings.database,
-            settings.user,
-            settings.password,
-            settings.host,
-            settings.port
-        )
-
-        application.db = Pool(
+        application.db = momoko.Pool(
             dsn=dsn,
-            minconn=settings.min_conn,
-            maxconn=settings.max_conn,
-            cleanup_timeout=settings.cleanup_timeout
+            minconn=1,
+            maxconn=10,
+            cleanup_timeout=10
         )
 
         http_server = tornado.httpserver.HTTPServer(application)
