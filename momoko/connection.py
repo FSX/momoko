@@ -228,8 +228,11 @@ class Connection:
 
     def mogrify(self, operation, parameters=(), callback=_dummy_callback):
         cursor = self.connection.cursor()
-        result = cursor.mogrify(operation, parameters)
-        self.ioloop.add_callback(partial(callback, result, None))
+        try:
+            result = cursor.mogrify(operation, parameters)
+            self.ioloop.add_callback(partial(callback, result, None))
+        except (psycopg2.Warning, psycopg2.Error) as error:
+            self.ioloop.add_callback(partial(callback, b'', error))
 
     def transaction(self,
         statements,
