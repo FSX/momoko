@@ -10,6 +10,7 @@ previous version plus a few additions.
 
 * Most of the code has been rewritten.
 * The mogrify_ method has been added.
+* Added support for transactions.
 * The query chain and batch have been removed, because ``tornado.gen`` can be used instead.
 * Error reporting has bee improved by passing the raised exception to the callback.
   A callback accepts two arguments: the cursor and the error.
