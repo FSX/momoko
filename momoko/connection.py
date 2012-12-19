@@ -185,7 +185,9 @@ class Connection:
         self._transaction_status = self.connection.get_transaction_status
         self.ioloop = ioloop or IOLoop.instance()
 
-        self.callback = partial(callback, self)
+        if callback:
+            self.callback = partial(callback, self)
+
         self.ioloop.add_handler(self.fileno, self.io_callback, IOLoop.WRITE)
 
     def io_callback(self, fd=None, events=None):
@@ -197,11 +199,14 @@ class Connection:
             if not isinstance(error, psycopg2.DatabaseError):
                 self.ioloop.update_handler(self.fileno, 0)
 
-            self.callback(error)
+            if self.callback:
+                self.callback(error)
         else:
             if state == POLL_OK:
                 self.ioloop.update_handler(self.fileno, 0)
-                self.callback(None)
+
+                if self.callback:
+                    self.callback(None)
             elif state == POLL_READ:
                 self.ioloop.update_handler(self.fileno, IOLoop.READ)
             elif state == POLL_WRITE:

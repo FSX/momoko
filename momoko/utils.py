@@ -9,7 +9,6 @@ Copyright 2011-2012 by Frank Smit.
 MIT, see LICENSE for more details.
 """
 
-
 import sys
 from tornado import gen
 from functools import partial
