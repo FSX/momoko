@@ -3,7 +3,7 @@
 momoko.utils
 ============
 
-Extra functionality.
+Utilities that make life easier.
 
 Copyright 2011-2012 by Frank Smit.
 MIT, see LICENSE for more details.
