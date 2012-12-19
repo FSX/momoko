@@ -22,6 +22,6 @@ try:
 except AttributeError:
     import warnings
     warnings.warn(RuntimeWarning(
-        'psycopg2 does not have async support. '
-        'You need at least version 2.2.0 of psycopg2 '
+        'Psycopg2 does not have support for asynchronous connections. '
+        'You need at least version 2.2.0 of Psycopg2 '
         'to use Momoko.'))
