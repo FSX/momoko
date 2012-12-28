@@ -44,8 +44,6 @@ class BaseTest(AsyncTestCase):
     def tear_down(self):
         pass
 
-
-class MomokoTest(BaseTest):
     def stop_callback(self, result, error):
         self.stop((result, error))
 
@@ -59,6 +57,8 @@ class MomokoTest(BaseTest):
             raise error
         return cursor
 
+
+class MomokoTest(BaseTest):
     def clean_db(self):
         self.db.execute('DROP TABLE IF EXISTS unit_test_large_query;',
             callback=self.stop_callback)

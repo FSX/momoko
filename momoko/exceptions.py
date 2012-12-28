@@ -11,4 +11,8 @@ MIT, see LICENSE for more details.
 
 
 class PoolError(Exception):
+    """
+    The ``PoolError`` exception is raised when something goes wrong in the connection
+    pool. When the maximum amount is exceeded for example.
+    """
     pass

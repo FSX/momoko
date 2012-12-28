@@ -18,8 +18,8 @@ except ImportError:
 
 setup(
     name='Momoko',
-    version='1.0.0b1',
-    description='An asynchronous Psycopg2 wrapper for Tornado.',
+    version='1.0.0b2',
+    description='Wraps (asynchronous) Psycopg2 for Tornado.',
     long_description=open('README.rst').read(),
     author='Frank Smit',
     author_email='frank@61924.nl',

@@ -3,7 +3,7 @@
 momoko
 ======
 
-Asynchronous Psycopg wrapper for Tornado.
+Wraps (asynchronous) Psycopg2 for Tornado.
 
 Copyright 2011-2012 by Frank Smit.
 MIT, see LICENSE for more details.

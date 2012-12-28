@@ -1,7 +1,7 @@
 Momoko
 ======
 
-A Tornado_ wrapper for Psycopg2_.
+Wraps (asynchronous) Psycopg2_ for Tornado_
 
 .. _Psycopg2: http://www.initd.org/psycopg/
 .. _Tornado: http://www.tornadoweb.org/
