@@ -1,0 +1,16 @@
+{%- if pagename != "search" %}
+<div id="sphinx-searchbox" class="sidebar-block">
+  <h3>{{ _('Quick search') }}</h3>
+  <form action="{{ pathto('search') }}" method="get">
+    <div>
+      <input type="hidden" name="check_keywords" value="yes">
+      <input type="hidden" name="area" value="default">
+      <input type="text" name="q">
+      <input type="submit" value="{{ _('Press this button!') }}">
+    </div>
+  </form>
+  <p class="sphinx-searchtip">
+  {{ _('Enter search terms or a module, class or function name.') }}
+  </p>
+</div>
+{%- endif %}
