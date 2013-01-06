@@ -275,26 +275,20 @@ class Connection:
         self.ioloop.add_handler(self.fileno, self.io_callback, IOLoop.WRITE)
 
     def io_callback(self, fd=None, events=None):
+        self.ioloop.remove_handler(self.fileno)
         try:
             state = self.connection.poll()
         except (psycopg2.Warning, psycopg2.Error) as error:
-            # When a DatabaseError is raised it means that the connection has been
-            # closed and polling it would raise an exception from then IOLoop.
-            if not isinstance(error, psycopg2.DatabaseError):
-                self.ioloop.update_handler(self.fileno, 0)
-
             if self.callback:
                 self.callback(error)
         else:
             if state == POLL_OK:
-                self.ioloop.update_handler(self.fileno, 0)
-
                 if self.callback:
                     self.callback(None)
             elif state == POLL_READ:
-                self.ioloop.update_handler(self.fileno, IOLoop.READ)
+                self.ioloop.add_handler(self.fileno, self.io_callback, IOLoop.READ)
             elif state == POLL_WRITE:
-                self.ioloop.update_handler(self.fileno, IOLoop.WRITE)
+                self.ioloop.add_handler(self.fileno, self.io_callback, IOLoop.WRITE)
             else:
                 raise OperationalError('poll() returned {0}'.format(state))
 
@@ -328,7 +322,7 @@ class Connection:
         cursor = self.connection.cursor(cursor_factory=cursor_factory or base_cursor)
         cursor.execute(operation, parameters)
         self.callback = partial(callback or _dummy_callback, cursor)
-        self.ioloop.update_handler(self.fileno, IOLoop.WRITE)
+        self.ioloop.add_handler(self.fileno, self.io_callback, IOLoop.WRITE)
 
     def callproc(self,
         procname,
@@ -369,7 +363,7 @@ class Connection:
         cursor = self.connection.cursor(cursor_factory=cursor_factory or base_cursor)
         cursor.callproc(procname, parameters)
         self.callback = partial(callback or _dummy_callback, cursor)
-        self.ioloop.update_handler(self.fileno, IOLoop.WRITE)
+        self.ioloop.add_handler(self.fileno, self.io_callback, IOLoop.WRITE)
 
     def mogrify(self, operation, parameters=(), callback=None):
         """
