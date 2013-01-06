@@ -275,20 +275,21 @@ class Connection:
         self.ioloop.add_handler(self.fileno, self.io_callback, IOLoop.WRITE)
 
     def io_callback(self, fd=None, events=None):
-        self.ioloop.remove_handler(self.fileno)
         try:
             state = self.connection.poll()
         except (psycopg2.Warning, psycopg2.Error) as error:
+            self.ioloop.remove_handler(self.fileno)
             if self.callback:
                 self.callback(error)
         else:
             if state == POLL_OK:
+                self.ioloop.remove_handler(self.fileno)
                 if self.callback:
                     self.callback(None)
             elif state == POLL_READ:
-                self.ioloop.add_handler(self.fileno, self.io_callback, IOLoop.READ)
+                self.ioloop.update_handler(self.fileno, IOLoop.READ)
             elif state == POLL_WRITE:
-                self.ioloop.add_handler(self.fileno, self.io_callback, IOLoop.WRITE)
+                self.ioloop.update_handler(self.fileno, IOLoop.WRITE)
             else:
                 raise OperationalError('poll() returned {0}'.format(state))
 
@@ -476,5 +477,4 @@ class Connection:
         """
         Remove the connection from the IO loop and close it.
         """
-        self.ioloop.remove_handler(self.fileno)
         self.connection.close()
