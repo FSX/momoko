@@ -1,0 +1,20 @@
+language: python
+python:
+  - "2.7"
+  - "3.2"
+  - "3.3"
+
+before_script:
+  - psql -c 'CREATE DATABASE momoko_test;' -U postgres
+  - psql -c 'CREATE EXTENSION hstore;' -U postgres
+
+env:
+  - MOMOKO_TEST_DB="momoko_test"
+  - MOMOKO_TEST_USER="postgres"
+  - MOMOKO_TEST_PASSWORD=""
+  - MOMOKO_TEST_HOST=""
+  - MOMOKO_TEST_PORT=""
+  - MOMOKO_TEST_HSTORE="1"
+
+install: "pip install -r requirements.txt --use-mirrors"
+script: python setup.py test
