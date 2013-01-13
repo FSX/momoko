@@ -14,6 +14,7 @@ from contextlib import contextmanager
 from collections import deque, defaultdict
 
 import psycopg2
+from psycopg2.extras import register_hstore
 from psycopg2.extensions import (connection as base_connection, cursor as base_cursor,
     POLL_OK, POLL_READ, POLL_WRITE, POLL_ERROR, TRANSACTION_STATUS_IDLE)
 
@@ -31,6 +32,19 @@ def _dummy_callback(cursor, error):
     pass
 
 
+# Fetch the hstore and hstore array OID's and register adapter and typecaster
+# for dict-hstore conversions. Fetching the OID's must be done manually, because
+# ``register_hstore`` can not use an asynchronous connection to do that.
+def _register_hstore(connection):
+    def psycopg2_register_hstore(cursor, error):
+        oid, array_oid = cursor.fetchone()
+        register_hstore(None, True, False, oid, array_oid)
+
+    connection.execute(
+        "SELECT 'hstore'::regtype::oid, 'hstore[]'::regtype::oid",
+        callback=psycopg2_register_hstore)
+
+
 class Pool:
     """
     Asynchronous connection pool.
@@ -41,6 +55,7 @@ class Pool:
     ``connection_factory`` parameters. These are used by the connection pool when
     a new connection is created.
 
+    :param boolean register_hstore: Register adapter and typecaster for ``dict-hstore`` conversions.
     :param integer minconn: Amount of connections created upon initialization. Defaults to ``1``.
     :param integer maxconn: Maximum amount of connections allowed by the pool. Defaults to ``5``.
     :param integer cleanup_timeout:
@@ -55,6 +70,7 @@ class Pool:
     def __init__(self,
         dsn,
         connection_factory=None,
+        register_hstore=False,
         minconn=1,
         maxconn=5,
         cleanup_timeout=10,
@@ -71,19 +87,15 @@ class Pool:
         self._pool = []
 
         # Create connections
-        if callback:
-            self._after_connect = self.minconn
-
-            def after_connect(_):
-                self._after_connect -= 1
-                if self._after_connect == 0:
+        def after_pool_creation(n, connection):
+            if n == self.minconn-1:
+                if register_hstore:
+                    _register_hstore(connection)
+                if callback:
                     callback()
 
-            for i in range(self.minconn):
-                self.new(after_connect)
-        else:
-            for i in range(self.minconn):
-                self.new()
+        for i in range(self.minconn):
+            self.new(partial(after_pool_creation, i))
 
         # Create a periodic callback that tries to close inactive connections
         self._cleaner = None

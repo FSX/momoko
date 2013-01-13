@@ -43,6 +43,7 @@ class OverviewHandler(BaseHandler):
 <ul>
     <li><a href="/mogrify">Mogrify</a></li>
     <li><a href="/query">A single query</a></li>
+    <li><a href="/hstore">An hstore query</a></li>
     <li><a href="/transaction">A transaction</a></li>
     <li><a href="/multi_query">Multiple queries executed with gen.Task</a></li>
     <li><a href="/callback_and_wait">Multiple queries executed with gen.Callback and gen.Wait</a></li>
@@ -70,6 +71,19 @@ class SingleQueryHandler(BaseHandler):
     def get(self):
         try:
             cursor = yield momoko.Op(self.db.execute, 'SELECT %s;', (1,))
+            self.write('Query results: %s<br>' % cursor.fetchall())
+        except Exception as error:
+            self.write(str(error))
+
+        self.finish()
+
+
+class HstoreQueryHandler(BaseHandler):
+    @tornado.web.asynchronous
+    @gen.engine
+    def get(self):
+        try:
+            cursor = yield momoko.Op(self.db.execute, "SELECT 'a=>b, c=>d'::hstore;")
             self.write('Query results: %s<br>' % cursor.fetchall())
         except Exception as error:
             self.write(str(error))
@@ -150,6 +164,7 @@ def main():
             (r'/', OverviewHandler),
             (r'/mogrify', MogrifyHandler),
             (r'/query', SingleQueryHandler),
+            (r'/hstore', HstoreQueryHandler),
             (r'/transaction', TransactionHandler),
             (r'/multi_query', MultiQueryHandler),
             (r'/callback_and_wait', CallbackWaitHandler),
@@ -157,6 +172,7 @@ def main():
 
         application.db = momoko.Pool(
             dsn=dsn,
+            register_hstore=True,
             minconn=1,
             maxconn=10,
             cleanup_timeout=10
