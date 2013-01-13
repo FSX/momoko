@@ -22,6 +22,7 @@ db_user = os.environ.get('MOMOKO_TEST_USER', None)
 db_password = os.environ.get('MOMOKO_TEST_PASSWORD', None)
 db_host = os.environ.get('MOMOKO_TEST_HOST', None)
 db_port = os.environ.get('MOMOKO_TEST_PORT', None)
+enable_hstore = True if os.environ.get('MOMOKO_TEST_HSTORE', None) == '1' else False
 dsn = 'dbname=%s user=%s password=%s host=%s port=%s' % (
     db_database, db_user, db_password, db_host, db_port)
 
@@ -82,14 +83,17 @@ class HstoreQueryHandler(BaseHandler):
     @tornado.web.asynchronous
     @gen.engine
     def get(self):
-        try:
-            cursor = yield momoko.Op(self.db.execute, "SELECT 'a=>b, c=>d'::hstore;")
-            self.write('Query results: %s<br>' % cursor.fetchall())
-            cursor = yield momoko.Op(self.db.execute, "SELECT %s;",
-                ({'e': 'f', 'g': 'h'},))
-            self.write('Query results: %s<br>' % cursor.fetchall())
-        except Exception as error:
-            self.write(str(error))
+        if enable_hstore:
+            try:
+                cursor = yield momoko.Op(self.db.execute, "SELECT 'a=>b, c=>d'::hstore;")
+                self.write('Query results: %s<br>' % cursor.fetchall())
+                cursor = yield momoko.Op(self.db.execute, "SELECT %s;",
+                    ({'e': 'f', 'g': 'h'},))
+                self.write('Query results: %s<br>' % cursor.fetchall())
+            except Exception as error:
+                self.write(str(error))
+        else:
+            self.write('hstore is not enabled')
 
         self.finish()
 
@@ -175,7 +179,7 @@ def main():
 
         application.db = momoko.Pool(
             dsn=dsn,
-            register_hstore=True,
+            register_hstore=enable_hstore,
             minconn=1,
             maxconn=10,
             cleanup_timeout=10

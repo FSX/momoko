@@ -28,6 +28,9 @@ Here's an example for the environment variables::
     export MOMOKO_TEST_HOST='localhost'
     export MOMOKO_TEST_PORT='5432'
 
+    # Set to '0' if hstore extension isn't enabled
+    export MOMOKO_TEST_HSTORE='1'
+
 And running the tests is as easy as running the following command::
 
    python setup.py test
