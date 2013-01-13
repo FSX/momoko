@@ -1,8 +1,21 @@
 Changelog
 =========
 
+1.0.0b2 (2013-01-??)
+--------------------
+
+* Add and remove a database connection to and from the IOLoop for each operation.
+  See `pull request 38`_ and commits 189323211b_ and 92940db0a0_ for more information.
+* Add support for hstore_.
+
+.. _pull request 38: https://github.com/FSX/momoko/pull/38
+.. _189323211b: https://github.com/FSX/momoko/commit/189323211bcb44ea158f41ddf87d4240c0e657d6
+.. _92940db0a0: https://github.com/FSX/momoko/commit/92940db0a0f6d780724f42d3d66f1b75a78430ff
+.. _hstore: http://www.postgresql.org/docs/9.2/static/hstore.html
+
+
 1.0.0b1 (2012-12-16)
-------------------
+--------------------
 
 This is a beta release. It means that the code has not been tested thoroughly
 yet. This first beta release is meant to provide all the functionality of the
