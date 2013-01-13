@@ -9,12 +9,12 @@ from tornado import gen
 from tornado.testing import AsyncTestCase
 
 
-db_database = os.environ.get('MOMOKO_TEST_DB', None)
-db_user = os.environ.get('MOMOKO_TEST_USER', None)
-db_password = os.environ.get('MOMOKO_TEST_PASSWORD', None)
-db_host = os.environ.get('MOMOKO_TEST_HOST', None)
-db_port = os.environ.get('MOMOKO_TEST_PORT', None)
-test_hstore = True if os.environ.get('MOMOKO_TEST_HSTORE', None) == '1' else False
+db_database = os.environ.get('MOMOKO_TEST_DB', 'momoko_test')
+db_user = os.environ.get('MOMOKO_TEST_USER', 'postgres')
+db_password = os.environ.get('MOMOKO_TEST_PASSWORD', '')
+db_host = os.environ.get('MOMOKO_TEST_HOST', '')
+db_port = os.environ.get('MOMOKO_TEST_PORT', 5432)
+test_hstore = True if os.environ.get('MOMOKO_TEST_HSTORE', False) == '1' else False
 dsn = 'dbname=%s user=%s password=%s host=%s port=%s' % (
     db_database, db_user, db_password, db_host, db_port)
 
@@ -28,7 +28,7 @@ class BaseTest(AsyncTestCase):
     def __init__(self, *args, **kwargs):
         self.assert_equal = self.assertEqual
         self.assert_raises = self.assertRaises
-        self.assert_is_instance = self.assertIsInstance
+        self.assert_is_instance = lambda object, classinfo: self.assertTrue(isinstance(object, classinfo))
         super(BaseTest, self).__init__(*args, **kwargs)
 
     def setUp(self):
@@ -132,15 +132,15 @@ class MomokoTest(BaseTest):
         cursor = self.wait_for_result()
         self.assert_equal(cursor.fetchone(), (5,))
 
-    @unittest.skipIf(not test_hstore, 'hstore is disabled')
-    def test_hstore(self):
-        self.db.execute('SELECT \'a=>b, c=>d\'::hstore;', callback=self.stop_callback)
-        cursor = self.wait_for_result()
-        self.assert_equal(cursor.fetchall(), [({'a': 'b', 'c': 'd'},)])
+    if test_hstore:
+        def test_hstore(self):
+            self.db.execute('SELECT \'a=>b, c=>d\'::hstore;', callback=self.stop_callback)
+            cursor = self.wait_for_result()
+            self.assert_equal(cursor.fetchall(), [({'a': 'b', 'c': 'd'},)])
 
-        self.db.execute('SELECT %s;', ({'e': 'f', 'g': 'h'},), callback=self.stop_callback)
-        cursor = self.wait_for_result()
-        self.assert_equal(cursor.fetchall(), [({'e': 'f', 'g': 'h'},)])
+            self.db.execute('SELECT %s;', ({'e': 'f', 'g': 'h'},), callback=self.stop_callback)
+            cursor = self.wait_for_result()
+            self.assert_equal(cursor.fetchall(), [({'e': 'f', 'g': 'h'},)])
 
     def test_callproc(self):
         self.db.callproc('unit_test_callproc', (64,), callback=self.stop_callback)
@@ -285,3 +285,7 @@ class MomokoTest(BaseTest):
             self.stop()
 
         self.assert_raises(psycopg2.ProgrammingError, self.run_gen, func)
+
+
+if __name__ == '__main__':
+    unittest.main()

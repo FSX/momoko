@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+import os
+
 # The multiprocessingimport is to prevent the following error
 # after all the tests have been executed.
 # Error in atexit._run_exitfuncs:
@@ -16,6 +18,27 @@ except ImportError:
     from distutils.core import setup, Extension, Command
 
 
+dependencies = ['tornado']
+psycopg2_impl = os.environ.get('MOMOKO_PSYCOPG2_IMPL', 'psycopg2')
+
+
+if psycopg2_impl == 'psycopg2cffi':
+    print('Using psycopg2cffi')
+    dependencies.append('psycopg2cffi')
+
+    from psycopg2cffi import compat
+    compat.register()
+elif psycopg2_impl == 'psycopg2ct':
+    print('Using psycopg2ct')
+    dependencies.append('psycopg2ct')
+
+    from psycopg2ct import compat
+    compat.register()
+else:
+    print('Using psycopg2')
+    dependencies.append('psycopg2')
+
+
 setup(
     name='Momoko',
     version='1.0.0b2',
@@ -26,11 +49,8 @@ setup(
     url='http://momoko.61924.nl/',
     packages=['momoko'],
     license='MIT',
-    test_suite = 'momoko.tests',
-    install_requires=[
-        'tornado',
-        'psycopg2'
-    ],
+    test_suite='momoko.tests',
+    install_requires=dependencies,
     classifiers = [
         'Development Status :: 4 - Beta',
         'Intended Audience :: Developers',

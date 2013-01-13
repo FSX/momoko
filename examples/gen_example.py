@@ -17,12 +17,12 @@ import tornado.httpserver
 import momoko
 
 
-db_database = os.environ.get('MOMOKO_TEST_DB', None)
-db_user = os.environ.get('MOMOKO_TEST_USER', None)
-db_password = os.environ.get('MOMOKO_TEST_PASSWORD', None)
-db_host = os.environ.get('MOMOKO_TEST_HOST', None)
-db_port = os.environ.get('MOMOKO_TEST_PORT', None)
-enable_hstore = True if os.environ.get('MOMOKO_TEST_HSTORE', None) == '1' else False
+db_database = os.environ.get('MOMOKO_TEST_DB', 'momoko_test')
+db_user = os.environ.get('MOMOKO_TEST_USER', 'postgres')
+db_password = os.environ.get('MOMOKO_TEST_PASSWORD', '')
+db_host = os.environ.get('MOMOKO_TEST_HOST', '')
+db_port = os.environ.get('MOMOKO_TEST_PORT', 5432)
+enable_hstore = True if os.environ.get('MOMOKO_TEST_HSTORE', False) == '1' else False
 dsn = 'dbname=%s user=%s password=%s host=%s port=%s' % (
     db_database, db_user, db_password, db_host, db_port)
 
