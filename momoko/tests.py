@@ -14,13 +14,14 @@ db_user = os.environ.get('MOMOKO_TEST_USER', None)
 db_password = os.environ.get('MOMOKO_TEST_PASSWORD', None)
 db_host = os.environ.get('MOMOKO_TEST_HOST', None)
 db_port = os.environ.get('MOMOKO_TEST_PORT', None)
+test_hstore = True if os.environ.get('MOMOKO_TEST_HSTORE', None) == '1' else False
 dsn = 'dbname=%s user=%s password=%s host=%s port=%s' % (
     db_database, db_user, db_password, db_host, db_port)
 
 assert (db_database or db_user or db_password or db_host or db_port) is not None, (
     'Environment variables for the unit tests are not set. Please set the following '
     'variables: MOMOKO_TEST_DB, MOMOKO_TEST_USER, MOMOKO_TEST_PASSWORD, '
-    'MOMOKO_TEST_HOST, MOMOKO_TEST_PORT')
+    'MOMOKO_TEST_HOST, MOMOKO_TEST_PORT, MOMOKO_TEST_HSTORE')
 
 
 class BaseTest(AsyncTestCase):
@@ -96,6 +97,7 @@ class MomokoTest(BaseTest):
     def set_up(self):
         self.db = momoko.Pool(
             dsn=dsn,
+            register_hstore=test_hstore,
             minconn=1,
             maxconn=10,
             cleanup_timeout=0,
@@ -129,6 +131,16 @@ class MomokoTest(BaseTest):
             callback=self.stop_callback)
         cursor = self.wait_for_result()
         self.assert_equal(cursor.fetchone(), (5,))
+
+    @unittest.skipIf(not test_hstore, 'hstore is disabled')
+    def test_hstore(self):
+        self.db.execute('SELECT \'a=>b, c=>d\'::hstore;', callback=self.stop_callback)
+        cursor = self.wait_for_result()
+        self.assert_equal(cursor.fetchall(), [({'a': 'b', 'c': 'd'},)])
+
+        self.db.execute('SELECT %s;', ({'e': 'f', 'g': 'h'},), callback=self.stop_callback)
+        cursor = self.wait_for_result()
+        self.assert_equal(cursor.fetchall(), [({'e': 'f', 'g': 'h'},)])
 
     def test_callproc(self):
         self.db.callproc('unit_test_callproc', (64,), callback=self.stop_callback)

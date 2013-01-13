@@ -85,6 +85,9 @@ class HstoreQueryHandler(BaseHandler):
         try:
             cursor = yield momoko.Op(self.db.execute, "SELECT 'a=>b, c=>d'::hstore;")
             self.write('Query results: %s<br>' % cursor.fetchall())
+            cursor = yield momoko.Op(self.db.execute, "SELECT %s;",
+                ({'e': 'f', 'g': 'h'},))
+            self.write('Query results: %s<br>' % cursor.fetchall())
         except Exception as error:
             self.write(str(error))
 
