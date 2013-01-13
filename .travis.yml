@@ -9,12 +9,12 @@ before_script:
   - psql -c 'CREATE EXTENSION hstore;' -U postgres
 
 env:
-  - MOMOKO_TEST_DB="momoko_test"
-  - MOMOKO_TEST_USER="postgres"
-  - MOMOKO_TEST_PASSWORD=""
-  - MOMOKO_TEST_HOST=""
-  - MOMOKO_TEST_PORT="5432"
-  - MOMOKO_TEST_HSTORE="1"
+  MOMOKO_TEST_DB="momoko_test"
+  MOMOKO_TEST_USER="postgres"
+  MOMOKO_TEST_PASSWORD=""
+  MOMOKO_TEST_HOST=""
+  MOMOKO_TEST_PORT="5432"
+  MOMOKO_TEST_HSTORE="1"
 
 install: "pip install -r requirements.txt --use-mirrors"
 script: python setup.py test
