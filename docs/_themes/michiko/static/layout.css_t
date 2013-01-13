@@ -129,6 +129,10 @@ table caption {
 .fn-backref { text-decoration: none }
 
 /* API blocks */
+dl.class dt, dl.function dt { font-weight: normal }
+dl.class .descclassname, dl.function .descclassname,
+dl.class .descname, dl.function .descname { font-weight: bold }
+
 .descclassname, .descname {
   background: none;
   padding: 0 }
