@@ -4,8 +4,8 @@ Installation
 ============
 
 Momoko supports Python 2 and 3 and PyPy with psycopg2ct_ or psycopg2cffi_.
-And the only dependencies are Tornado_ and Psycopg2_. Installation is easy
-using *easy_install* or pip_::
+And the only dependencies are Tornado_ and Psycopg2_ (or psycopg2ct_/psycopg2cffi_).
+Installation is easy using *easy_install* or pip_::
 
     pip install momoko
 
@@ -15,21 +15,27 @@ The lastest source code can always be cloned from the `Github repository`_ with:
     cd momoko
     python setup.py install
 
-The unit tests can be run before anything is installed to ensure everything is
-working. Before running the unit tests a PostgreSQL database needs to be set up
-and some environment variables need to be set. The dependencies will be installed
-automatically.
+Psycopg2 is used by default when installing Momoko, but psycopg2ct or psycopg2cffi
+can also be used by setting the ``MOMOKO_PSYCOPG2_IMPL`` environment variable to
+``psycopg2ct`` or ``psycopg2cffi`` before running ``setup.py``. For example::
+
+    # 'psycopg2', 'psycopg2ct' or 'psycopg2cffi'
+    export MOMOKO_PSYCOPG2_IMPL='psycopg2cffi'
+
+The unit tests als use this variable. It needs to be set if something else is used
+instead of Psycopg2 when running the unit tests. Besides ``MOMOKO_PSYCOPG2_IMPL``
+there are also other variables that need to be set for the unit tests.
 
 Here's an example for the environment variables::
 
-    export MOMOKO_TEST_DB='your_db'
-    export MOMOKO_TEST_USER='your_user'
-    export MOMOKO_TEST_PASSWORD='your_password'
-    export MOMOKO_TEST_HOST='localhost'
-    export MOMOKO_TEST_PORT='5432'
+    export MOMOKO_TEST_DB='your_db'  # Default: momoko_test
+    export MOMOKO_TEST_USER='your_user'  # Default: postgres
+    export MOMOKO_TEST_PASSWORD='your_password'  # Empty de default
+    export MOMOKO_TEST_HOST='localhost'  # Empty de default
+    export MOMOKO_TEST_PORT='5432'  # Default: 5432
 
     # Set to '0' if hstore extension isn't enabled
-    export MOMOKO_TEST_HSTORE='1'
+    export MOMOKO_TEST_HSTORE='1'  # Default: 0
 
 And running the tests is as easy as running the following command::
 
