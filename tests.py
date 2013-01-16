@@ -3,8 +3,6 @@ import string
 import random
 import unittest
 
-import momoko
-import psycopg2
 from tornado import gen
 from tornado.testing import AsyncTestCase
 
@@ -22,6 +20,20 @@ assert (db_database or db_user or db_password or db_host or db_port) is not None
     'Environment variables for the unit tests are not set. Please set the following '
     'variables: MOMOKO_TEST_DB, MOMOKO_TEST_USER, MOMOKO_TEST_PASSWORD, '
     'MOMOKO_TEST_HOST, MOMOKO_TEST_PORT')
+
+
+psycopg2_impl = os.environ.get('MOMOKO_PSYCOPG2_IMPL', 'psycopg2')
+
+if psycopg2_impl == 'psycopg2cffi':
+    from psycopg2cffi import compat
+    compat.register()
+elif psycopg2_impl == 'psycopg2ct':
+    from psycopg2ct import compat
+    compat.register()
+
+
+import momoko
+import psycopg2
 
 
 class BaseTest(AsyncTestCase):
