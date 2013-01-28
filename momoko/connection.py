@@ -10,8 +10,8 @@ MIT, see LICENSE for more details.
 """
 
 from functools import partial
+from collections import deque
 from contextlib import contextmanager
-from collections import deque, defaultdict
 
 import psycopg2
 from psycopg2.extras import register_hstore
