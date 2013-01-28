@@ -416,12 +416,7 @@ class Connection:
         :param tuple/list statements:
             List or tuple containing SQL queries with or without parameters. An item
             can be a string (SQL query without parameters) or a tuple/list with two items,
-            an SQL query and a tuple/list wuth parameters. An example::
-
-                (
-                    'SELECT 1, 2, 3;',  # Without parameters
-                    ('SELECT 4, %s, 6, %s;', (5, 7)),  # With parameters
-                )
+            an SQL query and a tuple/list wuth parameters.
 
             See `Passing parameters to SQL queries`_ for more information.
         :param cursor_factory:

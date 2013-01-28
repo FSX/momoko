@@ -37,7 +37,7 @@ Here's an example for the environment variables::
     # Set to '0' if hstore extension isn't enabled
     export MOMOKO_TEST_HSTORE='1'  # Default: 0
 
-And running the tests is as easy as running the following command::
+And running the tests is easy::
 
    python setup.py test
 
