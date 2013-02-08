@@ -70,6 +70,7 @@ h4:hover .headerlink, h5:hover .headerlink, h6:hover .headerlink {
 .sidebar-block > :first-child { margin-top: 0 }
 .sidebar-block > :last-child { margin-bottom: 0 }
 
+.sidebar-block + h3,
 .sidebar-block h3 {
   font-size: 19px;
   margin-left: -12px;
