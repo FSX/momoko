@@ -56,13 +56,7 @@ class Pool:
     a new connection is created.
 
     :param boolean register_hstore: Register adapter and typecaster for ``dict-hstore`` conversions.
-    :param integer minconn: Amount of connections created upon initialization. Defaults to ``1``.
-    :param integer maxconn: Maximum amount of connections allowed by the pool. Defaults to ``5``.
-    :param integer cleanup_timeout:
-        Time in seconds between pool cleanups. Unused connections are closed and
-        removed from the pool until only ``minconn`` are left. When an integer
-        below ``1``, like ``-1`` is used the pool cleaner will be disabled.
-        Defaults to ``10``.
+    :param integer size: Amount of connections created upon initialization. Defaults to ``1``.
     :param callable callback:
         A callable that's called after all the connections are created. Defaults to ``None``.
     :param ioloop: An instance of Tornado's IOLoop. Defaults to ``None``.
@@ -71,15 +65,12 @@ class Pool:
         dsn,
         connection_factory=None,
         register_hstore=False,
-        minconn=1,
-        maxconn=5,
-        cleanup_timeout=10,
+        size=1,
         callback=None,
         ioloop=None
     ):
         self.dsn = dsn
-        self.minconn = minconn
-        self.maxconn = maxconn
+        self.size = size
         self.closed = False
         self.connection_factory = connection_factory
 
@@ -88,33 +79,16 @@ class Pool:
 
         # Create connections
         def after_pool_creation(n, connection):
-            if n == self.minconn-1:
+            if n == self.size-1:
                 if register_hstore:
                     _register_hstore(connection)
                 if callback:
                     callback()
 
-        for i in range(self.minconn):
-            self.new(partial(after_pool_creation, i))
+        for i in range(self.size):
+            self._new(partial(after_pool_creation, i))
 
-        # Create a periodic callback that tries to close inactive connections
-        self._cleaner = None
-        if cleanup_timeout > 0:
-            self._cleaner = PeriodicCallback(self._clean_pool,
-                cleanup_timeout * 1000)
-            self._cleaner.start()
-
-    def new(self, callback=None):
-        """
-        Create a new connection and add it to the pool.
-
-        :param callable callback:
-            A callable that's called after the connection is created. It accepts
-            one paramater: an instance of :py:class:`momoko.Connection`. Defaults to ``None``.
-        """
-        if len(self._pool) > self.maxconn:
-            raise PoolError('connection pool exausted')
-
+    def _new(self, callback=None):
         def multi_callback(connection, error):
             if error:
                 raise error
@@ -130,19 +104,6 @@ class Pool:
             if not connection.busy():
                 return connection
 
-    def _clean_pool(self):
-        if self.closed:
-            raise PoolError('connection pool is closed')
-        if len(self._pool) > self.minconn:
-            connection_count = len(self._pool) - self.minconn
-            for connection in self._pool[:]:
-                if not connection.busy():
-                    connection.close()
-                    connection_count -= 1
-                    self._pool.remove(connection)
-                    if not connection_count:
-                        break
-
     def transaction(self,
         statements,
         cursor_factory=None,
@@ -157,8 +118,7 @@ class Pool:
         """
         connection = connection or self._get_connection()
         if not connection:
-            return self.new(lambda connection: self.transaction(
-                statements, cursor_factory, callback, connection))
+            raise PoolError('connection pool exausted')
 
         connection.transaction(statements, cursor_factory, callback)
 
@@ -177,8 +137,7 @@ class Pool:
         """
         connection = connection or self._get_connection()
         if not connection:
-            return self.new(lambda connection: self.execute(operation,
-                parameters, cursor_factory, callback, connection))
+            raise PoolError('connection pool exausted')
 
         connection.execute(operation, parameters, cursor_factory, callback)
 
@@ -197,8 +156,7 @@ class Pool:
         """
         connection = connection or self._get_connection()
         if not connection:
-            return self.new(lambda connection: self.callproc(procname,
-                parameters, cursor_factory, callback, connection))
+            raise PoolError('connection pool exausted')
 
         connection.callproc(procname, parameters, cursor_factory, callback)
 
@@ -216,8 +174,7 @@ class Pool:
         """
         connection = connection or self._get_connection()
         if not connection:
-            return self.new(lambda connection: self.mogrify(operation,
-                parameters, callback, connection))
+            raise PoolError('connection pool exausted')
 
         connection.mogrify(operation, parameters, callback)
 
@@ -232,8 +189,6 @@ class Pool:
             if not connection.closed:
                 connection.close()
 
-        if self._cleaner:
-            self._cleaner.stop()
         self._pool = []
         self.closed = True
 

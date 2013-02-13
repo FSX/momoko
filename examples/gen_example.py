@@ -180,13 +180,11 @@ def main():
         application.db = momoko.Pool(
             dsn=dsn,
             register_hstore=enable_hstore,
-            minconn=1,
-            maxconn=10,
-            cleanup_timeout=10
+            size=1
         )
 
         http_server = tornado.httpserver.HTTPServer(application)
-        http_server.listen(8888)
+        http_server.listen(8888, 'localhost')
         tornado.ioloop.IOLoop.instance().start()
     except KeyboardInterrupt:
         print('Exit')
