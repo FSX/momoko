@@ -110,9 +110,7 @@ class MomokoTest(BaseTest):
         self.db = momoko.Pool(
             dsn=dsn,
             register_hstore=test_hstore,
-            minconn=1,
-            maxconn=10,
-            cleanup_timeout=0,
+            size=3,
             callback=self.stop,
             ioloop=self.io_loop
         )
@@ -214,24 +212,6 @@ class MomokoTest(BaseTest):
             callback=self.stop_callback)
         cursor = self.wait_for_result()
         self.assert_equal(cursor.fetchone(), (0,))
-
-    def test_pool_cleaner(self):
-        self.db._clean_pool()
-        self.assert_equal(len(self.db._pool), 1)
-
-        @gen.engine
-        def func():
-            yield [
-                gen.Task(self.db.execute, 'SELECT 1;'),
-                gen.Task(self.db.execute, 'SELECT 1;'),
-                gen.Task(self.db.execute, 'SELECT 1;'),
-            ]
-            self.stop()
-
-        self.run_gen(func)
-        self.assert_equal(len(self.db._pool), 3)
-        self.db._clean_pool()
-        self.assert_equal(len(self.db._pool), 1)
 
     def test_op(self):
         @gen.engine
