@@ -104,12 +104,12 @@ class MultiQueryHandler(BaseHandler):
     def get(self):
         cursor1, cursor2, cursor3 = yield [
             momoko.Op(self.db.execute, 'SELECT 1;'),
-            momoko.Op(self.db.execute, 'SELECT 2;'),
+            momoko.Op(self.db.mogrify, 'SELECT 2;'),
             momoko.Op(self.db.execute, 'SELECT %s;', (3*1,))
         ]
 
         self.write('Query 1 results: %s<br>' % cursor1.fetchall())
-        self.write('Query 2 results: %s<br>' % cursor2.fetchall())
+        self.write('Query 2 results: %s<br>' % cursor2)
         self.write('Query 3 results: %s' % cursor3.fetchall())
 
         self.finish()

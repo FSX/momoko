@@ -21,7 +21,7 @@ from psycopg2.extensions import (connection as base_connection, cursor as base_c
 from tornado import gen
 from tornado.ioloop import IOLoop, PeriodicCallback
 
-from .utils import Op
+from .utils import log
 from .exceptions import PoolError
 
 
@@ -69,6 +69,8 @@ class Pool:
         callback=None,
         ioloop=None
     ):
+        assert size > 0, 'The connection pool size must be a number above 0.'
+
         self.dsn = dsn
         self.size = size
         self.closed = False
@@ -107,8 +109,7 @@ class Pool:
     def transaction(self,
         statements,
         cursor_factory=None,
-        callback=None,
-        connection=None
+        callback=None
     ):
         """
         Run a sequence of SQL queries in a database transaction.
@@ -116,9 +117,11 @@ class Pool:
         See :py:meth:`momoko.Connection.transaction` for documentation about the
         parameters. The ``connection`` parameter is for internal use.
         """
-        connection = connection or self._get_connection()
+        connection = self._get_connection()
         if not connection:
-            raise PoolError('connection pool exausted')
+            log.warning('No connection available, operation queued. Make connection pool bigger?')
+            return self._ioloop.add_callback(partial(self.transaction,
+                statements, cursor_factory, callback))
 
         connection.transaction(statements, cursor_factory, callback)
 
@@ -126,8 +129,7 @@ class Pool:
         operation,
         parameters=(),
         cursor_factory=None,
-        callback=None,
-        connection=None
+        callback=None
     ):
         """
         Prepare and execute a database operation (query or command).
@@ -135,9 +137,11 @@ class Pool:
         See :py:meth:`momoko.Connection.execute` for documentation about the
         parameters. The ``connection`` parameter is for internal use.
         """
-        connection = connection or self._get_connection()
+        connection = self._get_connection()
         if not connection:
-            raise PoolError('connection pool exausted')
+            log.warning('No connection available, operation queued. Make connection pool bigger?')
+            return self._ioloop.add_callback(partial(self.execute,
+                operation, parameters, cursor_factory, callback))
 
         connection.execute(operation, parameters, cursor_factory, callback)
 
@@ -145,8 +149,7 @@ class Pool:
         procname,
         parameters=(),
         cursor_factory=None,
-        callback=None,
-        connection=None
+        callback=None
     ):
         """
         Call a stored database procedure with the given name.
@@ -154,17 +157,18 @@ class Pool:
         See :py:meth:`momoko.Connection.callproc` for documentation about the
         parameters. The ``connection`` parameter is for internal use.
         """
-        connection = connection or self._get_connection()
+        connection = self._get_connection()
         if not connection:
-            raise PoolError('connection pool exausted')
+            log.warning('No connection available, operation queued. Make connection pool bigger?')
+            return self._ioloop.add_callback(partial(self.callproc,
+                procname, parameters, cursor_factory, callback))
 
         connection.callproc(procname, parameters, cursor_factory, callback)
 
     def mogrify(self,
         operation,
         parameters=(),
-        callback=None,
-        connection=None
+        callback=None
     ):
         """
         Return a query string after arguments binding.
@@ -172,11 +176,7 @@ class Pool:
         See :py:meth:`momoko.Connection.mogrify` for documentation about the
         parameters. The ``connection`` parameter is for internal use.
         """
-        connection = connection or self._get_connection()
-        if not connection:
-            raise PoolError('connection pool exausted')
-
-        connection.mogrify(operation, parameters, callback)
+        self._pool[0].mogrify(operation, parameters, callback)
 
     def close(self):
         """
