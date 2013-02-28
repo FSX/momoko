@@ -3,9 +3,9 @@
 momoko
 ======
 
-Wraps (asynchronous) Psycopg2 for Tornado.
+Momoko wraps Psycopg2's functionality for use in Tornado.
 
-Copyright 2011-2012 by Frank Smit.
+Copyright 2011-2013 by Frank Smit.
 MIT, see LICENSE for more details.
 """
 

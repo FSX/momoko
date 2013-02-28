@@ -1,15 +1,12 @@
 .. _overview:
 
 Momoko
-==================================
+======
 
-Wraps (asynchronous) Psycopg2 for Tornado.
+Momoko wraps Psycopg2_'s functionality for use in Tornado_.
 
-Momoko wraps Psycopg2 to make it suitable for use in Tornado using Psycopg2's
-support for asynchronous connections. Momoko's API is geared towards use with
-Tornado's gen_ module, but also works fine without it.
-
-.. _gen: http://www.tornadoweb.org/documentation/gen.html
+.. _Psycopg2: http://www.initd.org/psycopg/
+.. _Tornado: http://www.tornadoweb.org/
 
 Contents:
 
@@ -19,7 +16,6 @@ Contents:
    changelog
    installation
    tutorial
-   testing
    api
 
 

@@ -3,13 +3,18 @@
 Changelog
 =========
 
-1.0.0b2 (2013-01-??)
+1.0.0b2 (2013-02-??)
 --------------------
 
+* Tested on CPython 2.6, 2.7, 3.2, 3.3 and PyPy with Psycopg2_, psycopg2ct_ and psycopg2cffi_.
 * Add and remove a database connection to and from the IOLoop for each operation.
   See `pull request 38`_ and commits 189323211b_ and 92940db0a0_ for more information.
+* Replaced dynamic connection pool with a static one.
 * Add support for hstore_.
 
+.. _Psycopg2: http://www.initd.org/psycopg/
+.. _psycopg2ct: http://pypi.python.org/pypi/psycopg2ct
+.. _psycopg2cffi: http://pypi.python.org/pypi/psycopg2cffi
 .. _pull request 38: https://github.com/FSX/momoko/pull/38
 .. _189323211b: https://github.com/FSX/momoko/commit/189323211bcb44ea158f41ddf87d4240c0e657d6
 .. _92940db0a0: https://github.com/FSX/momoko/commit/92940db0a0f6d780724f42d3d66f1b75a78430ff
