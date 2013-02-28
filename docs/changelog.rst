@@ -3,7 +3,7 @@
 Changelog
 =========
 
-1.0.0b2 (2013-02-??)
+1.0.0b2 (2013-02-28)
 --------------------
 
 * Tested on CPython 2.6, 2.7, 3.2, 3.3 and PyPy with Psycopg2_, psycopg2ct_ and psycopg2cffi_.
