@@ -11,7 +11,6 @@ MIT, see LICENSE for more details.
 
 from functools import partial
 from collections import deque
-from contextlib import contextmanager
 
 import psycopg2
 from psycopg2.extras import register_hstore as _psy_register_hstore
@@ -19,7 +18,7 @@ from psycopg2.extensions import (connection as base_connection, cursor as base_c
     POLL_OK, POLL_READ, POLL_WRITE, POLL_ERROR, TRANSACTION_STATUS_IDLE)
 
 from tornado import gen
-from tornado.ioloop import IOLoop, PeriodicCallback
+from tornado.ioloop import IOLoop
 
 from .utils import log
 from .exceptions import PoolError
@@ -98,7 +97,7 @@ class Pool:
         Run a sequence of SQL queries in a database transaction.
 
         See :py:meth:`momoko.Connection.transaction` for documentation about the
-        parameters. The ``connection`` parameter is for internal use.
+        parameters.
         """
         connection = self._get_connection()
         if not connection:
@@ -118,7 +117,7 @@ class Pool:
         Prepare and execute a database operation (query or command).
 
         See :py:meth:`momoko.Connection.execute` for documentation about the
-        parameters. The ``connection`` parameter is for internal use.
+        parameters.
         """
         connection = self._get_connection()
         if not connection:
@@ -138,7 +137,7 @@ class Pool:
         Call a stored database procedure with the given name.
 
         See :py:meth:`momoko.Connection.callproc` for documentation about the
-        parameters. The ``connection`` parameter is for internal use.
+        parameters.
         """
         connection = self._get_connection()
         if not connection:
@@ -157,7 +156,7 @@ class Pool:
         Return a query string after arguments binding.
 
         See :py:meth:`momoko.Connection.mogrify` for documentation about the
-        parameters. The ``connection`` parameter is for internal use.
+        parameters.
         """
         self._pool[0].mogrify(operation, parameters, callback)
 
@@ -257,7 +256,7 @@ class Connection:
             elif state == POLL_WRITE:
                 self.ioloop.update_handler(self.fileno, IOLoop.WRITE)
             else:
-                raise OperationalError('poll() returned {0}'.format(state))
+                raise psycopg2.OperationalError('poll() returned {0}'.format(state))
 
     def execute(self,
         operation,
