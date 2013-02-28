@@ -109,7 +109,6 @@ class MomokoTest(BaseTest):
     def set_up(self):
         self.db = momoko.Pool(
             dsn=dsn,
-            register_hstore=test_hstore,
             size=3,
             callback=self.stop,
             ioloop=self.io_loop
@@ -144,6 +143,9 @@ class MomokoTest(BaseTest):
 
     if test_hstore:
         def test_hstore(self):
+            self.db.register_hstore(callback=self.stop_callback)
+            self.wait()
+
             self.db.execute('SELECT \'a=>b, c=>d\'::hstore;', callback=self.stop_callback)
             cursor = self.wait_for_result()
             self.assert_equal(cursor.fetchall(), [({'a': 'b', 'c': 'd'},)])

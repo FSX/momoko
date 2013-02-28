@@ -14,7 +14,7 @@ from collections import deque
 from contextlib import contextmanager
 
 import psycopg2
-from psycopg2.extras import register_hstore
+from psycopg2.extras import register_hstore as _psy_register_hstore
 from psycopg2.extensions import (connection as base_connection, cursor as base_cursor,
     POLL_OK, POLL_READ, POLL_WRITE, POLL_ERROR, TRANSACTION_STATUS_IDLE)
 
@@ -32,19 +32,6 @@ def _dummy_callback(cursor, error):
     pass
 
 
-# Fetch the hstore and hstore array OID's and register adapter and typecaster
-# for dict-hstore conversions. Fetching the OID's must be done manually, because
-# ``register_hstore`` can not use an asynchronous connection to do that.
-def _register_hstore(connection):
-    def psycopg2_register_hstore(cursor, error):
-        oid, array_oid = cursor.fetchone()
-        register_hstore(None, True, False, oid, array_oid)
-
-    connection.execute(
-        "SELECT 'hstore'::regtype::oid, 'hstore[]'::regtype::oid",
-        callback=psycopg2_register_hstore)
-
-
 class Pool:
     """
     Asynchronous connection pool.
@@ -55,7 +42,6 @@ class Pool:
     ``connection_factory`` parameters. These are used by the connection pool when
     a new connection is created.
 
-    :param boolean register_hstore: Register adapter and typecaster for ``dict-hstore`` conversions.
     :param integer size: Amount of connections created upon initialization. Defaults to ``1``.
     :param callable callback:
         A callable that's called after all the connections are created. Defaults to ``None``.
@@ -64,7 +50,6 @@ class Pool:
     def __init__(self,
         dsn,
         connection_factory=None,
-        register_hstore=False,
         size=1,
         callback=None,
         ioloop=None
@@ -82,8 +67,6 @@ class Pool:
         # Create connections
         def after_pool_creation(n, connection):
             if n == self.size-1:
-                if register_hstore:
-                    _register_hstore(connection)
                 if callback:
                     callback()
 
@@ -119,7 +102,7 @@ class Pool:
         """
         connection = self._get_connection()
         if not connection:
-            log.warning('No connection available, operation queued. Make connection pool bigger?')
+            log.warning('Transaction: no connection available, operation queued.')
             return self._ioloop.add_callback(partial(self.transaction,
                 statements, cursor_factory, callback))
 
@@ -139,7 +122,7 @@ class Pool:
         """
         connection = self._get_connection()
         if not connection:
-            log.warning('No connection available, operation queued. Make connection pool bigger?')
+            log.warning('Execute: no connection available, operation queued.')
             return self._ioloop.add_callback(partial(self.execute,
                 operation, parameters, cursor_factory, callback))
 
@@ -159,7 +142,7 @@ class Pool:
         """
         connection = self._get_connection()
         if not connection:
-            log.warning('No connection available, operation queued. Make connection pool bigger?')
+            log.warning('Callproc: no connection available, operation queued.')
             return self._ioloop.add_callback(partial(self.callproc,
                 procname, parameters, cursor_factory, callback))
 
@@ -177,6 +160,22 @@ class Pool:
         parameters. The ``connection`` parameter is for internal use.
         """
         self._pool[0].mogrify(operation, parameters, callback)
+
+    def register_hstore(self, unicode=False, callback=None):
+        """
+        Register adapter and typecaster for ``dict-hstore`` conversions.
+
+        See :py:meth:`momoko.Connection.register_hstore` for documentation about
+        the parameters. This method has no ``globally`` parameter, because it
+        already registers hstore to all the connections in the pool.
+        """
+        connection = self._get_connection()
+        if not connection:
+            log.warning('Register hstore: no connection available, operation queued.')
+            return self._ioloop.add_callback(
+                partial(self.register_hstore, unicode, callback))
+
+        connection.register_hstore(True, unicode, callback)
 
     def close(self):
         """
@@ -419,6 +418,32 @@ class Connection:
             callback(None, rollback_error or statement_error)
 
         self.ioloop.add_callback(exec_statement)
+
+    def register_hstore(self, globally=False, unicode=False, callback=None):
+        """
+        Register adapter and typecaster for ``dict-hstore`` conversions.
+
+        More information on the hstore datatype can be found on the
+        Psycopg2 documentation_.
+
+        :param boolean globally:
+            Register the adapter globally, not only on this connection.
+        :param boolean unicode:
+            If ``True``, keys and values returned from the database will be ``unicode``
+            instead of ``str``. The option is not available on Python 3.
+
+        .. _documentation: http://initd.org/psycopg/docs/extras.html#hstore-data-type
+        """
+        def _hstore_callback(cursor, error):
+            oid, array_oid = cursor.fetchone()
+            _psy_register_hstore(None, globally, unicode, oid, array_oid)
+
+            if callback:
+                callback(None, error)
+
+        self.execute(
+            "SELECT 'hstore'::regtype::oid, 'hstore[]'::regtype::oid",
+            callback=_hstore_callback)
 
     def busy(self):
         """
