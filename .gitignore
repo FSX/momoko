@@ -1,10 +1,11 @@
 MANIFEST
-*env/
 build/
 dist/
 *.pyc
+*.pth
 __pycache__
+*.egg-info/
+*.egg/
 docs/_build/
 *.sublime-project
 *.sublime-workspace
-*.pth
