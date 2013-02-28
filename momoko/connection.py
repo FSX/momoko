@@ -307,7 +307,7 @@ class Connection:
         The procedure may also provide a result set as output. This must then be
         made available through the standard `fetch*()`_ methods.
 
-        :param string operation: The name of the database procedure.
+        :param string procname: The name of the database procedure.
         :param tuple/list parameters:
             A list or tuple with query parameters. See `Passing parameters to SQL queries`_
             for more information. Defaults to an empty tuple.
