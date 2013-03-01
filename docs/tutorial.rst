@@ -46,10 +46,7 @@ to demonstrate Momoko's functionality. Here goes::
         application.db = momoko.Pool(
             dsn='dbname=your_db user=your_user password=very_secret_password '
                 'host=localhost port=5432',
-            register_hstore=True,
-            minconn=1,
-            maxconn=10,
-            cleanup_timeout=10
+            size=1
         )
 
         http_server = HTTPServer(application)
