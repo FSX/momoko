@@ -5,8 +5,14 @@ Momoko
 
 Momoko wraps Psycopg2_'s functionality for use in Tornado_.
 
+The lastest source code can be found on Github_ and bug reports can be send
+there too. All releases will be uploaded to PyPi_.
+
+
 .. _Psycopg2: http://www.initd.org/psycopg/
-.. _Tornado: http://www.tornadoweb.org/
+.. _Tornado: http://www.tornadoweb.org
+.. _Github: https://github.com/FSX/momoko
+.. _PyPi: https://pypi.python.org/pypi/Momoko
 
 Contents:
 

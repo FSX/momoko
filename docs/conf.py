@@ -128,7 +128,7 @@ else:
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ['_static']
+# html_static_path = ['_static']
 
 # If not '', a 'Last updated on:' timestamp is inserted at every page bottom,
 # using the given strftime format.
@@ -236,7 +236,7 @@ man_pages = [
 #  dir menu entry, description, category)
 texinfo_documents = [
   ('index', 'Momoko', 'Momoko Documentation',
-   'Frank Smit', 'Momoko', 'One line description of project.',
+   'Frank Smit', 'Momoko', "Momoko wraps Psycopg2's functionality for use in Tornado.",
    'Miscellaneous'),
 ]
 
