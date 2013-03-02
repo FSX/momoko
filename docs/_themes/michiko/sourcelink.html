@@ -1,9 +1,0 @@
-{%- if show_source and has_source and sourcename %}
-<div id="sphinx-this-page" class="sidebar-block">
-  <h3>{{ _('This Page') }}</h3>
-  <ul>
-    <li><a href="{{ pathto('_sources/' + sourcename, true)|e }}"
-           rel="nofollow">{{ _('Show Source') }}</a></li>
-  </ul>
-</div>
-{%- endif %}
