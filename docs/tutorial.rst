@@ -19,7 +19,8 @@ to demonstrate Momoko's functionality. Here goes::
     from tornado import gen
     from tornado.ioloop import IOLoop
     from tornado.httpserver import HTTPServer
-    from tornado.options import parse_command_line, asynchronous
+    from tornado.options import parse_command_line
+    from tornado.web import *
 
     import psycopg2
     import momoko
