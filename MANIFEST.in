@@ -1,4 +1,3 @@
-include README.rst LICENSE ChangeLog
+include README.rst LICENSE changelog.rst THANKS tests.py
 recursive-include docs *
 recursive-include examples *
-recursive-include tests *

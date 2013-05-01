@@ -3,6 +3,14 @@
 Changelog
 =========
 
+1.0.0 (2013-05-01)
+------------------
+
+* Fix code example in documentation. By matheuspatury in `pull request 46`_
+
+.. _pull request 46: https://github.com/FSX/momoko/pull/46
+
+
 1.0.0b2 (2013-02-28)
 --------------------
 
