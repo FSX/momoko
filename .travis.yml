@@ -15,8 +15,9 @@ env:
   - MOMOKO_PSYCOPG2_IMPL=psycopg2ct
   - MOMOKO_PSYCOPG2_IMPL=psycopg2cffi
 
-install: "pip install --use-mirrors tornado ${MOMOKO_PSYCOPG2_IMPL}"
-script: python setup.py test
+install: "pip install --use-mirrors coveralls tornado ${MOMOKO_PSYCOPG2_IMPL}"
+script: coverage run --source=momoko setup.py test
+after_success: coveralls
 
 matrix:
   exclude:
