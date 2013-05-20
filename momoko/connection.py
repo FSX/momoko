@@ -73,6 +73,9 @@ class Pool:
             self._new(partial(after_pool_creation, i))
 
     def _new(self, callback=None):
+        if self.closed:
+            raise PoolError('connection pool is closed')
+
         def multi_callback(connection, error):
             if error:
                 raise error
@@ -84,6 +87,9 @@ class Pool:
             multi_callback, self._ioloop)
 
     def _get_connection(self):
+        if self.closed:
+            raise PoolError('connection pool is closed')
+
         for connection in self._pool:
             if not connection.busy():
                 return connection
@@ -158,6 +164,9 @@ class Pool:
         See :py:meth:`momoko.Connection.mogrify` for documentation about the
         parameters.
         """
+        if self.closed:
+            raise PoolError('connection pool is closed')
+
         self._pool[0].mogrify(operation, parameters, callback)
 
     def register_hstore(self, unicode=False, callback=None):

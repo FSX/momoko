@@ -282,7 +282,7 @@ class MomokoTest(BaseTest):
 
         self.assert_raises(psycopg2.ProgrammingError, self.run_gen, func)
 
-    def test_named_tuple(self):
+    def test_namedtuple_connection(self):
 
         db = momoko.Pool(
             dsn=dsn,
@@ -302,6 +302,20 @@ class MomokoTest(BaseTest):
         self.assert_true(hasattr(row, 'three'))
 
         db.close()
+
+    def test_closed_pool(self):
+
+        db = momoko.Pool(
+            dsn=dsn,
+            size=1,
+            callback=self.stop,
+            ioloop=self.io_loop
+        )
+        self.wait()
+        db.close()
+
+        self.assert_raises(momoko.PoolError, db.execute,
+            'SELECT 1 as one, 2 as two, 3 as three;')
 
 
 if __name__ == '__main__':
