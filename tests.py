@@ -34,12 +34,14 @@ elif psycopg2_impl == 'psycopg2ct':
 
 import momoko
 import psycopg2
+from psycopg2.extras import NamedTupleConnection
 
 
 class BaseTest(AsyncTestCase):
     def __init__(self, *args, **kwargs):
         self.assert_equal = self.assertEqual
         self.assert_raises = self.assertRaises
+        self.assert_true = self.assertTrue
         self.assert_is_instance = lambda object, classinfo: self.assertTrue(isinstance(object, classinfo))
         super(BaseTest, self).__init__(*args, **kwargs)
 
@@ -279,6 +281,27 @@ class MomokoTest(BaseTest):
             self.stop()
 
         self.assert_raises(psycopg2.ProgrammingError, self.run_gen, func)
+
+    def test_named_tuple(self):
+
+        db = momoko.Pool(
+            dsn=dsn,
+            size=1,
+            connection_factory=NamedTupleConnection,
+            callback=self.stop,
+            ioloop=self.io_loop
+        )
+        self.wait()
+
+        db.execute('SELECT 1 as one, 2 as two, 3 as three;', callback=self.stop_callback)
+        cursor = self.wait_for_result()
+        row = cursor.fetchone()
+
+        self.assert_true(hasattr(row, 'one'))
+        self.assert_true(hasattr(row, 'two'))
+        self.assert_true(hasattr(row, 'three'))
+
+        db.close()
 
 
 if __name__ == '__main__':

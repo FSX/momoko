@@ -14,7 +14,7 @@ from collections import deque
 
 import psycopg2
 from psycopg2.extras import register_hstore as _psy_register_hstore
-from psycopg2.extensions import (connection as base_connection, cursor as base_cursor,
+from psycopg2.extensions import (connection as base_connection,
     POLL_OK, POLL_READ, POLL_WRITE, POLL_ERROR, TRANSACTION_STATUS_IDLE)
 
 from tornado import gen
@@ -231,8 +231,8 @@ class Connection:
         self.connection = psycopg2.connect(dsn, async=1,
             connection_factory=connection_factory or base_connection)
         self.fileno = self.connection.fileno()
-        self._transaction_status = self.connection.get_transaction_status
         self.ioloop = ioloop or IOLoop.instance()
+        self._transaction_status = self.connection.get_transaction_status
 
         if callback:
             self.callback = partial(callback, self)
@@ -285,7 +285,11 @@ class Connection:
         .. _psycopg2.extensions.cursor: http://initd.org/psycopg/docs/extensions.html#psycopg2.extensions.cursor
         .. _Connection and cursor factories: http://initd.org/psycopg/docs/advanced.html#subclassing-cursor
         """
-        cursor = self.connection.cursor(cursor_factory=cursor_factory or base_cursor)
+        if cursor_factory:
+            cursor = self.connection.cursor(cursor_factory=cursor_factory)
+        else:
+            cursor = self.connection.cursor()
+
         cursor.execute(operation, parameters)
         self.callback = partial(callback or _dummy_callback, cursor)
         self.ioloop.add_handler(self.fileno, self.io_callback, IOLoop.WRITE)
@@ -326,7 +330,11 @@ class Connection:
         .. _psycopg2.extensions.cursor: http://initd.org/psycopg/docs/extensions.html#psycopg2.extensions.cursor
         .. _Connection and cursor factories: http://initd.org/psycopg/docs/advanced.html#subclassing-cursor
         """
-        cursor = self.connection.cursor(cursor_factory=cursor_factory or base_cursor)
+        if cursor_factory:
+            cursor = self.connection.cursor(cursor_factory=cursor_factory)
+        else:
+            cursor = self.connection.cursor()
+
         cursor.callproc(procname, parameters)
         self.callback = partial(callback or _dummy_callback, cursor)
         self.ioloop.add_handler(self.fileno, self.io_callback, IOLoop.WRITE)
