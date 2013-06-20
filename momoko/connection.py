@@ -64,20 +64,20 @@ class Pool:
         self._pool = []
 
         # Create connections
-        def after_pool_creation(n, connection):
+        def after_pool_creation(n, connection, error):
             if n == self.size-1:
                 if callback:
-                    callback()
+                    callback(error)
 
         for i in range(self.size):
             self._new(partial(after_pool_creation, i))
 
     def _new(self, callback=None):
         def multi_callback(connection, error):
-            if error:
-                raise error
             if callback:
-                callback(connection)
+                callback(connection, error)
+            if error:
+                return
             self._pool.append(connection)
 
         Connection(self.dsn, self.connection_factory,
