@@ -179,7 +179,6 @@ def main():
 
         application.db = momoko.Pool(
             dsn=dsn,
-            register_hstore=enable_hstore,
             size=1
         )
 
