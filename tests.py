@@ -317,6 +317,16 @@ class MomokoTest(BaseTest):
         self.assert_raises(momoko.PoolError, db.execute,
             'SELECT 1 as one, 2 as two, 3 as three;')
 
+    def test_connect_exception(self):
+        db = momoko.Pool(
+            dsn='dbname=momoko user=bleep password=bleep host=localhost port=5432',
+            size=1,
+            callback=self.stop,
+            ioloop=self.io_loop,
+        )
+        error = self.wait()
+        self.assert_is_instance(error, psycopg2.Error)
+
 
 if __name__ == '__main__':
     unittest.main()
