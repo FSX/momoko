@@ -20,7 +20,6 @@ from psycopg2.extensions import (connection as base_connection, cursor as base_c
 from tornado import gen
 from tornado.ioloop import IOLoop
 
-from .utils import log
 from .exceptions import PoolError
 
 
@@ -101,7 +100,6 @@ class Pool:
         """
         connection = self._get_connection()
         if not connection:
-            log.warning('Transaction: no connection available, operation queued.')
             return self._ioloop.add_callback(partial(self.transaction,
                 statements, cursor_factory, callback))
 
@@ -121,7 +119,6 @@ class Pool:
         """
         connection = self._get_connection()
         if not connection:
-            log.warning('Execute: no connection available, operation queued.')
             return self._ioloop.add_callback(partial(self.execute,
                 operation, parameters, cursor_factory, callback))
 
@@ -141,7 +138,6 @@ class Pool:
         """
         connection = self._get_connection()
         if not connection:
-            log.warning('Callproc: no connection available, operation queued.')
             return self._ioloop.add_callback(partial(self.callproc,
                 procname, parameters, cursor_factory, callback))
 
@@ -170,7 +166,6 @@ class Pool:
         """
         connection = self._get_connection()
         if not connection:
-            log.warning('Register hstore: no connection available, operation queued.')
             return self._ioloop.add_callback(
                 partial(self.register_hstore, unicode, callback))
 
