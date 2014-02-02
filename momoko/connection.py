@@ -30,7 +30,7 @@ def _dummy_callback(cursor, error):
     pass
 
 
-class Pool:
+class Pool(object):
     """
     Asynchronous connection pool.
 
@@ -186,7 +186,7 @@ class Pool:
         self.closed = True
 
 
-class Connection:
+class Connection(object):
     """
     Create an asynchronous connection.
 
