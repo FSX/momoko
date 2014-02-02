@@ -75,9 +75,9 @@ class Pool(object):
         def multi_callback(connection, error):
             if error:
                 raise error
+            self._pool.append(connection)
             if callback:
                 callback(connection)
-            self._pool.append(connection)
 
         Connection(self.dsn, self.connection_factory,
             multi_callback, self._ioloop)
