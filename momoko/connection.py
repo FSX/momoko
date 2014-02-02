@@ -11,6 +11,7 @@ MIT, see LICENSE for more details.
 
 from functools import partial
 from collections import deque
+import datetime
 
 import psycopg2
 from psycopg2.extras import register_hstore as _psy_register_hstore
@@ -21,6 +22,8 @@ from tornado import gen
 from tornado.ioloop import IOLoop
 
 from .exceptions import PoolError
+
+from .utils import log
 
 
 # The dummy callback is used to keep the asynchronous cursor alive in case no
@@ -50,7 +53,8 @@ class Pool(object):
         connection_factory=None,
         size=1,
         callback=None,
-        ioloop=None
+        ioloop=None,
+        raise_connect_errors=True,
     ):
         assert size > 0, 'The connection pool size must be a number above 0.'
 
@@ -61,6 +65,7 @@ class Pool(object):
 
         self._ioloop = ioloop or IOLoop.instance()
         self._pool = []
+        self._busy_wait_interval = datetime.timedelta(milliseconds=10)
 
         # Create connections
         def after_pool_creation(n, connection):
@@ -69,12 +74,15 @@ class Pool(object):
                     callback()
 
         for i in range(self.size):
-            self._new(partial(after_pool_creation, i))
+            self._new(partial(after_pool_creation, i), raise_connect_errors=raise_connect_errors)
 
-    def _new(self, callback=None):
+    def _new(self, callback=None, raise_connect_errors=True):
         def multi_callback(connection, error):
             if error:
-                raise error
+                if raise_connect_errors:
+                    raise error
+                else:
+                    log.error("Failed opening connection to database: %s", error)
             self._pool.append(connection)
             if callback:
                 callback(connection)
@@ -100,7 +108,7 @@ class Pool(object):
         """
         connection = self._get_connection()
         if not connection:
-            return self._ioloop.add_callback(partial(self.transaction,
+            return self._ioloop.add_timeout(self._busy_wait_interval, partial(self.transaction,
                 statements, cursor_factory, callback))
 
         connection.transaction(statements, cursor_factory, callback)
@@ -119,7 +127,7 @@ class Pool(object):
         """
         connection = self._get_connection()
         if not connection:
-            return self._ioloop.add_callback(partial(self.execute,
+            return self._ioloop.add_timeout(self._busy_wait_interval, partial(self.execute,
                 operation, parameters, cursor_factory, callback))
 
         connection.execute(operation, parameters, cursor_factory, callback)
@@ -138,7 +146,7 @@ class Pool(object):
         """
         connection = self._get_connection()
         if not connection:
-            return self._ioloop.add_callback(partial(self.callproc,
+            return self._ioloop.add_timeout(self._busy_wait_interval, partial(self.callproc,
                 procname, parameters, cursor_factory, callback))
 
         connection.callproc(procname, parameters, cursor_factory, callback)
@@ -166,7 +174,7 @@ class Pool(object):
         """
         connection = self._get_connection()
         if not connection:
-            return self._ioloop.add_callback(
+            return self._ioloop.add_timeout(self._busy_wait_interval,
                 partial(self.register_hstore, unicode, callback))
 
         connection.register_hstore(True, unicode, callback)
@@ -223,6 +231,7 @@ class Connection(object):
         callback=None,
         ioloop=None
     ):
+        log.info("Opening new database connection")
         self.connection = psycopg2.connect(dsn, async=1,
             connection_factory=connection_factory or base_connection)
         self.fileno = self.connection.fileno()
