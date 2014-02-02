@@ -179,9 +179,11 @@ def main():
 
         application.db = momoko.Pool(
             dsn=dsn,
-            register_hstore=enable_hstore,
             size=1
         )
+
+        if enable_hstore:
+            application.db.register_hstore()
 
         http_server = tornado.httpserver.HTTPServer(application)
         http_server.listen(8888, 'localhost')
