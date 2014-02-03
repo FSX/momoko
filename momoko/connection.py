@@ -12,7 +12,6 @@ MIT, see LICENSE for more details.
 from functools import partial
 from collections import deque
 import datetime
-import time
 
 import psycopg2
 from psycopg2.extras import register_hstore as _psy_register_hstore
@@ -62,9 +61,11 @@ class Pool(object):
     """
 
     class Connections(object):
-        def __init__(self, reconnect_interval):
+        def __init__(self, reconnect_interval, ioloop):
+            self.ioloop = ioloop
+
             self.reconnect_interval = reconnect_interval
-            self.last_connect_attempt_ts = time.time()
+            self.last_connect_attempt_ts = ioloop.time()
             self.last_connect_attempt_success = False
             self.reconnect_in_progress = False
 
@@ -109,7 +110,7 @@ class Pool(object):
             return len(self.free) + len(self.busy) + len(self.dead)
 
         def is_time_to_reconnect(self):
-            now = time.time()
+            now = self.ioloop.time()
             if not (self.last_connect_attempt_success or
                     now - self.last_connect_attempt_ts > self.reconnect_interval):
                 return False
@@ -145,11 +146,11 @@ class Pool(object):
         self.connection_factory = connection_factory
         self.raise_connect_errors = raise_connect_errors
 
-        reconnect_interval = float(reconnect_interval)/1000  # the parameter is in milliseconds
-        self._conns = self.Connections(reconnect_interval)
-
         self._ioloop = ioloop or IOLoop.instance()
         self._busy_wait_interval = datetime.timedelta(milliseconds=busy_wait_interval)
+
+        reconnect_interval = float(reconnect_interval)/1000  # the parameter is in milliseconds
+        self._conns = self.Connections(reconnect_interval, self._ioloop)
 
         # Create connections
         def after_pool_creation(connection):
