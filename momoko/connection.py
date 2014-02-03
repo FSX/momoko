@@ -12,6 +12,7 @@ MIT, see LICENSE for more details.
 from functools import partial
 from collections import deque
 import datetime
+import time
 
 import psycopg2
 from psycopg2.extras import register_hstore as _psy_register_hstore
@@ -20,6 +21,7 @@ from psycopg2.extensions import (connection as base_connection, cursor as base_c
 
 from tornado import gen
 from tornado.ioloop import IOLoop
+from tornado.stack_context import wrap
 
 from .exceptions import PoolError
 
@@ -47,7 +49,84 @@ class Pool(object):
     :param callable callback:
         A callable that's called after all the connections are created. Defaults to ``None``.
     :param ioloop: An instance of Tornado's IOLoop. Defaults to ``None``.
+    :param integer busy_wait_interval:
+        When all connections are busy, wait ``busy_wait_interval`` milliseconds before checking
+        if any connection becomes available.
+    :param bool raise_connect_errors:
+        Whether to raise exception if database connection fails. Set to ``False`` to enable
+        automatic reconnection attempts. Defaults to ``True``.
+    :param integer reconnect_interval:
+        When using automatic reconnets, set minimum reconnect interval, in milliseconds,
+        before retrying connection attempt. Don't set this value too low to prevent "banging"
+        the database server with connection attempts. Defaults to ``500``.
     """
+
+    class Connections(object):
+        def __init__(self, reconnect_interval):
+            self.reconnect_interval = reconnect_interval
+            self.last_connect_attempt_ts = time.time()
+            self.last_connect_attempt_success = False
+            self.reconnect_in_progress = False
+
+            self.empty()
+
+        def get_free(self):
+            if not self.free:
+                return
+            conn = self.free.pop()
+            self.busy.add(conn)
+            return conn
+
+        def return_busy(self, conn):
+            self.busy.remove(conn)
+            self.free.add(conn)
+
+        def add_free(self, conn):
+            self.free.add(conn)
+
+        def add_dead(self, conn):
+            self.dead.add(conn)
+            self.busy.discard(conn)
+            # free connections are most probably dead by now
+            while self.free:
+                self.dead.add(self.free.pop())
+
+        def get_alive(self):
+            return self.free.union(self.busy)
+
+        def close_alive(self):
+            for conn in self.get_alive():
+                if not conn.closed:
+                    conn.close()
+
+        def empty(self):
+            self.free = set()
+            self.busy = set()
+            self.dead = set()
+
+        @property
+        def total(self):
+            return len(self.free) + len(self.busy) + len(self.dead)
+
+        def is_time_to_reconnect(self):
+            now = time.time()
+            if not (self.last_connect_attempt_success or
+                    now - self.last_connect_attempt_ts > self.reconnect_interval):
+                return False
+
+            self.last_connect_attempt_ts = now
+            self.reconnect_in_progress = True
+            self.dead.pop()
+            return True
+
+        def on_reconnect_complete(self, connection):
+            self.last_connect_attempt_success = not connection.closed
+            self.reconnect_in_progress = False
+
+
+    # FIXME: busy-waiting mechanizm is resourceful and prown to starvation (unfair request processing).
+    #        Refactor to event-driven one.
+    # FIXME: Implement on-demand pool size growing
     def __init__(self,
         dsn,
         connection_factory=None,
@@ -55,20 +134,27 @@ class Pool(object):
         callback=None,
         ioloop=None,
         raise_connect_errors=True,
+        reconnect_interval=500,
+        busy_wait_interval=10
     ):
-        assert size > 0, 'The connection pool size must be a number above 0.'
+        assert size > 0, "The connection pool size must be a number above 0."
 
         self.dsn = dsn
         self.size = size
         self.closed = False
         self.connection_factory = connection_factory
+        self.raise_connect_errors = raise_connect_errors
+
+        reconnect_interval = float(reconnect_interval)/1000  # the parameter is in milliseconds
+        self._conns = self.Connections(reconnect_interval)
 
         self._ioloop = ioloop or IOLoop.instance()
-        self._pool = []
-        self._busy_wait_interval = datetime.timedelta(milliseconds=10)
+        self._busy_wait_interval = datetime.timedelta(milliseconds=busy_wait_interval)
 
         # Create connections
         def after_pool_creation(n, connection):
+            # FIXME: this callback is naive - connection completion order my by different
+            #        check for self._conn.total
             if n == self.size-1:
                 if callback:
                     callback()
@@ -77,23 +163,78 @@ class Pool(object):
             self._new(partial(after_pool_creation, i), raise_connect_errors=raise_connect_errors)
 
     def _new(self, callback=None, raise_connect_errors=True):
-        def multi_callback(connection, error):
+        def post_connect_callback(connection, error):
             if error:
+                connection.close()
                 if raise_connect_errors:
                     raise error
                 else:
                     log.error("Failed opening connection to database: %s", error)
-            self._pool.append(connection)
+            if not connection.closed:
+                self._conns.add_free(connection)
+            else:
+                self._conns.add_dead(connection)
             if callback:
                 callback(connection)
 
         Connection(self.dsn, self.connection_factory,
-            multi_callback, self._ioloop)
+                   post_connect_callback, self._ioloop)
 
     def _get_connection(self):
-        for connection in self._pool:
-            if not connection.busy():
-                return connection
+        # if there are free connections - just return one
+        connection = self._conns.get_free()
+        if connection:
+            return connection
+
+        # if there are dead connections - try to reanimate them
+        if self._conns.dead:
+            if self._conns.is_time_to_reconnect():
+                self._new(callback=self._conns.on_reconnect_complete,
+                          raise_connect_errors=self.raise_connect_errors)
+
+        if self._conns.busy:
+            # At least some connections are alive, so wait for them:
+            return
+
+        if self._conns.reconnect_in_progress:
+            # We are connecting - wait more
+            return
+
+        raise psycopg2.DatabaseError("No database connection available")
+
+    def _operate(self, method, callback, *args, **kwargs):
+        retry_action = partial(self._ioloop.add_timeout, self._busy_wait_interval,
+                               partial(self._operate, method, callback, *args, **kwargs))
+
+        connection = self._get_connection()
+        if not connection:
+            return retry_action()
+
+        def conn_checker_callback_wrapper(callback):
+            """
+            Wrap real callback coming from invoker with our own
+            that will check connection status after the end of the call
+            and recycle connection / retry operation
+            """
+
+            # needs to be a list since we can not modify the var itself in inner scope
+            # http://eli.thegreenplace.net/2011/05/15/understanding-unboundlocalerror-in-python/
+            attempt = [1]
+
+            def inner(*_args, **_kwargs):
+                if connection.closed:
+                    self._conns.add_dead(connection)
+                    if attempt[0] == 1:
+                        attempt[0] += 1
+                        log.warn("Tried over dead connection. Retrying once")
+                        return retry_action()
+                else:
+                    self._conns.return_busy(connection)
+                return callback(*_args, **_kwargs)
+            return wrap(inner)
+
+        callback = conn_checker_callback_wrapper(callback)
+        getattr(connection, method)(*args, callback=callback, **kwargs)
 
     def transaction(self,
         statements,
@@ -106,12 +247,8 @@ class Pool(object):
         See :py:meth:`momoko.Connection.transaction` for documentation about the
         parameters.
         """
-        connection = self._get_connection()
-        if not connection:
-            return self._ioloop.add_timeout(self._busy_wait_interval, partial(self.transaction,
-                statements, cursor_factory, callback))
-
-        connection.transaction(statements, cursor_factory, callback)
+        self._operate("transaction", callback,
+                      statements, cursor_factory=cursor_factory)
 
     def execute(self,
         operation,
@@ -125,12 +262,8 @@ class Pool(object):
         See :py:meth:`momoko.Connection.execute` for documentation about the
         parameters.
         """
-        connection = self._get_connection()
-        if not connection:
-            return self._ioloop.add_timeout(self._busy_wait_interval, partial(self.execute,
-                operation, parameters, cursor_factory, callback))
-
-        connection.execute(operation, parameters, cursor_factory, callback)
+        self._operate("execute", callback,
+                      operation, parameters, cursor_factory=cursor_factory)
 
     def callproc(self,
         procname,
@@ -144,12 +277,8 @@ class Pool(object):
         See :py:meth:`momoko.Connection.callproc` for documentation about the
         parameters.
         """
-        connection = self._get_connection()
-        if not connection:
-            return self._ioloop.add_timeout(self._busy_wait_interval, partial(self.callproc,
-                procname, parameters, cursor_factory, callback))
-
-        connection.callproc(procname, parameters, cursor_factory, callback)
+        self._operate("callproc", callback,
+                      procname, parameters=parameters, cursor_factory=cursor_factory)
 
     def mogrify(self,
         operation,
@@ -162,7 +291,8 @@ class Pool(object):
         See :py:meth:`momoko.Connection.mogrify` for documentation about the
         parameters.
         """
-        self._pool[0].mogrify(operation, parameters, callback)
+        self._operate("mogrify", callback,
+                      operation, parameters=parameters)
 
     def register_hstore(self, unicode=False, callback=None):
         """
@@ -172,12 +302,8 @@ class Pool(object):
         the parameters. This method has no ``globally`` parameter, because it
         already registers hstore to all the connections in the pool.
         """
-        connection = self._get_connection()
-        if not connection:
-            return self._ioloop.add_timeout(self._busy_wait_interval,
-                partial(self.register_hstore, unicode, callback))
-
-        connection.register_hstore(True, unicode, callback)
+        self._operate("register_hstore", callback,
+                      globally=True, unicode=unicode)
 
     def close(self):
         """
@@ -186,11 +312,8 @@ class Pool(object):
         if self.closed:
             raise PoolError('connection pool is already closed')
 
-        for connection in self._pool:
-            if not connection.closed:
-                connection.close()
-
-        self._pool = []
+        self._conns.close_alive()
+        self._conns.empty()
         self.closed = True
 
 
