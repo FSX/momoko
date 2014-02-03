@@ -152,15 +152,13 @@ class Pool(object):
         self._busy_wait_interval = datetime.timedelta(milliseconds=busy_wait_interval)
 
         # Create connections
-        def after_pool_creation(n, connection):
-            # FIXME: this callback is naive - connection completion order my by different
-            #        check for self._conn.total
-            if n == self.size-1:
+        def after_pool_creation(connection):
+            if self._conns.total == self.size:
                 if callback:
                     callback()
 
         for i in range(self.size):
-            self._new(partial(after_pool_creation, i), raise_connect_errors=raise_connect_errors)
+            self._new(after_pool_creation, raise_connect_errors=raise_connect_errors)
 
     def _new(self, callback=None, raise_connect_errors=True):
         def post_connect_callback(connection, error):
