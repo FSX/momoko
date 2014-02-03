@@ -70,6 +70,13 @@ class Pool(object):
 
             self.empty()
 
+        def empty(self):
+            self.free = set()
+            self.busy = set()
+            self.dead = set()
+            self.pending = set()
+            self.waiting_queue = deque()
+
         def remove_pending(func):
             @wraps(func)
             def wrapper(self, conn):
@@ -120,13 +127,6 @@ class Pool(object):
                 if not conn.closed:
                     conn.close()
 
-        def empty(self):
-            self.free = set()
-            self.busy = set()
-            self.dead = set()
-            self.pending = set()
-            self.waiting_queue = deque()
-
         @property
         def total(self):
             return len(self.free) + len(self.busy) + len(self.dead) + len(self.pending)
@@ -150,7 +150,8 @@ class Pool(object):
 
         def abort_waiting_queue(self):
             while self.waiting_queue:
-                self.waiting_queue.pop().set_result(None)
+                future = self.waiting_queue.pop()
+                future.set_result(None)  # Send None to signify that all who waits should abort 
 
 
     def __init__(self,
@@ -198,12 +199,19 @@ class Pool(object):
                     raise error
                 else:
                     log.error("Failed opening connection to database: %s", error)
+
             self._conns.on_reconnect_complete(connection)
+            log.debug("Connection attempt complete. Success: %s", self._conns.last_connect_attempt_success)
+
             if self._conns.last_connect_attempt_success:
-                for i in range(min(len(self._conns.dead), len(self._conns.waiting_queue))):
+                # Connection to db is OK. If we have waiting requests
+                # and some dead conncetions, we can serve requests faster
+                # if we reanimate dead connections
+                num_conns_to_reconnect = min(len(self._conns.dead), len(self._conns.waiting_queue))
+                for i in range(num_conns_to_reconnect):
                     self._conns.dead.pop()
                     self._new()
-            self._stratch_if_needed()
+            self._stretch_if_needed()
             if callback:
                 callback(connection)
 
@@ -213,42 +221,40 @@ class Pool(object):
                      post_connect_callback, self._ioloop)
 
     def _get_connection(self):
+
         self.connected = True
+
         # if there are free connections - just return one
         connection = self._conns.get_free()
         if connection:
-            log.warn("connection available")
             return connection
 
         # if there are dead connections - try to reanimate them
         if self._conns.dead:
             if self._conns.is_time_to_reconnect():
-                log.warn("time to reconnect")
+                log.debug("Trying to reconnect dead connection")
                 self._conns.dead.pop()
                 self._new()
                 return
 
         if self._conns.busy:
-            # At least some connections are alive, so wait for them:
-            self._stratch_if_needed()
-            log.warn("there busy connections")
+            # We may be maxed out here. Try to strach if approprate
+            self._stretch_if_needed()
+            # At least some connections are alive, so wait for them
+            log.debug("There are busy connections")
             return
 
         if self._conns.reconnect_in_progress:
             # We are connecting - wait more
-            log.warn("reconnect in progress")
+            log.debug("Reconnect in progress")
             return
 
-        # If we get here - no connections are available or expected in near future
-        log.warn("no connections expected - aborting all")
-        #self._conns.abort_waiting_queue()
+        log.debug("no connections are available or expected in near future")
         self.connected = False
 
-    def _stratch_if_needed(self):
+    def _stretch_if_needed(self):
         if self._conns.total < self.max_size and not (self._conns.dead or self._conns.free):
-            # if there are no dead connections and no free ones -
-            # time to stratch
-            log.warn("time to strach")
+            log.debug("stretching pool")
             self._new()
 
     def _retry_action(self, method, callback, *args, **kwargs):
@@ -259,7 +265,7 @@ class Pool(object):
         def on_connection_available(future):
             connection = future.result()
             if not connection:
-                log.warn("aborting - as instructed")
+                log.debug("Aborting - as instructed")
                 raise psycopg2.DatabaseError("No database connection available")
             action(connection=connection)
         return self._ioloop.add_future(future, on_connection_available)
@@ -269,14 +275,17 @@ class Pool(object):
         connection = kwargs.pop("connection", None) or self._get_connection()
         if not connection:
             if self.connected:
+                log.debug("No connection available right now - will try again later")
                 return self._retry_action(method, callback, *args, **kwargs)
             else:
-                log.warn("aborting - not connected")
+                log.debug("Aborting - not connected")
                 raise psycopg2.DatabaseError("No database connection available")
+
+        log.debug("Connection obtained, proceeding")
 
         def conn_checker_callback_wrapper(callback):
             """
-            Wrap real callback coming from invoker with our own
+            Wrap real callback coming from invoker with our own one
             that will check connection status after the end of the call
             and recycle connection / retry operation
             """
@@ -290,7 +299,7 @@ class Pool(object):
                     self._conns.add_dead(connection)
                     if attempt[0] == 1:
                         attempt[0] += 1
-                        log.warn("Tried over dead connection. Retrying once")
+                        log.debug("Tried over dead connection. Retrying once")
                         self._retry_action(method, callback, *args, **kwargs)
                         self._conns.dead.pop()
                         self._new()
