@@ -189,6 +189,7 @@ class Pool(object):
             if self._conns.is_time_to_reconnect():
                 self._new(callback=self._conns.on_reconnect_complete,
                           raise_connect_errors=self.raise_connect_errors)
+                return
 
         if self._conns.busy:
             # At least some connections are alive, so wait for them:
