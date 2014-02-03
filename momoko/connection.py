@@ -12,6 +12,7 @@ MIT, see LICENSE for more details.
 from functools import partial
 from collections import deque
 import datetime
+from functools import wraps
 
 import psycopg2
 from psycopg2.extras import register_hstore as _psy_register_hstore
@@ -69,6 +70,13 @@ class Pool(object):
 
             self.empty()
 
+        def remove_pending(func):
+            @wraps(func)
+            def wrapper(self, conn):
+                self.pending.discard(conn)
+                func(self, conn)
+            return wrapper
+
         def get_free(self):
             if not self.free:
                 return
@@ -83,6 +91,7 @@ class Pool(object):
                 self.busy.remove(conn)
                 self.free.add(conn)
 
+        @remove_pending
         def add_free(self, conn):
             if self.waiting_queue:
                 self.busy.add(conn)
@@ -90,12 +99,18 @@ class Pool(object):
             else:
                 self.free.add(conn)
 
+        @remove_pending
         def add_dead(self, conn):
             self.dead.add(conn)
             self.busy.discard(conn)
             # free connections are most probably dead by now
             while self.free:
                 self.dead.add(self.free.pop())
+
+        def add_pending(self, conn):
+            self.last_connect_attempt_ts = self.ioloop.time()
+            self.reconnect_in_progress = True
+            self.pending.add(conn)
 
         def get_alive(self):
             return self.free.union(self.busy)
@@ -109,42 +124,52 @@ class Pool(object):
             self.free = set()
             self.busy = set()
             self.dead = set()
+            self.pending = set()
             self.waiting_queue = deque()
 
         @property
         def total(self):
-            return len(self.free) + len(self.busy) + len(self.dead)
+            return len(self.free) + len(self.busy) + len(self.dead) + len(self.pending)
 
         def is_time_to_reconnect(self):
             now = self.ioloop.time()
             if not (self.last_connect_attempt_success or
                     now - self.last_connect_attempt_ts > self.reconnect_interval):
                 return False
-
-            self.last_connect_attempt_ts = now
-            self.reconnect_in_progress = True
-            self.dead.pop()
             return True
 
         def on_reconnect_complete(self, connection):
+            if not connection.closed:
+                self.add_free(connection)
+            else:
+                self.add_dead(connection)
             self.last_connect_attempt_success = not connection.closed
             self.reconnect_in_progress = False
+            if not self.last_connect_attempt_success:
+                self.abort_waiting_queue()
 
-    # FIXME: Implement on-demand pool size growing
+        def abort_waiting_queue(self):
+            while self.waiting_queue:
+                self.waiting_queue.pop().set_result(None)
+
+
     def __init__(self,
         dsn,
         connection_factory=None,
         size=1,
+        max_size=None,
         callback=None,
         ioloop=None,
         raise_connect_errors=True,
-        reconnect_interval=500,
-        busy_wait_interval=10
+        reconnect_interval=500
     ):
         assert size > 0, "The connection pool size must be a number above 0."
 
-        self.dsn = dsn
         self.size = size
+        self.max_size = max_size or size
+        assert self.size <= self.max_size, "The connection pool max size must be of at least 'size'."
+
+        self.dsn = dsn
         self.closed = False
         self.connection_factory = connection_factory
         self.raise_connect_errors = raise_connect_errors
@@ -154,6 +179,8 @@ class Pool(object):
         reconnect_interval = float(reconnect_interval)/1000  # the parameter is in milliseconds
         self._conns = self.Connections(reconnect_interval, self._ioloop)
 
+        self.connected = False
+
         # Create connections
         def after_pool_creation(connection):
             if self._conns.total == self.size:
@@ -161,48 +188,68 @@ class Pool(object):
                     callback()
 
         for i in range(self.size):
-            self._new(after_pool_creation, raise_connect_errors=raise_connect_errors)
+            self._new(after_pool_creation)
 
-    def _new(self, callback=None, raise_connect_errors=True):
+    def _new(self, callback=None):
         def post_connect_callback(connection, error):
             if error:
                 connection.close()
-                if raise_connect_errors:
+                if self.raise_connect_errors:
                     raise error
                 else:
                     log.error("Failed opening connection to database: %s", error)
-            if not connection.closed:
-                self._conns.add_free(connection)
-            else:
-                self._conns.add_dead(connection)
+            self._conns.on_reconnect_complete(connection)
+            if self._conns.last_connect_attempt_success:
+                for i in range(min(len(self._conns.dead), len(self._conns.waiting_queue))):
+                    self._conns.dead.pop()
+                    self._new()
+            self._stratch_if_needed()
             if callback:
                 callback(connection)
 
-        Connection(self.dsn, self.connection_factory,
-                   post_connect_callback, self._ioloop)
+        conn = Connection()
+        self._conns.add_pending(conn)
+        conn.connect(self.dsn, self.connection_factory,
+                     post_connect_callback, self._ioloop)
 
     def _get_connection(self):
+        self.connected = True
         # if there are free connections - just return one
         connection = self._conns.get_free()
         if connection:
+            log.warn("connection available")
             return connection
 
         # if there are dead connections - try to reanimate them
         if self._conns.dead:
             if self._conns.is_time_to_reconnect():
-                self._new(callback=self._conns.on_reconnect_complete,
-                          raise_connect_errors=self.raise_connect_errors)
+                log.warn("time to reconnect")
+                self._conns.dead.pop()
+                self._new()
                 return
 
         if self._conns.busy:
             # At least some connections are alive, so wait for them:
+            self._stratch_if_needed()
+            log.warn("there busy connections")
             return
 
         if self._conns.reconnect_in_progress:
             # We are connecting - wait more
+            log.warn("reconnect in progress")
             return
 
-        raise psycopg2.DatabaseError("No database connection available")
+        # If we get here - no connections are available or expected in near future
+        log.warn("no connections expected - aborting all")
+        #self._conns.abort_waiting_queue()
+        self.connected = False
+
+    def _stratch_if_needed(self):
+        if self._conns.total < self.max_size and not (self._conns.dead or self._conns.free):
+            # if there are no dead connections and no free ones -
+            # time to stratch
+            log.warn("time to strach")
+            self._new()
 
     def _retry_action(self, method, callback, *args, **kwargs):
         action = partial(self._operate, method, callback, *args, **kwargs)
@@ -211,6 +258,9 @@ class Pool(object):
 
         def on_connection_available(future):
             connection = future.result()
+            if not connection:
+                log.warn("aborting - as instructed")
+                raise psycopg2.DatabaseError("No database connection available")
             action(connection=connection)
         return self._ioloop.add_future(future, on_connection_available)
 
@@ -218,7 +268,11 @@ class Pool(object):
 
         connection = kwargs.pop("connection", None) or self._get_connection()
         if not connection:
-            return self._retry_action(method, callback, *args, **kwargs)
+            if self.connected:
+                return self._retry_action(method, callback, *args, **kwargs)
+            else:
+                log.warn("aborting - not connected")
+                raise psycopg2.DatabaseError("No database connection available")
 
         def conn_checker_callback_wrapper(callback):
             """
@@ -237,7 +291,10 @@ class Pool(object):
                     if attempt[0] == 1:
                         attempt[0] += 1
                         log.warn("Tried over dead connection. Retrying once")
-                        return self.retry_action(method, callback, *args, **kwargs)
+                        self._retry_action(method, callback, *args, **kwargs)
+                        self._conns.dead.pop()
+                        self._new()
+                        return
                 else:
                     self._conns.return_busy(connection)
                 return callback(*_args, **_kwargs)
@@ -329,7 +386,7 @@ class Pool(object):
 
 class Connection(object):
     """
-    Create an asynchronous connection.
+    Initiate an asynchronous connect.
 
     :param string dsn:
         A `Data Source Name`_ string containing one of the following values:
@@ -358,7 +415,7 @@ class Connection(object):
     .. _psycopg2.extensions.connection: http://initd.org/psycopg/docs/connection.html#connection
     .. _Connection and cursor factories: http://initd.org/psycopg/docs/advanced.html#subclassing-cursor
     """
-    def __init__(self,
+    def connect(self,
         dsn,
         connection_factory=None,
         callback=None,
