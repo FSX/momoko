@@ -21,6 +21,7 @@ from psycopg2.extensions import (connection as base_connection, cursor as base_c
 from tornado import gen
 from tornado.ioloop import IOLoop
 from tornado.stack_context import wrap
+from tornado.concurrent import Future
 
 from .exceptions import PoolError
 
@@ -48,9 +49,6 @@ class Pool(object):
     :param callable callback:
         A callable that's called after all the connections are created. Defaults to ``None``.
     :param ioloop: An instance of Tornado's IOLoop. Defaults to ``None``.
-    :param integer busy_wait_interval:
-        When all connections are busy, wait ``busy_wait_interval`` milliseconds before checking
-        if any connection becomes available.
     :param bool raise_connect_errors:
         Whether to raise exception if database connection fails. Set to ``False`` to enable
         automatic reconnection attempts. Defaults to ``True``.
@@ -79,11 +77,18 @@ class Pool(object):
             return conn
 
         def return_busy(self, conn):
-            self.busy.remove(conn)
-            self.free.add(conn)
+            if self.waiting_queue:
+                self.waiting_queue.pop().set_result(conn)
+            else:
+                self.busy.remove(conn)
+                self.free.add(conn)
 
         def add_free(self, conn):
-            self.free.add(conn)
+            if self.waiting_queue:
+                self.busy.add(conn)
+                self.waiting_queue.pop().set_result(conn)
+            else:
+                self.free.add(conn)
 
         def add_dead(self, conn):
             self.dead.add(conn)
@@ -104,6 +109,7 @@ class Pool(object):
             self.free = set()
             self.busy = set()
             self.dead = set()
+            self.waiting_queue = deque()
 
         @property
         def total(self):
@@ -124,9 +130,6 @@ class Pool(object):
             self.last_connect_attempt_success = not connection.closed
             self.reconnect_in_progress = False
 
-
-    # FIXME: busy-waiting mechanizm is resourceful and prown to starvation (unfair request processing).
-    #        Refactor to event-driven one.
     # FIXME: Implement on-demand pool size growing
     def __init__(self,
         dsn,
@@ -147,7 +150,6 @@ class Pool(object):
         self.raise_connect_errors = raise_connect_errors
 
         self._ioloop = ioloop or IOLoop.instance()
-        self._busy_wait_interval = datetime.timedelta(milliseconds=busy_wait_interval)
 
         reconnect_interval = float(reconnect_interval)/1000  # the parameter is in milliseconds
         self._conns = self.Connections(reconnect_interval, self._ioloop)
@@ -202,13 +204,21 @@ class Pool(object):
 
         raise psycopg2.DatabaseError("No database connection available")
 
-    def _operate(self, method, callback, *args, **kwargs):
-        retry_action = partial(self._ioloop.add_timeout, self._busy_wait_interval,
-                               partial(self._operate, method, callback, *args, **kwargs))
+    def _retry_action(self, method, callback, *args, **kwargs):
+        action = partial(self._operate, method, callback, *args, **kwargs)
+        future = Future()
+        self._conns.waiting_queue.appendleft(future)
 
-        connection = self._get_connection()
+        def on_connection_available(future):
+            connection = future.result()
+            action(connection=connection)
+        return self._ioloop.add_future(future, on_connection_available)
+
+    def _operate(self, method, callback, *args, **kwargs):
+
+        connection = kwargs.pop("connection", None) or self._get_connection()
         if not connection:
-            return retry_action()
+            return self._retry_action(method, callback, *args, **kwargs)
 
         def conn_checker_callback_wrapper(callback):
             """
@@ -227,7 +237,7 @@ class Pool(object):
                     if attempt[0] == 1:
                         attempt[0] += 1
                         log.warn("Tried over dead connection. Retrying once")
-                        return retry_action()
+                        return self.retry_action(method, callback, *args, **kwargs)
                 else:
                     self._conns.return_busy(connection)
                 return callback(*_args, **_kwargs)
