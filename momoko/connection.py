@@ -184,7 +184,7 @@ class Pool(object):
 
         # Create connections
         def after_pool_creation(connection):
-            if self._conns.total == self.size:
+            if not self._conns.pending:  # all connections "connected" on way or the other
                 if callback:
                     callback()
 
