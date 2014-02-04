@@ -88,7 +88,7 @@ class HstoreQueryHandler(BaseHandler):
                 cursor = yield momoko.Op(self.db.execute, "SELECT 'a=>b, c=>d'::hstore;")
                 self.write('Query results: %s<br>' % cursor.fetchall())
                 cursor = yield momoko.Op(self.db.execute, "SELECT %s;",
-                    ({'e': 'f', 'g': 'h'},))
+                                         ({'e': 'f', 'g': 'h'},))
                 self.write('Query results: %s<br>' % cursor.fetchall())
             except Exception as error:
                 self.write(str(error))
@@ -143,11 +143,11 @@ class CallbackWaitHandler(BaseHandler):
     def get(self):
 
         self.db.execute('SELECT 42, 12, %s, 11;', (25,),
-            callback=(yield gen.Callback('q1')))
+                        callback=(yield gen.Callback('q1')))
         self.db.execute('SELECT 42, 12, %s, %s;', (23, 56),
-            callback=(yield gen.Callback('q2')))
+                        callback=(yield gen.Callback('q2')))
         self.db.execute('SELECT 465767, 4567, 3454;',
-            callback=(yield gen.Callback('q3')))
+                        callback=(yield gen.Callback('q3')))
 
         # Separately...
         # cursor1 = yield momoko.WaitOp('q1')

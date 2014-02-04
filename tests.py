@@ -74,13 +74,13 @@ class BaseTest(AsyncTestCase):
 class MomokoTest(BaseTest):
     def clean_db(self):
         self.db.execute('DROP TABLE IF EXISTS unit_test_large_query;',
-            callback=self.stop_callback)
+                        callback=self.stop_callback)
         self.wait_for_result()
         self.db.execute('DROP TABLE IF EXISTS unit_test_transaction;',
-            callback=self.stop_callback)
+                        callback=self.stop_callback)
         self.wait_for_result()
         self.db.execute('DROP FUNCTION IF EXISTS  unit_test_callproc(integer);',
-            callback=self.stop_callback)
+                        callback=self.stop_callback)
         self.wait_for_result()
 
     def prepare_db(self):
@@ -130,14 +130,14 @@ class MomokoTest(BaseTest):
         chars = string.ascii_letters + string.digits + string.punctuation
 
         for n in range(5):
-            random_data = ''.join( [random.choice(chars) for i in range(query_size)])
+            random_data = ''.join([random.choice(chars) for i in range(query_size)])
             self.db.execute('INSERT INTO unit_test_large_query (data) VALUES (%s) '
-                'RETURNING data;', (random_data,), callback=self.stop_callback)
+                            'RETURNING data;', (random_data,), callback=self.stop_callback)
             cursor = self.wait_for_result()
             self.assert_equal(cursor.fetchone(), (random_data,))
 
         self.db.execute('SELECT COUNT(*) FROM unit_test_large_query;',
-            callback=self.stop_callback)
+                        callback=self.stop_callback)
         cursor = self.wait_for_result()
         self.assert_equal(cursor.fetchone(), (5,))
 
@@ -166,7 +166,7 @@ class MomokoTest(BaseTest):
 
     def test_mogrify(self):
         self.db.mogrify('SELECT %s, %s;', ('\'"test"\'', 'SELECT 1;'),
-            callback=self.stop_callback)
+                        callback=self.stop_callback)
         sql = self.wait_for_result()
         self.assert_equal(sql, b'SELECT \'\'\'"test"\'\'\', \'SELECT 1;\';')
 
@@ -176,7 +176,7 @@ class MomokoTest(BaseTest):
 
     def test_mogrify_error(self):
         self.db.mogrify('SELECT %(foos;', {'foo': 'bar'},
-            callback=self.stop_callback)
+                        callback=self.stop_callback)
         _, error = self.wait()
         self.assert_is_instance(error, psycopg2.ProgrammingError)
 
@@ -201,7 +201,7 @@ class MomokoTest(BaseTest):
 
     def test_transaction_rollback(self):
         chars = string.ascii_letters + string.digits + string.punctuation
-        data = ''.join( [random.choice(chars) for i in range(100)])
+        data = ''.join([random.choice(chars) for i in range(100)])
 
         self.db.transaction((
             ('INSERT INTO unit_test_transaction (data) VALUES (%s);', (data,)),
@@ -211,7 +211,7 @@ class MomokoTest(BaseTest):
         self.assert_is_instance(error, psycopg2.ProgrammingError)
 
         self.db.execute('SELECT COUNT(*) FROM unit_test_transaction;',
-            callback=self.stop_callback)
+                        callback=self.stop_callback)
         cursor = self.wait_for_result()
         self.assert_equal(cursor.fetchone(), (0,))
 
