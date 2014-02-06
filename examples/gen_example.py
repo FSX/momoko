@@ -73,6 +73,8 @@ class SingleQueryHandler(BaseHandler):
         try:
             cursor = yield momoko.Op(self.db.execute, 'SELECT %s;', (1,))
             self.write('Query results: %s<br>' % cursor.fetchall())
+            cursor = yield momoko.Op(self.db.execute, 'SELECT now()')
+            self.write('Query results: %s<br>' % cursor.fetchall())
         except Exception as error:
             self.write(str(error))
 
@@ -179,7 +181,10 @@ def main():
 
         application.db = momoko.Pool(
             dsn=dsn,
-            size=1
+            size=1,
+            max_size=3,
+            set_session=("SET TIME ZONE UTC",),
+            raise_connect_errors=False,
         )
 
         if enable_hstore:
