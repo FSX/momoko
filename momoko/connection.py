@@ -57,9 +57,6 @@ class Pool(object):
         When using automatic reconnets, set minimum reconnect interval, in milliseconds,
         before retrying connection attempt. Don't set this value too low to prevent "banging"
         the database server with connection attempts. Defaults to ``500``.
-    :param list set_session:
-        List of intial sql commands to be executed once connection is established.
-        NOTE:The commands will be executed as one transaction block.
     """
 
     class Connections(object):
@@ -110,10 +107,6 @@ class Pool(object):
                 self.free.add(conn)
 
         @remove_pending
-        def add_busy(self, conn):
-            self.busy.add(conn)
-
-        @remove_pending
         def add_dead(self, conn):
             self.dead.add(conn)
             self.busy.discard(conn)
@@ -146,6 +139,10 @@ class Pool(object):
             return True
 
         def on_reconnect_complete(self, connection):
+            if not connection.closed:
+                self.add_free(connection)
+            else:
+                self.add_dead(connection)
             self.last_connect_attempt_success = not connection.closed
             self.reconnect_in_progress = False
             if not self.last_connect_attempt_success:
@@ -164,8 +161,7 @@ class Pool(object):
                  callback=None,
                  ioloop=None,
                  raise_connect_errors=True,
-                 reconnect_interval=500,
-                 set_session=[]):
+                 reconnect_interval=500):
         assert size > 0, "The connection pool size must be a number above 0."
 
         self.size = size
@@ -182,7 +178,6 @@ class Pool(object):
         reconnect_interval = float(reconnect_interval)/1000  # the parameter is in milliseconds
         self._conns = self.Connections(reconnect_interval, self._ioloop)
 
-        self.set_session = set_session
         self.connected = False
 
         # Create connections
@@ -203,16 +198,7 @@ class Pool(object):
                 else:
                     log.error("Failed opening connection to database: %s", error)
 
-            if not connection.closed:
-                if self.set_session:
-                    self._conns.add_busy(connection)
-                    self._operate("transaction", None, statements=self.set_session, connection=connection)
-                else:
-                    self._conns.add_free(connection)
-            else:
-                self._conns.add_dead(connection)
             self._conns.on_reconnect_complete(connection)
-
             log.debug("Connection attempt complete. Success: %s", self._conns.last_connect_attempt_success)
 
             if self._conns.last_connect_attempt_success:
@@ -318,7 +304,7 @@ class Pool(object):
                         return
                 else:
                     self._conns.return_busy(connection)
-                return callback(*_args, **_kwargs) if callback else None
+                return callback(*_args, **_kwargs)
             return wrap(inner)
 
         callback = conn_checker_callback_wrapper(callback)
