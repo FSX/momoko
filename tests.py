@@ -168,7 +168,7 @@ class MomokoTest(BaseTest):
         self.db.mogrify('SELECT %s, %s;', ('\'"test"\'', 'SELECT 1;'),
                         callback=self.stop_callback)
         sql = self.wait_for_result()
-        self.assert_equal(sql, b'SELECT \'\'\'"test"\'\'\', \'SELECT 1;\';')
+        self.assert_equal(sql, b'SELECT E\'\'\'"test"\'\'\', E\'SELECT 1;\';')
 
         self.db.execute(sql, callback=self.stop_callback)
         _, error = self.wait()
