@@ -1,6 +1,7 @@
 import os
 import string
 import random
+import time
 import unittest
 
 from tornado import gen
@@ -71,7 +72,9 @@ class BaseTest(AsyncTestCase):
         return cursor
 
 
-class MomokoTest(BaseTest):
+class MomokoBaseTest(BaseTest):
+    pool_size = 3
+
     def clean_db(self):
         self.db.execute('DROP TABLE IF EXISTS unit_test_large_query;',
                         callback=self.stop_callback)
@@ -109,7 +112,7 @@ class MomokoTest(BaseTest):
     def set_up(self):
         self.db = momoko.Pool(
             dsn=dsn,
-            size=3,
+            size=self.pool_size,
             callback=self.stop,
             ioloop=self.io_loop
         )
@@ -119,6 +122,9 @@ class MomokoTest(BaseTest):
     def tear_down(self):
         self.clean_db()
         self.db.close()
+
+
+class MomokoTest(MomokoBaseTest):
 
     def test_single_query(self):
         self.db.execute('SELECT 6, 19, 24;', callback=self.stop_callback)
@@ -279,6 +285,23 @@ class MomokoTest(BaseTest):
             self.stop()
 
         self.assert_raises(psycopg2.ProgrammingError, self.run_gen, func)
+
+    def test_parallel_queries(self):
+        sleep_time = 2
+
+        @gen.engine
+        def func():
+            for i in range(self.pool_size):
+                self.db.execute('SELECT pg_sleep(%s);' % sleep_time,
+                                callback=(yield gen.Callback('q%s' % i)))
+
+            yield momoko.WaitAllOps(["q%s" % i for i in range(self.pool_size)])
+            self.stop()
+
+        start_time = time.time()
+        self.run_gen(func)
+        execution_time = time.time() - start_time
+        self.assertLess(execution_time, sleep_time*1.10, msg="Query execution was too long")
 
 
 if __name__ == '__main__':
