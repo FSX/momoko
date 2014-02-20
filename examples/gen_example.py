@@ -71,10 +71,8 @@ class SingleQueryHandler(BaseHandler):
     @gen.engine
     def get(self):
         try:
-            cursor = yield momoko.Op(self.db.execute, 'SELECT %s;', (1,))
-            self.write('Query results: %s<br>' % cursor.fetchall())
-            cursor = yield momoko.Op(self.db.execute, 'SELECT now()')
-            self.write('Query results: %s<br>' % cursor.fetchall())
+            cursor = yield momoko.Op(self.db.execute, 'SELECT pg_sleep(%s);', (1,))
+            self.write('Query results: %s<br>\n' % cursor.fetchall())
         except Exception as error:
             self.write(str(error))
 
@@ -166,6 +164,21 @@ class CallbackWaitHandler(BaseHandler):
         self.finish()
 
 
+class ConnectionQueryHandler(BaseHandler):
+    @tornado.web.asynchronous
+    @gen.engine
+    def get(self):
+        try:
+            connection = yield momoko.Op(self.db.getconn)
+            with self.db.manage(connection):
+                cursor = yield momoko.Op(connection.execute, 'SELECT %s;', (1,))
+                self.write('Query results: %s<br>\n' % cursor.fetchall())
+        except Exception as error:
+            self.write(str(error))
+
+        self.finish()
+
+
 def main():
     try:
         tornado.options.parse_command_line()
@@ -177,6 +190,7 @@ def main():
             (r'/transaction', TransactionHandler),
             (r'/multi_query', MultiQueryHandler),
             (r'/callback_and_wait', CallbackWaitHandler),
+            (r'/connection', ConnectionQueryHandler),
         ], debug=True)
 
         application.db = momoko.Pool(

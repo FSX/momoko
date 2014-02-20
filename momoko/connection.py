@@ -13,6 +13,7 @@ from functools import partial
 from collections import deque
 import datetime
 from functools import wraps
+from contextlib import contextmanager
 
 import psycopg2
 from psycopg2.extras import register_hstore as _psy_register_hstore
@@ -32,6 +33,9 @@ from .utils import log
 # The dummy callback is used to keep the asynchronous cursor alive in case no
 # callback has been specified. This will prevent the cursor from being garbage
 # collected once, for example, ``Pool.execute`` has finished.
+# Symptom: you'll get
+#     InterfaceError: the asynchronous cursor has disappeared
+# exceptions
 def _dummy_callback(cursor, error):
     pass
 
@@ -226,6 +230,7 @@ class Pool(object):
 
     def _get_connection(self):
 
+        log.debug("Getting connection")
         self.connected = True
 
         # if there are free connections - just return one
@@ -242,7 +247,7 @@ class Pool(object):
                 return
 
         if self._conns.busy:
-            # We may be maxed out here. Try to strach if approprate
+            # We may be maxed out here. Try to stretch if approprate
             self._stretch_if_needed()
             # At least some connections are alive, so wait for them
             log.debug("There are busy connections")
@@ -257,8 +262,10 @@ class Pool(object):
         self.connected = False
 
     def _stretch_if_needed(self):
-        if self._conns.total < self.max_size and not (self._conns.dead or self._conns.free):
-            log.debug("stretching pool")
+        if self._conns.total < self.max_size \
+                and not (self._conns.dead or self._conns.free) \
+                and (self._conns.waiting_queue or self._conns.busy):
+            log.debug("Stretching pool")
             self._new()
 
     def _retry_action(self, method, callback, *args, **kwargs):
@@ -287,6 +294,9 @@ class Pool(object):
 
         log.debug("Connection obtained, proceeding")
 
+        if method == "getconn":
+            return callback(connection, None)
+
         def conn_checker_callback_wrapper(callback):
             """
             Wrap real callback coming from invoker with our own one
@@ -309,12 +319,24 @@ class Pool(object):
                         self._new()
                         return
                 else:
-                    self._conns.return_busy(connection)
+                    if method != "ping":  # FIXME: Very dumb design!
+                        self._conns.return_busy(connection)
                 return callback(*_args, **_kwargs)
             return wrap(inner)
 
         callback = conn_checker_callback_wrapper(callback)
         getattr(connection, method)(*args, callback=callback, **kwargs)
+
+    # FIXME: Probably dumb method - redesign
+    def ping(self, connection, callback=None):
+        """
+        Ping given connection object to make sure its alive (involves roundtrip to the database server).
+
+        See :py:meth:`momoko.Connection.transaction` for documentation about the
+        details.
+        """
+        self._operate("ping", callback,
+                      connection=connection)
 
     def transaction(self,
                     statements,
@@ -380,6 +402,56 @@ class Pool(object):
         """
         self._operate("register_hstore", callback,
                       globally=True, unicode=unicode)
+
+    def getconn(self, ping=True, callback=None):
+        """
+        Acquire connection from the pool.
+
+        You can then use this connection for subsequest queries.
+        Just supply, for example, ``connection.execute`` instead of ``Pool.execute``
+        to ``momoko.Op``.
+
+        Make sure to return connection to the pool by calling :py:meth:`momoko.Pool.putconn`,
+        otherwise the connection will remain forever-busy and you'll starvate your pool quickly.
+
+        :param boolean ping:
+            Whether to ping connection before returning it by executing :py:meth:`momoko.Pool.ping`.
+        """
+        def ping_callback(connection, error):
+            log.debug("ping callback here")
+            self.ping(connection, callback)
+        the_callback = ping_callback if ping else callback
+        self._operate("getconn", the_callback)
+
+    def putconn(self, connection):
+        """
+        Retrun busy connection back to the pool.
+
+        :param Connection connection:
+            Connection object previously returned by :py:meth:`momoko.Pool.getconn`.
+        """
+
+        if connection.closed:
+            self._conns.add_dead(connection)
+        else:
+            self._conns.return_busy(connection)
+
+    @contextmanager
+    def manage(self, connection):
+        """
+        Context manager that automatically returns connection to the pool.
+        You can use it instead of :py:meth:`momoko.Pool.putconn`::
+
+            connection = yield momoko.Op(self.db.getconn)
+            with self.db.manage(connection):
+                cursor = yield momoko.Op(connection.execute, "BEGIN")
+                ...
+        """
+        assert connection in self._conns.busy, "Can not manage non-busy connection. Where did you get it from?"
+        try:
+            yield connection
+        finally:
+            self.putconn(connection)
 
     def close(self):
         """
@@ -487,6 +559,23 @@ class Connection(object):
                 self.ioloop.update_handler(self.fileno, IOLoop.WRITE)
             else:
                 raise psycopg2.OperationalError('poll() returned {0}'.format(state))
+
+    def ping(self, callback=None):
+        """
+        Make sure this connection is alive by executing SELECT 1 statement
+
+        NOTE: On the contrary to other methods, callback function signature is
+              callback(self, error) and not callback(cursor, error).
+        """
+        cursor = self.connection.cursor()
+        cursor.execute("SELECT 1")
+        self.callback = partial(self._ping_callback, callback or _dummy_callback, cursor)
+        self.ioloop.add_handler(self.fileno, self.io_callback, IOLoop.WRITE)
+
+    def _ping_callback(self, callback, cursor, error):
+        if not error:
+            cursor.fetchall()
+        return callback(self, error)
 
     def execute(self,
                 operation,
