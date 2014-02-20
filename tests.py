@@ -75,7 +75,23 @@ class BaseTest(AsyncTestCase):
 
 class MomokoBaseTest(BaseTest):
     pool_size = 3
+    max_size = None
 
+    def set_up(self):
+        self.db = momoko.Pool(
+            dsn=dsn,
+            size=self.pool_size,
+            max_size=self.max_size,
+            callback=self.stop,
+            ioloop=self.io_loop
+        )
+        self.wait()
+
+    def tear_down(self):
+        self.db.close()
+
+
+class MomokoBaseDataTest(MomokoBaseTest):
     def clean_db(self):
         self.db.execute('DROP TABLE IF EXISTS unit_test_large_query;',
                         callback=self.stop_callback)
@@ -111,21 +127,15 @@ class MomokoBaseTest(BaseTest):
         self.wait_for_result()
 
     def set_up(self):
-        self.db = momoko.Pool(
-            dsn=dsn,
-            size=self.pool_size,
-            callback=self.stop,
-            ioloop=self.io_loop
-        )
-        self.wait()
+        super(MomokoBaseDataTest, self).set_up()
         self.prepare_db()
 
     def tear_down(self):
         self.clean_db()
-        self.db.close()
+        super(MomokoBaseDataTest, self).tear_down()
 
 
-class MomokoTest(MomokoBaseTest):
+class MomokoTest(MomokoBaseDataTest):
 
     def test_single_query(self):
         self.db.execute('SELECT 6, 19, 24;', callback=self.stop_callback)
@@ -287,22 +297,30 @@ class MomokoTest(MomokoBaseTest):
 
         self.assert_raises(psycopg2.ProgrammingError, self.run_gen, func)
 
+
+class MomokoParallelTest(MomokoBaseTest):
     def test_parallel_queries(self):
         sleep_time = 2
 
         @gen.engine
         def func():
-            for i in range(self.pool_size):
+            qnum = max(self.pool_size, self.max_size)
+            for i in range(qnum):
                 self.db.execute('SELECT pg_sleep(%s);' % sleep_time,
                                 callback=(yield gen.Callback('q%s' % i)))
 
-            yield momoko.WaitAllOps(["q%s" % i for i in range(self.pool_size)])
+            yield momoko.WaitAllOps(["q%s" % i for i in range(qnum)])
             self.stop()
 
         start_time = time.time()
         self.run_gen(func)
         execution_time = time.time() - start_time
         self.assertLess(execution_time, sleep_time*1.10, msg="Query execution was too long")
+
+
+class MomokoStretchTest(MomokoParallelTest):
+    pool_size = 1
+    max_size = 3
 
 
 class MomokoSetsessionTest(BaseTest):
