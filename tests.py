@@ -3,6 +3,7 @@ import string
 import random
 import time
 import unittest
+from collections import deque
 
 from tornado import gen
 from tornado.testing import AsyncTestCase
@@ -302,6 +303,34 @@ class MomokoTest(MomokoBaseTest):
         self.run_gen(func)
         execution_time = time.time() - start_time
         self.assertLess(execution_time, sleep_time*1.10, msg="Query execution was too long")
+
+
+class MomokoSetsessionTest(BaseTest):
+    pool_size = 1
+
+    def build_pool(self, setsession):
+        db = momoko.Pool(
+            dsn=dsn,
+            size=self.pool_size,
+            callback=self.stop,
+            ioloop=self.io_loop,
+            setsession=setsession,
+        )
+        self.wait()
+        return db
+
+    def test_setsession(self):
+        setsession = deque([None, "SELECT 1", "SELECT 2"])
+        time_zones = ["UTC", "Israel", "Europe/London"]
+
+        for i in range(len(time_zones)):
+            setsession[i] = "SET TIME ZONE '%s'" % time_zones[i]
+            db = self.build_pool(setsession)
+            db.execute("SELECT current_setting('TIMEZONE');", callback=self.stop_callback)
+            cursor = self.wait_for_result()
+            self.assert_equal(cursor.fetchall(), [(time_zones[i],)])
+            db.close()
+            setsession.rotate(1)
 
 
 if __name__ == '__main__':
