@@ -61,7 +61,7 @@ class Pool(object):
         When using automatic reconnets, set minimum reconnect interval, in milliseconds,
         before retrying connection attempt. Don't set this value too low to prevent "banging"
         the database server with connection attempts. Defaults to ``500``.
-    :param list set_session:
+    :param list setsession:
         List of intial sql commands to be executed once connection is established.
         If any of the commands failes, the connection will be closed.
         NOTE: The commands will be executed as one transaction block.
@@ -170,7 +170,7 @@ class Pool(object):
                  ioloop=None,
                  raise_connect_errors=True,
                  reconnect_interval=500,
-                 set_session=[]):
+                 setsession=[]):
         assert size > 0, "The connection pool size must be a number above 0."
 
         self.size = size
@@ -187,7 +187,7 @@ class Pool(object):
         reconnect_interval = float(reconnect_interval)/1000  # the parameter is in milliseconds
         self._conns = self.Connections(reconnect_interval, self._ioloop)
 
-        self.set_session = set_session
+        self.setsession = setsession
         self.connected = False
 
         # Create connections
@@ -226,7 +226,7 @@ class Pool(object):
         conn = Connection()
         self._conns.add_pending(conn)
         conn.connect(self.dsn, self.connection_factory,
-                     post_connect_callback, self._ioloop, self.set_session)
+                     post_connect_callback, self._ioloop, self.setsession)
 
     def _get_connection(self):
 
@@ -491,7 +491,7 @@ class Connection(object):
         paramater: an instance of :py:class:`momoko.Connection`. Defaults to ``None``.
     :param ioloop: An instance of Tornado's IOLoop. Defaults to ``None``.
 
-    :param list set_session:
+    :param list setsession:
         List of intial sql commands to be executed once connection is established.
         If any of the commands failes, the connection will be closed.
         NOTE: The commands will be executed as one transaction block.
@@ -506,7 +506,7 @@ class Connection(object):
                 connection_factory=None,
                 callback=None,
                 ioloop=None,
-                set_session=[]):
+                setsession=[]):
         log.info("Opening new database connection")
         self.connection = psycopg2.connect(dsn, async=1,
                                            connection_factory=connection_factory or base_connection)
@@ -516,24 +516,24 @@ class Connection(object):
 
         self._on_connect_callback = partial(callback, self) if callback else None
 
-        if set_session:
-            self.callback = self._set_session_callback
-            self.set_session = set_session
+        if setsession:
+            self.callback = self._setsession_callback
+            self.setsession = setsession
         else:
             self.callback = self._on_connect_callback
 
         self.ioloop.add_handler(self.fileno, self.io_callback, IOLoop.WRITE)
 
-    def _set_session_callback(self, error):
-        """Custom post-connect callback to trigger set_session commands execution in transaction"""
+    def _setsession_callback(self, error):
+        """Custom post-connect callback to trigger setsession commands execution in transaction"""
         if error:
             return self._on_connect_callback(error)
-        log.debug("Running set_session commands")
-        return self.transaction(self.set_session, callback=self._set_session_transaction_callback)
+        log.debug("Running setsession commands")
+        return self.transaction(self.setsession, callback=self._setsession_transaction_callback)
 
-    def _set_session_transaction_callback(self, cursor, error):
+    def _setsession_transaction_callback(self, cursor, error):
         """
-        Call back that check results of set_session transaction commands and
+        Call back that check results of setsession transaction commands and
         call the real post_connect callback. Closes connection if transaction failed.
         """
         if error:

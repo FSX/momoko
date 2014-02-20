@@ -197,7 +197,7 @@ def main():
             dsn=dsn,
             size=1,
             max_size=3,
-            set_session=("SET TIME ZONE UTC",),
+            setsession=("SET TIME ZONE UTC",),
             raise_connect_errors=False,
         )
 
