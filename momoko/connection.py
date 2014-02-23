@@ -288,6 +288,13 @@ class Pool(object):
             action(connection=connection)
         return self._ioloop.add_future(future, on_connection_available)
 
+    def _reconnect_and_retry(self, connection, method, callback, *args, **kwargs):
+        self._conns.add_dead(connection)
+        log.debug("Tried over dead connection. Retrying once")
+        self._retry_action(method, callback, *args, **kwargs)
+        self._conns.dead.pop()
+        self._new()
+
     def _operate(self, method, callback, *args, **kwargs):
 
         connection = kwargs.pop("connection", None) or self._get_connection()
@@ -304,35 +311,24 @@ class Pool(object):
         if method == "getconn":
             return callback(connection, None)
 
-        def conn_checker_callback_wrapper(callback):
+        def conn_checker_callback_wrapper(callback, connection):
             """
             Wrap real callback coming from invoker with our own one
             that will check connection status after the end of the call
             and recycle connection / retry operation
             """
-
-            # needs to be a list since we can not modify the var itself in inner scope
-            # http://eli.thegreenplace.net/2011/05/15/understanding-unboundlocalerror-in-python/
-            attempt = [1]
-
             def inner(*_args, **_kwargs):
                 if connection.closed:
-                    self._conns.add_dead(connection)
-                    if attempt[0] == 1:
-                        attempt[0] += 1
-                        log.debug("Tried over dead connection. Retrying once")
-                        self._retry_action(method, callback, *args, **kwargs)
-                        self._conns.dead.pop()
-                        self._new()
-                        return
+                    self._reconnect_and_retry(connection, method, callback, *args, **kwargs)
+                    return
                 else:
                     if method != "ping":  # FIXME: Very dumb design!
                         self._conns.return_busy(connection)
                 return callback(*_args, **_kwargs)
             return wrap(inner)
 
-        callback = conn_checker_callback_wrapper(callback)
-        getattr(connection, method)(*args, callback=callback, **kwargs)
+        the_callback = conn_checker_callback_wrapper(callback, connection)
+        getattr(connection, method)(*args, callback=the_callback, **kwargs)
 
     # FIXME: Probably dumb method - redesign
     def ping(self, connection, callback=None):
