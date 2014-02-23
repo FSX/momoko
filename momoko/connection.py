@@ -202,35 +202,39 @@ class Pool(object):
             self._new(after_pool_creation)
 
     def _new(self, callback=None):
-        def post_connect_callback(connection, error):
-            if error:
-                connection.close()
-                if self.raise_connect_errors:
-                    raise error
-                else:
-                    logger = log.error if self.log_connect_errors else log.info
-                    logger("Failed opening connection to database: %s", error)
-
-            self._conns.on_reconnect_complete(connection)
-            log.debug("Connection attempt complete. Success: %s", self._conns.last_connect_attempt_success)
-
-            if self._conns.last_connect_attempt_success:
-                # Connection to db is OK. If we have waiting requests
-                # and some dead conncetions, we can serve requests faster
-                # if we reanimate dead connections
-                num_conns_to_reconnect = min(len(self._conns.dead), len(self._conns.waiting_queue))
-                for i in range(num_conns_to_reconnect):
-                    self._conns.dead.pop()
-                    self._new()
-            self._stretch_if_needed()
-            if callback:
-                callback(connection)
-            self.server_version = connection.connection.server_version
-
         conn = Connection()
         self._conns.add_pending(conn)
         conn.connect(self.dsn, self.connection_factory,
-                     post_connect_callback, self._ioloop, self.setsession)
+                     partial(self._post_connect_callback, callback),
+                     self._ioloop, self.setsession)
+
+    def _post_connect_callback(self, callback, connection, error):
+        if error:
+            connection.close()
+            if self.raise_connect_errors:
+                raise error
+            else:
+                logger = log.error if self.log_connect_errors else log.info
+                logger("Failed opening connection to database: %s", error)
+
+        self._conns.on_reconnect_complete(connection)
+        log.debug("Connection attempt complete. Success: %s", self._conns.last_connect_attempt_success)
+
+        if self._conns.last_connect_attempt_success:
+            # Connection to db is OK. If we have waiting requests
+            # and some dead conncetions, we can serve requests faster
+            # if we reanimate dead connections
+            num_conns_to_reconnect = min(len(self._conns.dead), len(self._conns.waiting_queue))
+            for i in range(num_conns_to_reconnect):
+                self._conns.dead.pop()
+                self._new()
+
+        self._stretch_if_needed()
+
+        if callback:
+            callback(connection)
+
+        self.server_version = connection.connection.server_version
 
     def _get_connection(self):
 
