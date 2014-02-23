@@ -190,6 +190,8 @@ class Pool(object):
         self.setsession = setsession
         self.connected = False
 
+        self.server_version = None
+
         # Create connections
         def after_pool_creation(connection):
             if not self._conns.pending:  # all connections "connected" on way or the other
@@ -223,6 +225,7 @@ class Pool(object):
             self._stretch_if_needed()
             if callback:
                 callback(connection)
+            self.server_version = connection.connection.server_version
 
         conn = Connection()
         self._conns.add_pending(conn)
