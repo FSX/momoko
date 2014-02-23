@@ -17,6 +17,7 @@ db_port = os.environ.get('MOMOKO_TEST_PORT', 5432)
 test_hstore = True if os.environ.get('MOMOKO_TEST_HSTORE', False) == '1' else False
 good_dsn = 'dbname=%s user=%s password=%s host=%s port=%s' % (
     db_database, db_user, db_password, db_host, db_port)
+print good_dsn
 bad_dsn = 'dbname=%s user=%s password=xx%s host=%s port=%s' % (
     'db', 'user', 'password', "127.0.0.127", 11111)
 
@@ -231,7 +232,10 @@ class MomokoTest(MomokoBaseDataTest):
         self.db.mogrify('SELECT %s, %s;', ('\'"test"\'', 'SELECT 1;'),
                         callback=self.stop_callback)
         sql = self.wait_for_result()
-        self.assert_equal(sql, b'SELECT E\'\'\'"test"\'\'\', E\'SELECT 1;\';')
+        if self.db.server_version < 90100:
+            self.assert_equal(sql, b'SELECT E\'\'\'"test"\'\'\', E\'SELECT 1;\';')
+        else:
+            self.assert_equal(sql, b'SELECT \'\'\'"test"\'\'\', \'SELECT 1;\';')
 
         self.db.execute(sql, callback=self.stop_callback)
         _, error = self.wait()
