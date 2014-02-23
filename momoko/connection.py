@@ -565,12 +565,25 @@ class Connection(object):
             else:
                 raise psycopg2.OperationalError('poll() returned {0}'.format(state))
 
+    def _catch_early_errors(func):
+        @wraps(func)
+        def wrapper(self, *args, **kwargs):
+            callback = kwargs.get("callback", _dummy_callback)
+            try:
+                #FIXME: Pass callback to func
+                return func(self, *args, **kwargs)
+            except psycopg2.Error, error:
+                callback(None, error)
+        return wrapper
+
+    @_catch_early_errors
     def ping(self, callback=None):
         """
         Make sure this connection is alive by executing SELECT 1 statement
 
         NOTE: On the contrary to other methods, callback function signature is
               callback(self, error) and not callback(cursor, error).
+        NOTE: `callback` should always passed as keyword argument
         """
         cursor = self.connection.cursor()
         cursor.execute("SELECT 1")
@@ -582,6 +595,7 @@ class Connection(object):
             cursor.fetchall()
         return callback(self, error)
 
+    @_catch_early_errors
     def execute(self,
                 operation,
                 parameters=(),
@@ -603,6 +617,7 @@ class Connection(object):
             two positional parameters. The first one being the cursor and the second
             one ``None`` or an instance of an exception if an error has occurred,
             in that case the first parameter will be ``None``. Defaults to ``None``.
+            NOTE: `callback` should always passed as keyword argument
 
         .. _Passing parameters to SQL queries: http://initd.org/psycopg/docs/usage.html#query-parameters
         .. _psycopg2.extensions.cursor: http://initd.org/psycopg/docs/extensions.html#psycopg2.extensions.cursor
@@ -613,6 +628,7 @@ class Connection(object):
         self.callback = partial(callback or _dummy_callback, cursor)
         self.ioloop.add_handler(self.fileno, self.io_callback, IOLoop.WRITE)
 
+    @_catch_early_errors
     def callproc(self,
                  procname,
                  parameters=(),
@@ -642,6 +658,7 @@ class Connection(object):
             two positional parameters. The first one being the cursor and the second
             one ``None`` or an instance of an exception if an error has occurred,
             in that case the first parameter will be ``None``. Defaults to ``None``.
+            NOTE: `callback` should always passed as keyword argument
 
         .. _fetch*(): http://initd.org/psycopg/docs/cursor.html#fetch
         .. _Passing parameters to SQL queries: http://initd.org/psycopg/docs/usage.html#query-parameters
@@ -653,6 +670,7 @@ class Connection(object):
         self.callback = partial(callback or _dummy_callback, cursor)
         self.ioloop.add_handler(self.fileno, self.io_callback, IOLoop.WRITE)
 
+    @_catch_early_errors
     def mogrify(self, operation, parameters=(), callback=None):
         """
         Return a query string after arguments binding.
@@ -669,6 +687,7 @@ class Connection(object):
             two positional parameters. The first one being the resulting query as
             a byte string and the second one ``None`` or an instance of an exception
             if an error has occurred. Defaults to ``None``.
+            NOTE: `callback` should always passed as keyword argument
 
         .. _Passing parameters to SQL queries: http://initd.org/psycopg/docs/usage.html#query-parameters
         .. _Connection and cursor factories: http://initd.org/psycopg/docs/advanced.html#subclassing-cursor
@@ -703,6 +722,7 @@ class Connection(object):
             order as the given statements and the second one ``None`` or an instance of
             an exception if an error has occurred, in that case the first parameter is
             an empty list. Defaults to ``None``.
+            NOTE: `callback` should always passed as keyword argument
 
         .. _Passing parameters to SQL queries: http://initd.org/psycopg/docs/usage.html#query-parameters
         .. _psycopg2.extensions.cursor: http://initd.org/psycopg/docs/extensions.html#psycopg2.extensions.cursor
@@ -721,9 +741,15 @@ class Connection(object):
         queue.appendleft(('BEGIN;', ()))
         queue.append(('COMMIT;', ()))
 
+        def error_callback(statement_error, cursor, rollback_error):
+            callback(None, rollback_error or statement_error)
+
         def exec_statement(cursor=None, error=None):
             if error:
-                self.execute('ROLLBACK;', callback=partial(error_callback, error))
+                try:
+                    self.execute('ROLLBACK;', callback=partial(error_callback, error))
+                except psycopg2.Error, rollback_error:
+                    error_callback(error, cursor, rollback_error)
                 return
             if cursor:
                 cursors.append(cursor)
@@ -732,13 +758,11 @@ class Connection(object):
                 return
 
             operation, parameters = queue.popleft()
-            self.execute(operation, parameters, cursor_factory, exec_statement)
-
-        def error_callback(statement_error, cursor, rollback_error):
-            callback(None, rollback_error or statement_error)
+            self.execute(operation, parameters, cursor_factory, callback=exec_statement)
 
         self.ioloop.add_callback(exec_statement)
 
+    @_catch_early_errors
     def register_hstore(self, globally=False, unicode=False, callback=None):
         """
         Register adapter and typecaster for ``dict-hstore`` conversions.
@@ -751,6 +775,8 @@ class Connection(object):
         :param boolean unicode:
             If ``True``, keys and values returned from the database will be ``unicode``
             instead of ``str``. The option is not available on Python 3.
+
+        NOTE: `callback` should always passed as keyword argument
 
         .. _documentation: http://initd.org/psycopg/docs/extras.html#hstore-data-type
         """
