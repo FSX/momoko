@@ -249,7 +249,7 @@ class Pool(object):
 
         if self._conns.busy:
             # We may be maxed out here. Try to stretch if approprate
-            self._stretch_if_needed()
+            self._stretch_if_needed(new_request=True)
             # At least some connections are alive, so wait for them
             log.debug("There are busy connections")
             return
@@ -262,12 +262,18 @@ class Pool(object):
         log.debug("no connections are available or expected in near future")
         self.connected = False
 
-    def _stretch_if_needed(self):
-        if self._conns.total < self.max_size \
-                and not (self._conns.dead or self._conns.free) \
-                and (self._conns.waiting_queue or self._conns.busy):
-            log.debug("Stretching pool")
-            self._new()
+    def _stretch_if_needed(self, new_request=False):
+        if self._conns.total == self.max_size:
+            return  # max size reached
+        if self._conns.dead or self._conns.free:
+            return  # no point to stretch if we heave free conns to use / dead conns to reanimate
+        if not (new_request or (self._conns.waiting_queue and self._conns.busy)):
+            return
+        if self._conns.pending:
+            if len(self._conns.pending) >= len(self._conns.waiting_queue) + int(new_request):
+                return
+        log.debug("Stretching pool")
+        self._new()
 
     def _retry_action(self, method, callback, *args, **kwargs):
         action = partial(self._operate, method, callback, *args, **kwargs)
