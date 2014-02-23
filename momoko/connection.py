@@ -308,29 +308,27 @@ class Pool(object):
 
         log.debug("Connection obtained, proceeding")
 
-        if method == "getconn":
+        if kwargs.pop("get_connection_only", False):
             return callback(connection, None)
 
-        def conn_checker_callback_wrapper(callback, connection):
-            """
-            Wrap real callback coming from invoker with our own one
-            that will check connection status after the end of the call
-            and recycle connection / retry operation
-            """
-            def inner(*_args, **_kwargs):
-                if connection.closed:
-                    self._reconnect_and_retry(connection, method, callback, *args, **kwargs)
-                    return
-                else:
-                    if method != "ping":  # FIXME: Very dumb design!
-                        self._conns.return_busy(connection)
-                return callback(*_args, **_kwargs)
-            return wrap(inner)
+        the_callback = partial(self._operate_callback, connection, method, callback, args, kwargs)
+        method(connection, *args, callback=the_callback, **kwargs)
 
-        the_callback = conn_checker_callback_wrapper(callback, connection)
-        getattr(connection, method)(*args, callback=the_callback, **kwargs)
+    def _operate_callback(self, connection, method, orig_callback, args, kwargs, *_args, **_kwargs):
+        """
+        Wrap real callback coming from invoker with our own one
+        that will check connection status after the end of the call
+        and recycle connection / retry operation
+        """
+        if connection.closed:
+            self._reconnect_and_retry(connection, method, orig_callback, *args, **kwargs)
+            return
 
-    # FIXME: Probably dumb method - redesign
+        if not getattr(method, "_keep_connection", False):
+            self._conns.return_busy(connection)
+
+        return orig_callback(*_args, **_kwargs)
+
     def ping(self, connection, callback=None):
         """
         Ping given connection object to make sure its alive (involves roundtrip to the database server).
@@ -338,7 +336,7 @@ class Pool(object):
         See :py:meth:`momoko.Connection.transaction` for documentation about the
         details.
         """
-        self._operate("ping", callback,
+        self._operate(Connection.ping, callback,
                       connection=connection)
 
     def transaction(self,
@@ -351,7 +349,7 @@ class Pool(object):
         See :py:meth:`momoko.Connection.transaction` for documentation about the
         parameters.
         """
-        self._operate("transaction", callback,
+        self._operate(Connection.transaction, callback,
                       statements, cursor_factory=cursor_factory)
 
     def execute(self,
@@ -365,7 +363,7 @@ class Pool(object):
         See :py:meth:`momoko.Connection.execute` for documentation about the
         parameters.
         """
-        self._operate("execute", callback,
+        self._operate(Connection.execute, callback,
                       operation, parameters, cursor_factory=cursor_factory)
 
     def callproc(self,
@@ -379,7 +377,7 @@ class Pool(object):
         See :py:meth:`momoko.Connection.callproc` for documentation about the
         parameters.
         """
-        self._operate("callproc", callback,
+        self._operate(Connection.callproc, callback,
                       procname, parameters=parameters, cursor_factory=cursor_factory)
 
     def mogrify(self,
@@ -392,7 +390,7 @@ class Pool(object):
         See :py:meth:`momoko.Connection.mogrify` for documentation about the
         parameters.
         """
-        self._operate("mogrify", callback,
+        self._operate(Connection.mogrify, callback,
                       operation, parameters=parameters)
 
     def register_hstore(self, unicode=False, callback=None):
@@ -421,10 +419,9 @@ class Pool(object):
             Whether to ping connection before returning it by executing :py:meth:`momoko.Pool.ping`.
         """
         def ping_callback(connection, error):
-            log.debug("ping callback here")
             self.ping(connection, callback)
         the_callback = ping_callback if ping else callback
-        self._operate("getconn", the_callback)
+        self._operate("getconn", the_callback, get_connection_only=True)
 
     def putconn(self, connection):
         """
@@ -570,13 +567,21 @@ class Connection(object):
         def wrapper(self, *args, **kwargs):
             callback = kwargs.get("callback", _dummy_callback)
             try:
-                #FIXME: Pass callback to func
                 return func(self, *args, **kwargs)
             except psycopg2.Error, error:
                 callback(None, error)
         return wrapper
 
+    def _keep_connection(func):
+        """
+        Use this decorator on Connection methods to hint the Pool to not
+        release connection when operation is complete
+        """
+        func._keep_connection = True
+        return func
+
     @_catch_early_errors
+    @_keep_connection
     def ping(self, callback=None):
         """
         Make sure this connection is alive by executing SELECT 1 statement
