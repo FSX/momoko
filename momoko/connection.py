@@ -206,7 +206,8 @@ class Pool(object):
                 if self.raise_connect_errors:
                     raise error
                 else:
-                    log.error("Failed opening connection to database: %s", error)
+                    logger = log.error if self.log_connect_errors else log.info
+                    logger("Failed opening connection to database: %s", error)
 
             self._conns.on_reconnect_complete(connection)
             log.debug("Connection attempt complete. Success: %s", self._conns.last_connect_attempt_success)
@@ -463,6 +464,8 @@ class Pool(object):
         self._conns.close_alive()
         self._conns.empty()
         self.closed = True
+
+    log_connect_errors = True  # Unittest monkey patches it for silent output
 
 
 class Connection(object):
