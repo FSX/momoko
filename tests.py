@@ -4,7 +4,6 @@ import random
 import time
 import unittest
 from collections import deque
-from psycopg2.extras import RealDictConnection, RealDictCursor
 
 from tornado import gen
 from tornado.testing import AsyncTestCase
@@ -41,6 +40,7 @@ elif psycopg2_impl == 'psycopg2ct':
 
 import momoko
 import psycopg2
+from psycopg2.extras import RealDictConnection, RealDictCursor
 
 # Suspress connection errors on volatile db tests
 momoko.Pool.log_connect_errors = False
