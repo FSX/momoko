@@ -215,7 +215,8 @@ class Pool(object):
 
     def _post_connect_callback(self, callback, connection, error):
         if error:
-            connection.close()
+            if not connection.closed:
+                connection.close()
             if self.raise_connect_errors:
                 raise error
             else:
