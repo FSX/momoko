@@ -54,8 +54,7 @@ class OverviewHandler(BaseHandler):
 
 
 class MogrifyHandler(BaseHandler):
-    @tornado.web.asynchronous
-    @gen.engine
+    @gen.coroutine
     def get(self):
         try:
             sql = yield momoko.Op(self.db.mogrify, 'SELECT %s;', (1,))
@@ -67,8 +66,7 @@ class MogrifyHandler(BaseHandler):
 
 
 class SingleQueryHandler(BaseHandler):
-    @tornado.web.asynchronous
-    @gen.engine
+    @gen.coroutine
     def get(self):
         try:
             cursor = yield momoko.Op(self.db.execute, 'SELECT pg_sleep(%s);', (1,))
@@ -80,8 +78,7 @@ class SingleQueryHandler(BaseHandler):
 
 
 class HstoreQueryHandler(BaseHandler):
-    @tornado.web.asynchronous
-    @gen.engine
+    @gen.coroutine
     def get(self):
         if enable_hstore:
             try:
@@ -99,8 +96,7 @@ class HstoreQueryHandler(BaseHandler):
 
 
 class MultiQueryHandler(BaseHandler):
-    @tornado.web.asynchronous
-    @gen.engine
+    @gen.coroutine
     def get(self):
         cursor1, cursor2, cursor3 = yield [
             momoko.Op(self.db.execute, 'SELECT 1;'),
@@ -116,8 +112,7 @@ class MultiQueryHandler(BaseHandler):
 
 
 class TransactionHandler(BaseHandler):
-    @tornado.web.asynchronous
-    @gen.engine
+    @gen.coroutine
     def get(self):
         try:
             cursors = yield momoko.Op(self.db.transaction, (
@@ -138,8 +133,7 @@ class TransactionHandler(BaseHandler):
 
 
 class CallbackWaitHandler(BaseHandler):
-    @tornado.web.asynchronous
-    @gen.engine
+    @gen.coroutine
     def get(self):
 
         self.db.execute('SELECT 42, 12, %s, 11;', (25,),
@@ -165,8 +159,7 @@ class CallbackWaitHandler(BaseHandler):
 
 
 class ConnectionQueryHandler(BaseHandler):
-    @tornado.web.asynchronous
-    @gen.engine
+    @gen.coroutine
     def get(self):
         try:
             connection = yield momoko.Op(self.db.getconn)
