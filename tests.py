@@ -58,6 +58,10 @@ class BaseTest(AsyncTestCase):
         self.assert_is_instance = lambda object, classinfo: self.assertTrue(isinstance(object, classinfo))
         super(BaseTest, self).__init__(*args, **kwargs)
 
+    if not hasattr(AsyncTestCase, "assertLess"):
+        def assertLess(self, a, b, msg):
+            return self.assertTrue(a < b, msg=msg)
+
     def setUp(self):
         super(BaseTest, self).setUp()
         self.set_up()
