@@ -429,7 +429,7 @@ class MomokoParallelTest(MomokoBaseTest):
 
         @gen.engine
         def func():
-            qnum = jobs or max(self.pool_size, self.max_size)
+            qnum = jobs or max(self.pool_size, self.max_size if self.max_size else 0)
             for i in range(qnum):
                 self.db.execute('SELECT pg_sleep(%s);' % sleep_time,
                                 callback=(yield gen.Callback('q%s' % i)))

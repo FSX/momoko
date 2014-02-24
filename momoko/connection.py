@@ -533,7 +533,7 @@ class Connection(object):
         self.connection = None
         try:
             self.connection = psycopg2.connect(dsn, **kwargs)
-        except psycopg2.Error, error:
+        except psycopg2.Error as error:
             if callback:
                 callback(self, error)
                 return
@@ -595,7 +595,7 @@ class Connection(object):
             callback = kwargs.get("callback", _dummy_callback)
             try:
                 return func(self, *args, **kwargs)
-            except psycopg2.Error, error:
+            except psycopg2.Error as error:
                 callback(None, error)
         return wrapper
 
@@ -782,7 +782,7 @@ class Connection(object):
             if error:
                 try:
                     self.execute('ROLLBACK;', callback=partial(error_callback, error))
-                except psycopg2.Error, rollback_error:
+                except psycopg2.Error as rollback_error:
                     error_callback(error, cursor, rollback_error)
                 return
             if cursor:
