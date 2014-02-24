@@ -45,25 +45,26 @@ class Pool(object):
 
     The pool manages database connections and passes operations to connections.
 
-    See :py:class:`momoko.Connection` for documentation about the ``dsn`` and
-    ``connection_factory`` parameters. These are used by the connection pool when
-    a new connection is created.
+    See :py:class:`momoko.Connection` for documentation about the ``dsn``,
+    ``connection_factory`` and ``cursor_factory`` parameters.
+    These are used by the connection pool when a new connection is created.
 
     :param integer size: Amount of connections created upon initialization. Defaults to ``1``.
+    :param integer max_size: Allow number of connection to grow under load up to given size. Defaults to ``size``.
     :param callable callback:
         A callable that's called after all the connections are created. Defaults to ``None``.
-    :param ioloop: An instance of Tornado's IOLoop. Defaults to ``None``.
+    :param ioloop: An instance of Tornado's IOLoop. Defaults to ``None``, ``IOLoop.instance()`` will be used.
     :param bool raise_connect_errors:
         Whether to raise exception if database connection fails. Set to ``False`` to enable
         automatic reconnection attempts. Defaults to ``True``.
     :param integer reconnect_interval:
-        When using automatic reconnets, set minimum reconnect interval, in milliseconds,
+        When using automatic reconnects, set minimum reconnect interval, in milliseconds,
         before retrying connection attempt. Don't set this value too low to prevent "banging"
         the database server with connection attempts. Defaults to ``500``.
     :param list setsession:
         List of intial sql commands to be executed once connection is established.
         If any of the commands failes, the connection will be closed.
-        NOTE: The commands will be executed as one transaction block.
+        **NOTE:** The commands will be executed as one transaction block.
     """
 
     class Connections(object):
@@ -346,8 +347,7 @@ class Pool(object):
         """
         Ping given connection object to make sure its alive (involves roundtrip to the database server).
 
-        See :py:meth:`momoko.Connection.transaction` for documentation about the
-        details.
+        See :py:meth:`momoko.Connection.ping` for documentation about the details.
         """
         self._operate(Connection.ping, callback,
                       connection=connection)
@@ -501,6 +501,11 @@ class Connection(object):
         connections. The class returned should be a subclass of `psycopg2.extensions.connection`_.
         See `Connection and cursor factories`_ for details. Defaults to ``None``.
 
+    :param cursor_factory:
+        The ``cursor_factory`` argument can be used to return non-standart cursor class
+        The class returned should be a subclass of `psycopg2.extensions.cursor`_.
+        See `Connection and cursor factories`_ for details. Defaults to ``None``.
+
     :param callable callback:
         A callable that's called after the connection is created. It accepts one
         paramater: an instance of :py:class:`momoko.Connection`. Defaults to ``None``.
@@ -509,7 +514,7 @@ class Connection(object):
     :param list setsession:
         List of intial sql commands to be executed once connection is established.
         If any of the commands failes, the connection will be closed.
-        NOTE: The commands will be executed as one transaction block.
+        **NOTE:** The commands will be executed as one transaction block.
 
     .. _Data Source Name: http://en.wikipedia.org/wiki/Data_Source_Name
     .. _parameters: http://www.postgresql.org/docs/current/static/libpq-connect.html#LIBPQ-PQCONNECTDBPARAMS
@@ -612,11 +617,14 @@ class Connection(object):
     @_keep_connection
     def ping(self, callback=None):
         """
-        Make sure this connection is alive by executing SELECT 1 statement
+        Make sure this connection is alive by executing SELECT 1 statement -
+        i.e. roundtrip to the database.
 
-        NOTE: On the contrary to other methods, callback function signature is
-              callback(self, error) and not callback(cursor, error).
-        NOTE: `callback` should always passed as keyword argument
+        **NOTE:** On the contrary to other methods, callback function signature is
+              ``callback(self, error)`` and not ``callback(cursor, error)``.
+
+        **NOTE:** `callback` should always passed as keyword argument
+
         """
         cursor = self.connection.cursor()
         cursor.execute("SELECT 1")
@@ -650,7 +658,7 @@ class Connection(object):
             two positional parameters. The first one being the cursor and the second
             one ``None`` or an instance of an exception if an error has occurred,
             in that case the first parameter will be ``None``. Defaults to ``None``.
-            NOTE: `callback` should always passed as keyword argument
+            **NOTE:** `callback` should always passed as keyword argument
 
         .. _Passing parameters to SQL queries: http://initd.org/psycopg/docs/usage.html#query-parameters
         .. _psycopg2.extensions.cursor: http://initd.org/psycopg/docs/extensions.html#psycopg2.extensions.cursor
@@ -692,7 +700,7 @@ class Connection(object):
             two positional parameters. The first one being the cursor and the second
             one ``None`` or an instance of an exception if an error has occurred,
             in that case the first parameter will be ``None``. Defaults to ``None``.
-            NOTE: `callback` should always passed as keyword argument
+            **NOTE:** `callback` should always passed as keyword argument
 
         .. _fetch*(): http://initd.org/psycopg/docs/cursor.html#fetch
         .. _Passing parameters to SQL queries: http://initd.org/psycopg/docs/usage.html#query-parameters
@@ -722,7 +730,7 @@ class Connection(object):
             two positional parameters. The first one being the resulting query as
             a byte string and the second one ``None`` or an instance of an exception
             if an error has occurred. Defaults to ``None``.
-            NOTE: `callback` should always passed as keyword argument
+            **NOTE:** `callback` should always passed as keyword argument
 
         .. _Passing parameters to SQL queries: http://initd.org/psycopg/docs/usage.html#query-parameters
         .. _Connection and cursor factories: http://initd.org/psycopg/docs/advanced.html#subclassing-cursor
@@ -757,7 +765,7 @@ class Connection(object):
             order as the given statements and the second one ``None`` or an instance of
             an exception if an error has occurred, in that case the first parameter is
             an empty list. Defaults to ``None``.
-            NOTE: `callback` should always passed as keyword argument
+            **NOTE:** `callback` should always passed as keyword argument
 
         .. _Passing parameters to SQL queries: http://initd.org/psycopg/docs/usage.html#query-parameters
         .. _psycopg2.extensions.cursor: http://initd.org/psycopg/docs/extensions.html#psycopg2.extensions.cursor
@@ -811,7 +819,7 @@ class Connection(object):
             If ``True``, keys and values returned from the database will be ``unicode``
             instead of ``str``. The option is not available on Python 3.
 
-        NOTE: `callback` should always passed as keyword argument
+        **NOTE:** `callback` should always passed as keyword argument
 
         .. _documentation: http://initd.org/psycopg/docs/extras.html#hstore-data-type
         """
@@ -828,7 +836,7 @@ class Connection(object):
 
     def busy(self):
         """
-        Check if the connection is busy or not.
+        **(Deprecated)** Check if the connection is busy or not.
         """
         return self.connection.isexecuting() or (self.connection.closed == 0 and
                                                  self._transaction_status() != TRANSACTION_STATUS_IDLE)
