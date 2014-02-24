@@ -20,6 +20,8 @@ good_dsn = 'dbname=%s user=%s password=%s host=%s port=%s' % (
     db_database, db_user, db_password, db_host, db_port)
 bad_dsn = 'dbname=%s user=%s password=xx%s host=%s port=%s' % (
     'db', 'user', 'password', "127.0.0.127", 11111)
+local_bad_dsn = 'dbname=%s user=%s password=xx%s' % (
+    'db', 'user', 'password')
 
 assert (db_database or db_user or db_password or db_host or db_port) is not None, (
     'Environment variables for the unit tests are not set. Please set the following '
@@ -531,6 +533,11 @@ class MomokoVolatileDbTest(BaseTest):
     def test_startup(self):
         """Testing that all connections are dead after pool init with bad dsn"""
         db = self.build_pool(dsn=bad_dsn)
+        self.assert_equal(self.pool_size, len(db._conns.dead))
+
+    def test_startup_local(self):
+        """Testing that we catch early exeception with local connections"""
+        db = self.build_pool(dsn=local_bad_dsn)
         self.assert_equal(self.pool_size, len(db._conns.dead))
 
     def test_reconnect(self):

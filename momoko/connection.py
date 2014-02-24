@@ -221,6 +221,8 @@ class Pool(object):
             else:
                 logger = log.error if self.log_connect_errors else log.info
                 logger("Failed opening connection to database: %s", error)
+        else:
+            self.server_version = connection.connection.server_version
 
         self._conns.on_reconnect_complete(connection)
         log.debug("Connection attempt complete. Success: %s", self._conns.last_connect_attempt_success)
@@ -238,8 +240,6 @@ class Pool(object):
 
         if callback:
             callback(connection)
-
-        self.server_version = connection.connection.server_version
 
     def _get_connection(self):
 
@@ -530,7 +530,15 @@ class Connection(object):
         if cursor_factory:
             kwargs["cursor_factory"] = cursor_factory
 
-        self.connection = psycopg2.connect(dsn, **kwargs)
+        self.connection = None
+        try:
+            self.connection = psycopg2.connect(dsn, **kwargs)
+        except psycopg2.Error, error:
+            if callback:
+                callback(self, error)
+                return
+            else:
+                raise
         self.fileno = self.connection.fileno()
         self._transaction_status = self.connection.get_transaction_status
         self.ioloop = ioloop or IOLoop.instance()
@@ -830,10 +838,11 @@ class Connection(object):
         Indicates whether the connection is closed or not.
         """
         # 0 = open, 1 = closed, 2 = 'something horrible happened'
-        return self.connection.closed > 0
+        return self.connection.closed > 0 if self.connection else True
 
     def close(self):
         """
         Remove the connection from the IO loop and close it.
         """
-        self.connection.close()
+        if self.connection:
+            self.connection.close()
