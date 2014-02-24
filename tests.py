@@ -4,6 +4,7 @@ import random
 import time
 import unittest
 from collections import deque
+from psycopg2.extras import RealDictConnection, RealDictCursor
 
 from tornado import gen
 from tornado.testing import AsyncTestCase
@@ -17,7 +18,6 @@ db_port = os.environ.get('MOMOKO_TEST_PORT', 5432)
 test_hstore = True if os.environ.get('MOMOKO_TEST_HSTORE', False) == '1' else False
 good_dsn = 'dbname=%s user=%s password=%s host=%s port=%s' % (
     db_database, db_user, db_password, db_host, db_port)
-print good_dsn
 bad_dsn = 'dbname=%s user=%s password=xx%s host=%s port=%s' % (
     'db', 'user', 'password', "127.0.0.127", 11111)
 
@@ -83,7 +83,7 @@ class BaseTest(AsyncTestCase):
             raise error
         return cursor
 
-    def build_pool(self, dsn=None, setsession=[]):
+    def build_pool(self, dsn=None, setsession=[], con_factory=None, cur_factory=None):
         db = momoko.Pool(
             dsn=(dsn or self.dsn),
             size=self.pool_size,
@@ -92,6 +92,8 @@ class BaseTest(AsyncTestCase):
             ioloop=self.io_loop,
             setsession=setsession,
             raise_connect_errors=self.raise_connect_errors,
+            connection_factory=con_factory,
+            cursor_factory=cur_factory,
         )
         self.wait()
         return db
@@ -551,6 +553,23 @@ class MomokoVolatileDbTest(BaseTest):
             self.run_and_check_query(db)
         except psycopg2.DatabaseError:
             pass
+
+
+class MomokoFactoriesTest(BaseTest):
+    def run_and_check_dict(self, db):
+        db.execute("SELECT 1 AS a", callback=self.stop_callback)
+        cursor = self.wait_for_result()
+        self.assert_equal(cursor.fetchone(), {"a": 1})
+
+    def test_cursor_factory(self):
+        """Testing that cursor_factory parameter is properly propagated"""
+        db = self.build_pool(cur_factory=RealDictCursor)
+        self.run_and_check_dict(db)
+
+    def test_connection_factory(self):
+        """Testing that connection_factory parameter is properly propagated"""
+        db = self.build_pool(con_factory=RealDictConnection)
+        self.run_and_check_dict(db)
 
 
 if __name__ == '__main__':

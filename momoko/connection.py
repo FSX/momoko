@@ -17,8 +17,7 @@ from contextlib import contextmanager
 
 import psycopg2
 from psycopg2.extras import register_hstore as _psy_register_hstore
-from psycopg2.extensions import (connection as base_connection, cursor as base_cursor,
-                                 POLL_OK, POLL_READ, POLL_WRITE, POLL_ERROR, TRANSACTION_STATUS_IDLE)
+from psycopg2.extensions import POLL_OK, POLL_READ, POLL_WRITE, POLL_ERROR, TRANSACTION_STATUS_IDLE
 
 from tornado import gen
 from tornado.ioloop import IOLoop
@@ -164,6 +163,7 @@ class Pool(object):
     def __init__(self,
                  dsn,
                  connection_factory=None,
+                 cursor_factory=None,
                  size=1,
                  max_size=None,
                  callback=None,
@@ -180,6 +180,8 @@ class Pool(object):
         self.dsn = dsn
         self.closed = False
         self.connection_factory = connection_factory
+        self.cursor_factory = cursor_factory
+
         self.raise_connect_errors = raise_connect_errors
 
         self._ioloop = ioloop or IOLoop.instance()
@@ -204,9 +206,12 @@ class Pool(object):
     def _new(self, callback=None):
         conn = Connection()
         self._conns.add_pending(conn)
-        conn.connect(self.dsn, self.connection_factory,
-                     partial(self._post_connect_callback, callback),
-                     self._ioloop, self.setsession)
+        conn.connect(self.dsn,
+                     connection_factory=self.connection_factory,
+                     cursor_factory=self.cursor_factory,
+                     callback=partial(self._post_connect_callback, callback),
+                     ioloop=self._ioloop,
+                     setsession=self.setsession)
 
     def _post_connect_callback(self, callback, connection, error):
         if error:
@@ -513,12 +518,19 @@ class Connection(object):
     def connect(self,
                 dsn,
                 connection_factory=None,
+                cursor_factory=None,
                 callback=None,
                 ioloop=None,
                 setsession=[]):
         log.info("Opening new database connection")
-        self.connection = psycopg2.connect(dsn, async=1,
-                                           connection_factory=connection_factory or base_connection)
+
+        kwargs = {"async": True}
+        if connection_factory:
+            kwargs["connection_factory"] = connection_factory
+        if cursor_factory:
+            kwargs["cursor_factory"] = cursor_factory
+
+        self.connection = psycopg2.connect(dsn, **kwargs)
         self.fileno = self.connection.fileno()
         self._transaction_status = self.connection.get_transaction_status
         self.ioloop = ioloop or IOLoop.instance()
@@ -635,7 +647,8 @@ class Connection(object):
         .. _psycopg2.extensions.cursor: http://initd.org/psycopg/docs/extensions.html#psycopg2.extensions.cursor
         .. _Connection and cursor factories: http://initd.org/psycopg/docs/advanced.html#subclassing-cursor
         """
-        cursor = self.connection.cursor(cursor_factory=cursor_factory or base_cursor)
+        kwargs = {"cursor_factory": cursor_factory} if cursor_factory else {}
+        cursor = self.connection.cursor(**kwargs)
         cursor.execute(operation, parameters)
         self.callback = partial(callback or _dummy_callback, cursor)
         self.ioloop.add_handler(self.fileno, self.io_callback, IOLoop.WRITE)
@@ -677,7 +690,8 @@ class Connection(object):
         .. _psycopg2.extensions.cursor: http://initd.org/psycopg/docs/extensions.html#psycopg2.extensions.cursor
         .. _Connection and cursor factories: http://initd.org/psycopg/docs/advanced.html#subclassing-cursor
         """
-        cursor = self.connection.cursor(cursor_factory=cursor_factory or base_cursor)
+        kwargs = {"cursor_factory": cursor_factory} if cursor_factory else {}
+        cursor = self.connection.cursor(**kwargs)
         cursor.callproc(procname, parameters)
         self.callback = partial(callback or _dummy_callback, cursor)
         self.ioloop.add_handler(self.fileno, self.io_callback, IOLoop.WRITE)
