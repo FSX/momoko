@@ -175,6 +175,7 @@ Here is the server-side cursor example (based on the code in momoko unittests)::
                     rows = cursor.fetchall()
                     # Do something with results...
                 yield momoko.Op(connection.execute, "CLOSE all_ints")
+                yield momoko.Op(connection.execute, "COMMIT")
         except Exception as error:
             self.write(str(error))
 

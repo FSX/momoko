@@ -424,6 +424,7 @@ class MomokoServerSideCursorTest(MomokoBaseDataTest):
                 self.assert_equal(cursor.fetchall(), [(i, ) for i in range(offset, offset+chunk)])
                 offset += chunk
             self.execute(connection, "CLOSE all_ints")
+            self.execute(connection, "COMMIT")
 
 
 class MomokoParallelTest(MomokoBaseTest):
