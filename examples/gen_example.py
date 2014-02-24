@@ -71,8 +71,8 @@ class SingleQueryHandler(BaseHandler):
     @gen.engine
     def get(self):
         try:
-            cursor = yield momoko.Op(self.db.execute, 'SELECT %s;', (1,))
-            self.write('Query results: %s<br>' % cursor.fetchall())
+            cursor = yield momoko.Op(self.db.execute, 'SELECT pg_sleep(%s);', (1,))
+            self.write('Query results: %s<br>\n' % cursor.fetchall())
         except Exception as error:
             self.write(str(error))
 
@@ -88,7 +88,7 @@ class HstoreQueryHandler(BaseHandler):
                 cursor = yield momoko.Op(self.db.execute, "SELECT 'a=>b, c=>d'::hstore;")
                 self.write('Query results: %s<br>' % cursor.fetchall())
                 cursor = yield momoko.Op(self.db.execute, "SELECT %s;",
-                    ({'e': 'f', 'g': 'h'},))
+                                         ({'e': 'f', 'g': 'h'},))
                 self.write('Query results: %s<br>' % cursor.fetchall())
             except Exception as error:
                 self.write(str(error))
@@ -143,11 +143,11 @@ class CallbackWaitHandler(BaseHandler):
     def get(self):
 
         self.db.execute('SELECT 42, 12, %s, 11;', (25,),
-            callback=(yield gen.Callback('q1')))
+                        callback=(yield gen.Callback('q1')))
         self.db.execute('SELECT 42, 12, %s, %s;', (23, 56),
-            callback=(yield gen.Callback('q2')))
+                        callback=(yield gen.Callback('q2')))
         self.db.execute('SELECT 465767, 4567, 3454;',
-            callback=(yield gen.Callback('q3')))
+                        callback=(yield gen.Callback('q3')))
 
         # Separately...
         # cursor1 = yield momoko.WaitOp('q1')
@@ -164,6 +164,21 @@ class CallbackWaitHandler(BaseHandler):
         self.finish()
 
 
+class ConnectionQueryHandler(BaseHandler):
+    @tornado.web.asynchronous
+    @gen.engine
+    def get(self):
+        try:
+            connection = yield momoko.Op(self.db.getconn)
+            with self.db.manage(connection):
+                cursor = yield momoko.Op(connection.execute, 'SELECT %s;', (1,))
+                self.write('Query results: %s<br>\n' % cursor.fetchall())
+        except Exception as error:
+            self.write(str(error))
+
+        self.finish()
+
+
 def main():
     try:
         tornado.options.parse_command_line()
@@ -175,11 +190,15 @@ def main():
             (r'/transaction', TransactionHandler),
             (r'/multi_query', MultiQueryHandler),
             (r'/callback_and_wait', CallbackWaitHandler),
+            (r'/connection', ConnectionQueryHandler),
         ], debug=True)
 
         application.db = momoko.Pool(
             dsn=dsn,
-            size=1
+            size=1,
+            max_size=3,
+            setsession=("SET TIME ZONE UTC",),
+            raise_connect_errors=False,
         )
 
         if enable_hstore:

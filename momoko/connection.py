@@ -11,21 +11,30 @@ MIT, see LICENSE for more details.
 
 from functools import partial
 from collections import deque
+import datetime
+from functools import wraps
+from contextlib import contextmanager
 
 import psycopg2
 from psycopg2.extras import register_hstore as _psy_register_hstore
-from psycopg2.extensions import (connection as base_connection, cursor as base_cursor,
-    POLL_OK, POLL_READ, POLL_WRITE, POLL_ERROR, TRANSACTION_STATUS_IDLE)
+from psycopg2.extensions import POLL_OK, POLL_READ, POLL_WRITE, POLL_ERROR, TRANSACTION_STATUS_IDLE
 
 from tornado import gen
 from tornado.ioloop import IOLoop
+from tornado.stack_context import wrap
+from tornado.concurrent import Future
 
 from .exceptions import PoolError
+
+from .utils import log
 
 
 # The dummy callback is used to keep the asynchronous cursor alive in case no
 # callback has been specified. This will prevent the cursor from being garbage
 # collected once, for example, ``Pool.execute`` has finished.
+# Symptom: you'll get
+#     InterfaceError: the asynchronous cursor has disappeared
+# exceptions
 def _dummy_callback(cursor, error):
     pass
 
@@ -44,117 +53,358 @@ class Pool(object):
     :param callable callback:
         A callable that's called after all the connections are created. Defaults to ``None``.
     :param ioloop: An instance of Tornado's IOLoop. Defaults to ``None``.
+    :param bool raise_connect_errors:
+        Whether to raise exception if database connection fails. Set to ``False`` to enable
+        automatic reconnection attempts. Defaults to ``True``.
+    :param integer reconnect_interval:
+        When using automatic reconnets, set minimum reconnect interval, in milliseconds,
+        before retrying connection attempt. Don't set this value too low to prevent "banging"
+        the database server with connection attempts. Defaults to ``500``.
+    :param list setsession:
+        List of intial sql commands to be executed once connection is established.
+        If any of the commands failes, the connection will be closed.
+        NOTE: The commands will be executed as one transaction block.
     """
+
+    class Connections(object):
+        def __init__(self, reconnect_interval, ioloop):
+            self.ioloop = ioloop
+
+            self.reconnect_interval = reconnect_interval
+            self.last_connect_attempt_ts = ioloop.time()
+            self.last_connect_attempt_success = False
+            self.reconnect_in_progress = False
+
+            self.empty()
+
+        def empty(self):
+            self.free = set()
+            self.busy = set()
+            self.dead = set()
+            self.pending = set()
+            self.waiting_queue = deque()
+
+        def remove_pending(func):
+            @wraps(func)
+            def wrapper(self, conn):
+                self.pending.discard(conn)
+                func(self, conn)
+            return wrapper
+
+        def get_free(self):
+            if not self.free:
+                return
+            conn = self.free.pop()
+            self.busy.add(conn)
+            return conn
+
+        def return_busy(self, conn):
+            if self.waiting_queue:
+                self.waiting_queue.pop().set_result(conn)
+            else:
+                self.busy.remove(conn)
+                self.free.add(conn)
+
+        @remove_pending
+        def add_free(self, conn):
+            if self.waiting_queue:
+                self.busy.add(conn)
+                self.waiting_queue.pop().set_result(conn)
+            else:
+                self.free.add(conn)
+
+        @remove_pending
+        def add_dead(self, conn):
+            self.dead.add(conn)
+            self.busy.discard(conn)
+            # free connections are most probably dead by now
+            while self.free:
+                self.dead.add(self.free.pop())
+
+        def add_pending(self, conn):
+            self.last_connect_attempt_ts = self.ioloop.time()
+            self.reconnect_in_progress = True
+            self.pending.add(conn)
+
+        def get_alive(self):
+            return self.free.union(self.busy)
+
+        def close_alive(self):
+            for conn in self.get_alive():
+                if not conn.closed:
+                    conn.close()
+
+        @property
+        def total(self):
+            return len(self.free) + len(self.busy) + len(self.dead) + len(self.pending)
+
+        def is_time_to_reconnect(self):
+            now = self.ioloop.time()
+            if not (self.last_connect_attempt_success or
+                    now - self.last_connect_attempt_ts > self.reconnect_interval):
+                return False
+            return True
+
+        def on_reconnect_complete(self, connection):
+            if not connection.closed:
+                self.add_free(connection)
+            else:
+                self.add_dead(connection)
+            self.last_connect_attempt_success = not connection.closed
+            self.reconnect_in_progress = False
+            if not self.last_connect_attempt_success:
+                self.abort_waiting_queue()
+
+        def abort_waiting_queue(self):
+            while self.waiting_queue:
+                future = self.waiting_queue.pop()
+                future.set_result(None)  # Send None to signify that all who waits should abort
+
     def __init__(self,
-        dsn,
-        connection_factory=None,
-        size=1,
-        callback=None,
-        ioloop=None
-    ):
-        assert size > 0, 'The connection pool size must be a number above 0.'
+                 dsn,
+                 connection_factory=None,
+                 cursor_factory=None,
+                 size=1,
+                 max_size=None,
+                 callback=None,
+                 ioloop=None,
+                 raise_connect_errors=True,
+                 reconnect_interval=500,
+                 setsession=[]):
+        assert size > 0, "The connection pool size must be a number above 0."
+
+        self.size = size
+        self.max_size = max_size or size
+        assert self.size <= self.max_size, "The connection pool max size must be of at least 'size'."
 
         self.dsn = dsn
-        self.size = size
         self.closed = False
         self.connection_factory = connection_factory
+        self.cursor_factory = cursor_factory
+
+        self.raise_connect_errors = raise_connect_errors
 
         self._ioloop = ioloop or IOLoop.instance()
-        self._pool = []
+
+        reconnect_interval = float(reconnect_interval)/1000  # the parameter is in milliseconds
+        self._conns = self.Connections(reconnect_interval, self._ioloop)
+
+        self.setsession = setsession
+        self.connected = False
+
+        self.server_version = None
 
         # Create connections
-        def after_pool_creation(n, connection):
-            if n == self.size-1:
+        def after_pool_creation(connection):
+            if not self._conns.pending:  # all connections "connected" on way or the other
                 if callback:
                     callback()
 
         for i in range(self.size):
-            self._new(partial(after_pool_creation, i))
+            self._new(after_pool_creation)
 
     def _new(self, callback=None):
-        def multi_callback(connection, error):
-            if error:
-                raise error
-            if callback:
-                callback(connection)
-            self._pool.append(connection)
+        conn = Connection()
+        self._conns.add_pending(conn)
+        conn.connect(self.dsn,
+                     connection_factory=self.connection_factory,
+                     cursor_factory=self.cursor_factory,
+                     callback=partial(self._post_connect_callback, callback),
+                     ioloop=self._ioloop,
+                     setsession=self.setsession)
 
-        Connection(self.dsn, self.connection_factory,
-            multi_callback, self._ioloop)
+    def _post_connect_callback(self, callback, connection, error):
+        if error:
+            if not connection.closed:
+                connection.close()
+            if self.raise_connect_errors:
+                raise error
+            else:
+                logger = log.error if self.log_connect_errors else log.info
+                logger("Failed opening connection to database: %s", error)
+        else:
+            self.server_version = connection.connection.server_version
+
+        self._conns.on_reconnect_complete(connection)
+        log.debug("Connection attempt complete. Success: %s", self._conns.last_connect_attempt_success)
+
+        if self._conns.last_connect_attempt_success:
+            # Connection to db is OK. If we have waiting requests
+            # and some dead conncetions, we can serve requests faster
+            # if we reanimate dead connections
+            num_conns_to_reconnect = min(len(self._conns.dead), len(self._conns.waiting_queue))
+            for i in range(num_conns_to_reconnect):
+                self._conns.dead.pop()
+                self._new()
+
+        self._stretch_if_needed()
+
+        if callback:
+            callback(connection)
 
     def _get_connection(self):
-        for connection in self._pool:
-            if not connection.busy():
-                return connection
+
+        log.debug("Getting connection")
+        self.connected = True
+
+        # if there are free connections - just return one
+        connection = self._conns.get_free()
+        if connection:
+            return connection
+
+        # if there are dead connections - try to reanimate them
+        if self._conns.dead:
+            if self._conns.is_time_to_reconnect():
+                log.debug("Trying to reconnect dead connection")
+                self._conns.dead.pop()
+                self._new()
+                return
+
+        if self._conns.busy:
+            # We may be maxed out here. Try to stretch if approprate
+            self._stretch_if_needed(new_request=True)
+            # At least some connections are alive, so wait for them
+            log.debug("There are busy connections")
+            return
+
+        if self._conns.reconnect_in_progress:
+            # We are connecting - wait more
+            log.debug("Reconnect in progress")
+            return
+
+        log.debug("no connections are available or expected in near future")
+        self.connected = False
+
+    def _stretch_if_needed(self, new_request=False):
+        if self._conns.total == self.max_size:
+            return  # max size reached
+        if self._conns.dead or self._conns.free:
+            return  # no point to stretch if we heave free conns to use / dead conns to reanimate
+        if not (new_request or (self._conns.waiting_queue and self._conns.busy)):
+            return
+        if self._conns.pending:
+            if len(self._conns.pending) >= len(self._conns.waiting_queue) + int(new_request):
+                return
+        log.debug("Stretching pool")
+        self._new()
+
+    def _retry_action(self, method, callback, *args, **kwargs):
+        action = partial(self._operate, method, callback, *args, **kwargs)
+        future = Future()
+        self._conns.waiting_queue.appendleft(future)
+
+        def on_connection_available(future):
+            connection = future.result()
+            if not connection:
+                log.debug("Aborting - as instructed")
+                raise psycopg2.DatabaseError("No database connection available")
+            action(connection=connection)
+        return self._ioloop.add_future(future, on_connection_available)
+
+    def _reconnect_and_retry(self, connection, method, callback, *args, **kwargs):
+        self._conns.add_dead(connection)
+        log.debug("Tried over dead connection. Retrying once")
+        self._retry_action(method, callback, *args, **kwargs)
+        self._conns.dead.pop()
+        self._new()
+
+    def _operate(self, method, callback, *args, **kwargs):
+
+        connection = kwargs.pop("connection", None) or self._get_connection()
+        if not connection:
+            if self.connected:
+                log.debug("No connection available right now - will try again later")
+                return self._retry_action(method, callback, *args, **kwargs)
+            else:
+                log.debug("Aborting - not connected")
+                raise psycopg2.DatabaseError("No database connection available")
+
+        log.debug("Connection obtained, proceeding")
+
+        if kwargs.pop("get_connection_only", False):
+            return callback(connection, None)
+
+        the_callback = partial(self._operate_callback, connection, method, callback, args, kwargs)
+        method(connection, *args, callback=the_callback, **kwargs)
+
+    def _operate_callback(self, connection, method, orig_callback, args, kwargs, *_args, **_kwargs):
+        """
+        Wrap real callback coming from invoker with our own one
+        that will check connection status after the end of the call
+        and recycle connection / retry operation
+        """
+        if connection.closed:
+            self._reconnect_and_retry(connection, method, orig_callback, *args, **kwargs)
+            return
+
+        if not getattr(method, "_keep_connection", False):
+            self._conns.return_busy(connection)
+
+        return orig_callback(*_args, **_kwargs)
+
+    def ping(self, connection, callback=None):
+        """
+        Ping given connection object to make sure its alive (involves roundtrip to the database server).
+
+        See :py:meth:`momoko.Connection.transaction` for documentation about the
+        details.
+        """
+        self._operate(Connection.ping, callback,
+                      connection=connection)
 
     def transaction(self,
-        statements,
-        cursor_factory=None,
-        callback=None
-    ):
+                    statements,
+                    cursor_factory=None,
+                    callback=None):
         """
         Run a sequence of SQL queries in a database transaction.
 
         See :py:meth:`momoko.Connection.transaction` for documentation about the
         parameters.
         """
-        connection = self._get_connection()
-        if not connection:
-            return self._ioloop.add_callback(partial(self.transaction,
-                statements, cursor_factory, callback))
-
-        connection.transaction(statements, cursor_factory, callback)
+        self._operate(Connection.transaction, callback,
+                      statements, cursor_factory=cursor_factory)
 
     def execute(self,
-        operation,
-        parameters=(),
-        cursor_factory=None,
-        callback=None
-    ):
+                operation,
+                parameters=(),
+                cursor_factory=None,
+                callback=None):
         """
         Prepare and execute a database operation (query or command).
 
         See :py:meth:`momoko.Connection.execute` for documentation about the
         parameters.
         """
-        connection = self._get_connection()
-        if not connection:
-            return self._ioloop.add_callback(partial(self.execute,
-                operation, parameters, cursor_factory, callback))
-
-        connection.execute(operation, parameters, cursor_factory, callback)
+        self._operate(Connection.execute, callback,
+                      operation, parameters, cursor_factory=cursor_factory)
 
     def callproc(self,
-        procname,
-        parameters=(),
-        cursor_factory=None,
-        callback=None
-    ):
+                 procname,
+                 parameters=(),
+                 cursor_factory=None,
+                 callback=None):
         """
         Call a stored database procedure with the given name.
 
         See :py:meth:`momoko.Connection.callproc` for documentation about the
         parameters.
         """
-        connection = self._get_connection()
-        if not connection:
-            return self._ioloop.add_callback(partial(self.callproc,
-                procname, parameters, cursor_factory, callback))
-
-        connection.callproc(procname, parameters, cursor_factory, callback)
+        self._operate(Connection.callproc, callback,
+                      procname, parameters=parameters, cursor_factory=cursor_factory)
 
     def mogrify(self,
-        operation,
-        parameters=(),
-        callback=None
-    ):
+                operation,
+                parameters=(),
+                callback=None):
         """
         Return a query string after arguments binding.
 
         See :py:meth:`momoko.Connection.mogrify` for documentation about the
         parameters.
         """
-        self._pool[0].mogrify(operation, parameters, callback)
+        self._operate(Connection.mogrify, callback,
+                      operation, parameters=parameters)
 
     def register_hstore(self, unicode=False, callback=None):
         """
@@ -164,12 +414,57 @@ class Pool(object):
         the parameters. This method has no ``globally`` parameter, because it
         already registers hstore to all the connections in the pool.
         """
-        connection = self._get_connection()
-        if not connection:
-            return self._ioloop.add_callback(
-                partial(self.register_hstore, unicode, callback))
+        self._operate("register_hstore", callback,
+                      globally=True, unicode=unicode)
 
-        connection.register_hstore(True, unicode, callback)
+    def getconn(self, ping=True, callback=None):
+        """
+        Acquire connection from the pool.
+
+        You can then use this connection for subsequest queries.
+        Just supply, for example, ``connection.execute`` instead of ``Pool.execute``
+        to ``momoko.Op``.
+
+        Make sure to return connection to the pool by calling :py:meth:`momoko.Pool.putconn`,
+        otherwise the connection will remain forever-busy and you'll starvate your pool quickly.
+
+        :param boolean ping:
+            Whether to ping connection before returning it by executing :py:meth:`momoko.Pool.ping`.
+        """
+        def ping_callback(connection, error):
+            self.ping(connection, callback)
+        the_callback = ping_callback if ping else callback
+        self._operate("getconn", the_callback, get_connection_only=True)
+
+    def putconn(self, connection):
+        """
+        Retrun busy connection back to the pool.
+
+        :param Connection connection:
+            Connection object previously returned by :py:meth:`momoko.Pool.getconn`.
+        """
+
+        if connection.closed:
+            self._conns.add_dead(connection)
+        else:
+            self._conns.return_busy(connection)
+
+    @contextmanager
+    def manage(self, connection):
+        """
+        Context manager that automatically returns connection to the pool.
+        You can use it instead of :py:meth:`momoko.Pool.putconn`::
+
+            connection = yield momoko.Op(self.db.getconn)
+            with self.db.manage(connection):
+                cursor = yield momoko.Op(connection.execute, "BEGIN")
+                ...
+        """
+        assert connection in self._conns.busy, "Can not manage non-busy connection. Where did you get it from?"
+        try:
+            yield connection
+        finally:
+            self.putconn(connection)
 
     def close(self):
         """
@@ -178,17 +473,16 @@ class Pool(object):
         if self.closed:
             raise PoolError('connection pool is already closed')
 
-        for connection in self._pool:
-            if not connection.closed:
-                connection.close()
-
-        self._pool = []
+        self._conns.close_alive()
+        self._conns.empty()
         self.closed = True
+
+    log_connect_errors = True  # Unittest monkey patches it for silent output
 
 
 class Connection(object):
     """
-    Create an asynchronous connection.
+    Initiate an asynchronous connect.
 
     :param string dsn:
         A `Data Source Name`_ string containing one of the following values:
@@ -212,27 +506,70 @@ class Connection(object):
         paramater: an instance of :py:class:`momoko.Connection`. Defaults to ``None``.
     :param ioloop: An instance of Tornado's IOLoop. Defaults to ``None``.
 
+    :param list setsession:
+        List of intial sql commands to be executed once connection is established.
+        If any of the commands failes, the connection will be closed.
+        NOTE: The commands will be executed as one transaction block.
+
     .. _Data Source Name: http://en.wikipedia.org/wiki/Data_Source_Name
     .. _parameters: http://www.postgresql.org/docs/current/static/libpq-connect.html#LIBPQ-PQCONNECTDBPARAMS
     .. _psycopg2.extensions.connection: http://initd.org/psycopg/docs/connection.html#connection
     .. _Connection and cursor factories: http://initd.org/psycopg/docs/advanced.html#subclassing-cursor
     """
-    def __init__(self,
-        dsn,
-        connection_factory=None,
-        callback=None,
-        ioloop=None
-    ):
-        self.connection = psycopg2.connect(dsn, async=1,
-            connection_factory=connection_factory or base_connection)
+    def connect(self,
+                dsn,
+                connection_factory=None,
+                cursor_factory=None,
+                callback=None,
+                ioloop=None,
+                setsession=[]):
+        log.info("Opening new database connection")
+
+        kwargs = {"async": True}
+        if connection_factory:
+            kwargs["connection_factory"] = connection_factory
+        if cursor_factory:
+            kwargs["cursor_factory"] = cursor_factory
+
+        self.connection = None
+        try:
+            self.connection = psycopg2.connect(dsn, **kwargs)
+        except psycopg2.Error as error:
+            if callback:
+                callback(self, error)
+                return
+            else:
+                raise
         self.fileno = self.connection.fileno()
         self._transaction_status = self.connection.get_transaction_status
         self.ioloop = ioloop or IOLoop.instance()
 
-        if callback:
-            self.callback = partial(callback, self)
+        self._on_connect_callback = partial(callback, self) if callback else None
+
+        if setsession:
+            self.callback = self._setsession_callback
+            self.setsession = setsession
+        else:
+            self.callback = self._on_connect_callback
 
         self.ioloop.add_handler(self.fileno, self.io_callback, IOLoop.WRITE)
+
+    def _setsession_callback(self, error):
+        """Custom post-connect callback to trigger setsession commands execution in transaction"""
+        if error:
+            return self._on_connect_callback(error)
+        log.debug("Running setsession commands")
+        return self.transaction(self.setsession, callback=self._setsession_transaction_callback)
+
+    def _setsession_transaction_callback(self, cursor, error):
+        """
+        Call back that check results of setsession transaction commands and
+        call the real post_connect callback. Closes connection if transaction failed.
+        """
+        if error:
+            log.debug("Closing connection since set session commands failed")
+            self.close()
+        self._on_connect_callback(error)
 
     def io_callback(self, fd=None, events=None):
         try:
@@ -253,12 +590,50 @@ class Connection(object):
             else:
                 raise psycopg2.OperationalError('poll() returned {0}'.format(state))
 
+    def _catch_early_errors(func):
+        @wraps(func)
+        def wrapper(self, *args, **kwargs):
+            callback = kwargs.get("callback", _dummy_callback)
+            try:
+                return func(self, *args, **kwargs)
+            except psycopg2.Error as error:
+                callback(None, error)
+        return wrapper
+
+    def _keep_connection(func):
+        """
+        Use this decorator on Connection methods to hint the Pool to not
+        release connection when operation is complete
+        """
+        func._keep_connection = True
+        return func
+
+    @_catch_early_errors
+    @_keep_connection
+    def ping(self, callback=None):
+        """
+        Make sure this connection is alive by executing SELECT 1 statement
+
+        NOTE: On the contrary to other methods, callback function signature is
+              callback(self, error) and not callback(cursor, error).
+        NOTE: `callback` should always passed as keyword argument
+        """
+        cursor = self.connection.cursor()
+        cursor.execute("SELECT 1")
+        self.callback = partial(self._ping_callback, callback or _dummy_callback, cursor)
+        self.ioloop.add_handler(self.fileno, self.io_callback, IOLoop.WRITE)
+
+    def _ping_callback(self, callback, cursor, error):
+        if not error:
+            cursor.fetchall()
+        return callback(self, error)
+
+    @_catch_early_errors
     def execute(self,
-        operation,
-        parameters=(),
-        cursor_factory=None,
-        callback=None
-    ):
+                operation,
+                parameters=(),
+                cursor_factory=None,
+                callback=None):
         """
         Prepare and execute a database operation (query or command).
 
@@ -275,22 +650,24 @@ class Connection(object):
             two positional parameters. The first one being the cursor and the second
             one ``None`` or an instance of an exception if an error has occurred,
             in that case the first parameter will be ``None``. Defaults to ``None``.
+            NOTE: `callback` should always passed as keyword argument
 
         .. _Passing parameters to SQL queries: http://initd.org/psycopg/docs/usage.html#query-parameters
         .. _psycopg2.extensions.cursor: http://initd.org/psycopg/docs/extensions.html#psycopg2.extensions.cursor
         .. _Connection and cursor factories: http://initd.org/psycopg/docs/advanced.html#subclassing-cursor
         """
-        cursor = self.connection.cursor(cursor_factory=cursor_factory or base_cursor)
+        kwargs = {"cursor_factory": cursor_factory} if cursor_factory else {}
+        cursor = self.connection.cursor(**kwargs)
         cursor.execute(operation, parameters)
         self.callback = partial(callback or _dummy_callback, cursor)
         self.ioloop.add_handler(self.fileno, self.io_callback, IOLoop.WRITE)
 
+    @_catch_early_errors
     def callproc(self,
-        procname,
-        parameters=(),
-        cursor_factory=None,
-        callback=None
-    ):
+                 procname,
+                 parameters=(),
+                 cursor_factory=None,
+                 callback=None):
         """
         Call a stored database procedure with the given name.
 
@@ -315,17 +692,20 @@ class Connection(object):
             two positional parameters. The first one being the cursor and the second
             one ``None`` or an instance of an exception if an error has occurred,
             in that case the first parameter will be ``None``. Defaults to ``None``.
+            NOTE: `callback` should always passed as keyword argument
 
         .. _fetch*(): http://initd.org/psycopg/docs/cursor.html#fetch
         .. _Passing parameters to SQL queries: http://initd.org/psycopg/docs/usage.html#query-parameters
         .. _psycopg2.extensions.cursor: http://initd.org/psycopg/docs/extensions.html#psycopg2.extensions.cursor
         .. _Connection and cursor factories: http://initd.org/psycopg/docs/advanced.html#subclassing-cursor
         """
-        cursor = self.connection.cursor(cursor_factory=cursor_factory or base_cursor)
+        kwargs = {"cursor_factory": cursor_factory} if cursor_factory else {}
+        cursor = self.connection.cursor(**kwargs)
         cursor.callproc(procname, parameters)
         self.callback = partial(callback or _dummy_callback, cursor)
         self.ioloop.add_handler(self.fileno, self.io_callback, IOLoop.WRITE)
 
+    @_catch_early_errors
     def mogrify(self, operation, parameters=(), callback=None):
         """
         Return a query string after arguments binding.
@@ -342,6 +722,7 @@ class Connection(object):
             two positional parameters. The first one being the resulting query as
             a byte string and the second one ``None`` or an instance of an exception
             if an error has occurred. Defaults to ``None``.
+            NOTE: `callback` should always passed as keyword argument
 
         .. _Passing parameters to SQL queries: http://initd.org/psycopg/docs/usage.html#query-parameters
         .. _Connection and cursor factories: http://initd.org/psycopg/docs/advanced.html#subclassing-cursor
@@ -354,10 +735,9 @@ class Connection(object):
             self.ioloop.add_callback(partial(callback or _dummy_callback, b'', error))
 
     def transaction(self,
-        statements,
-        cursor_factory=None,
-        callback=None
-    ):
+                    statements,
+                    cursor_factory=None,
+                    callback=None):
         """
         Run a sequence of SQL queries in a database transaction.
 
@@ -377,6 +757,7 @@ class Connection(object):
             order as the given statements and the second one ``None`` or an instance of
             an exception if an error has occurred, in that case the first parameter is
             an empty list. Defaults to ``None``.
+            NOTE: `callback` should always passed as keyword argument
 
         .. _Passing parameters to SQL queries: http://initd.org/psycopg/docs/usage.html#query-parameters
         .. _psycopg2.extensions.cursor: http://initd.org/psycopg/docs/extensions.html#psycopg2.extensions.cursor
@@ -395,9 +776,15 @@ class Connection(object):
         queue.appendleft(('BEGIN;', ()))
         queue.append(('COMMIT;', ()))
 
+        def error_callback(statement_error, cursor, rollback_error):
+            callback(None, rollback_error or statement_error)
+
         def exec_statement(cursor=None, error=None):
             if error:
-                self.execute('ROLLBACK;', callback=partial(error_callback, error))
+                try:
+                    self.execute('ROLLBACK;', callback=partial(error_callback, error))
+                except psycopg2.Error as rollback_error:
+                    error_callback(error, cursor, rollback_error)
                 return
             if cursor:
                 cursors.append(cursor)
@@ -406,13 +793,11 @@ class Connection(object):
                 return
 
             operation, parameters = queue.popleft()
-            self.execute(operation, parameters, cursor_factory, exec_statement)
-
-        def error_callback(statement_error, cursor, rollback_error):
-            callback(None, rollback_error or statement_error)
+            self.execute(operation, parameters, cursor_factory, callback=exec_statement)
 
         self.ioloop.add_callback(exec_statement)
 
+    @_catch_early_errors
     def register_hstore(self, globally=False, unicode=False, callback=None):
         """
         Register adapter and typecaster for ``dict-hstore`` conversions.
@@ -425,6 +810,8 @@ class Connection(object):
         :param boolean unicode:
             If ``True``, keys and values returned from the database will be ``unicode``
             instead of ``str``. The option is not available on Python 3.
+
+        NOTE: `callback` should always passed as keyword argument
 
         .. _documentation: http://initd.org/psycopg/docs/extras.html#hstore-data-type
         """
@@ -444,7 +831,7 @@ class Connection(object):
         Check if the connection is busy or not.
         """
         return self.connection.isexecuting() or (self.connection.closed == 0 and
-            self._transaction_status() != TRANSACTION_STATUS_IDLE)
+                                                 self._transaction_status() != TRANSACTION_STATUS_IDLE)
 
     @property
     def closed(self):
@@ -452,10 +839,11 @@ class Connection(object):
         Indicates whether the connection is closed or not.
         """
         # 0 = open, 1 = closed, 2 = 'something horrible happened'
-        return self.connection.closed > 0
+        return self.connection.closed > 0 if self.connection else True
 
     def close(self):
         """
         Remove the connection from the IO loop and close it.
         """
-        self.connection.close()
+        if self.connection:
+            self.connection.close()
