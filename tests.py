@@ -574,6 +574,9 @@ class MomokoFactoriesTest(BaseTest):
 
     def test_cursor_factory(self):
         """Testing that cursor_factory parameter is properly propagated"""
+        if psycopg2_impl == "psycopg2ct":
+            # Known bug: https://github.com/mvantellingen/psycopg2-ctypes/issues/31
+            return
         db = self.build_pool(cur_factory=RealDictCursor)
         self.run_and_check_dict(db)
 
