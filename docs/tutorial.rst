@@ -14,7 +14,7 @@ Boilerplate
 
 Here's the code that's needed for this tutorial. Each example will replace parts
 or extend upon this code. The code is kept simple and minimal, its purpose is just
-to demonstrate Momoko's functionality. Here goes::
+to demonstrate Momoko's functionality. Here it goes::
 
     from tornado import gen
     from tornado.ioloop import IOLoop
@@ -64,7 +64,7 @@ Usage
 :py:meth:`~momoko.Pool.execute`, :py:meth:`~momoko.Pool.callproc`, :py:meth:`~momoko.Pool.transaction`
 and  :py:meth:`~momoko.Pool.mogrify` are methods of :py:class:`momoko.Pool` and
 can  be used to query the database. Well, ``mogrify`` not really, it's used to
-escape strings, but t needs a connection. All these methods, except ``mogrify``,
+escape strings, but needs a connection. All these methods, except ``mogrify``,
 return a cursor or an exception object. All of the described retrieval methods in
 Psycopg2's documentation like fetchone_, fetchmany_, fetchall_, etc.  can be used
 to fetch the results.
@@ -94,8 +94,7 @@ These three classes only give a cursor back and raise an exception when somethin
 goes wrong. Here's an example using :py:class:`~momoko.Op`::
 
     class TutorialHandler(BaseHandler):
-        @asynchronous
-        @gen.engine
+        @gen.coroutine
         def get(self):
             try:
                 cursor = yield momoko.Op(self.db.execute, 'SELECT 1;')
@@ -109,8 +108,7 @@ goes wrong. Here's an example using :py:class:`~momoko.Op`::
 An example with :py:class:`~momoko.WaitOp`::
 
     class TutorialHandler(BaseHandler):
-        @asynchronous
-        @gen.engine
+        @gen.coroutine
         def get(self):
             self.db.execute('SELECT 1;', callback=(yield gen.Callback('q1')))
             self.db.execute('SELECT 2;', callback=(yield gen.Callback('q2')))
@@ -145,6 +143,40 @@ All the above examples are using :py:meth:`~momoko.Pool.execute`, but are possib
 with :py:meth:`~momoko.Pool.callproc`, :py:meth:`~momoko.Pool.transaction` and
 :py:meth:`~momoko.Pool.mogrify` too.
 
+
+Advanced
+--------
+
+Manual connection management
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+You can manually acquire connection from the pool using the :py:meth:`~momoko.Pool.getconn` method.
+This is very useful, for example, for server-side cursors.
+
+It important to return connection back to the pool once you've done with it, even if an error occurs
+in the middle of your work. Use either
+:py:meth:`~momoko.Pool.putconn`
+method or
+:py:meth:`~momoko.Pool.manage`
+manager to return the connection.
+
+Here is the server-side cursor example (based on the code in momoko unittests)::
+
+    @gen.coroutine
+    def get(self):
+        chunk = 1000
+        try:
+            connection = yield momoko.Op(self.db.getconn)
+            with self.db.manage(connection):
+                yield momoko.Op(connection.execute, "BEGIN")
+                yield momoko.Op(connection.execute, "DECLARE all_ints CURSOR FOR SELECT * FROM unit_test_int_table")
+                rows = True
+                while rows:
+                    cursor = yield momoko.Op(connection.execute, "FETCH %s FROM all_ints", (chunk,))
+                    rows = cursor.fetchall()
+                    # Do something with results...
+                yield momoko.Op(connection.execute, "CLOSE all_ints")
+        except Exception as error:
+            self.write(str(error))
 
 .. _Psycopg2 documentation: http://initd.org/psycopg/docs/cursor.html
 .. _tornado.gen: http://www.tornadoweb.org/documentation/gen.html
