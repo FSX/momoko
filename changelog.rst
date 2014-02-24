@@ -3,17 +3,20 @@ Changelog
 
 1.1.0 (2014-02-24)
 ------------------
+
 New features:
-* Transparent automatic reconnects if database disappears and comes back
-* Session init commands (`setsession`)
-* Dynamic pool size stretching - new connections will be opened under
-  load up-to predefined limit
-* API for manual connection management with `getconn`/`putconn` - useful for server-side cursors
-* A lot of internal improvements and cleanup
+
+* Transparent automatic reconnects if database disappears and comes back.
+* Session init commands (``setsession``).
+* Dynamic pool size stretching. New connections will be opened under
+  load up-to predefined limit.
+* API for manual connection management with ``getconn``/``putconn``. Useful for server-side cursors.
+* A lot of internal improvements and cleanup.
 
 Fixes:
-* Connections are managed explicitly - eliminates transaction problems reported
-* `connection_factory` (and `curosr_factor`) arguments handled properly by `Pool`.
+
+* Connections are managed explicitly - eliminates transaction problems reported.
+* ``connection_factory`` (and ``curosr_factor``) arguments handled properly by ``Pool``.
 
 
 1.0.0 (2013-05-01)
