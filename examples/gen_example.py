@@ -159,17 +159,28 @@ class CallbackWaitHandler(BaseHandler):
 
 
 class ConnectionQueryHandler(BaseHandler):
+    def __init__(self, *args, **kwargs):
+        self.http_connection_closed = False
+        super(ConnectionQueryHandler, self).__init__(*args, **kwargs)
+
     @gen.coroutine
     def get(self):
         try:
             connection = yield momoko.Op(self.db.getconn)
             with self.db.manage(connection):
-                cursor = yield momoko.Op(connection.execute, 'SELECT %s;', (1,))
-                self.write('Query results: %s<br>\n' % cursor.fetchall())
+                for i in range(5):
+                    if self.http_connection_closed:
+                        break
+                    cursor = yield momoko.Op(connection.execute, 'SELECT pg_sleep(1);')
+                    self.write('Query %d results: %s<br>\n' % (i+1, cursor.fetchall()))
+                    self.flush()
         except Exception as error:
             self.write(str(error))
 
         self.finish()
+
+    def on_connection_close(self):
+        self.http_connection_closed = True
 
 
 def main():
