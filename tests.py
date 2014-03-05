@@ -256,18 +256,17 @@ class MomokoTest(MomokoBaseDataTest):
         _, error = self.wait()
         self.assert_is_instance(error, psycopg2.ProgrammingError)
 
-    def test_transaction(self):
-        """Testing transaction functionality"""
-        self.db.transaction((
-            'SELECT 1, 2, 3, 4;',
-            'SELECT 5, 6, 7, 8;',
+    def build_transaction_query(self, unicode=False):
+        return (
+            u'SELECT 1, 2, 3, 4;' if unicode else 'SELECT 1, 2, 3, 4;',
+            u'SELECT 5, 6, 7, 8;' if unicode else 'SELECT 5, 6, 7, 8;',
             'SELECT 9, 10, 11, 12;',
             ('SELECT %s+10, %s+10, %s+10, %s+10;', (3, 4, 5, 6)),
             'SELECT 17, 18, 19, 20;',
             ('SELECT %s+20, %s+20, %s+20, %s+20;', (1, 2, 3, 4)),
-        ), callback=self.stop_callback)
-        cursors = self.wait_for_result()
+        )
 
+    def compare_transaction_cursors(self, cursors):
         self.assert_equal(len(cursors), 6)
         self.assert_equal(cursors[0].fetchone(), (1, 2, 3, 4))
         self.assert_equal(cursors[1].fetchone(), (5, 6, 7, 8))
@@ -275,6 +274,18 @@ class MomokoTest(MomokoBaseDataTest):
         self.assert_equal(cursors[3].fetchone(), (13, 14, 15, 16))
         self.assert_equal(cursors[4].fetchone(), (17, 18, 19, 20))
         self.assert_equal(cursors[5].fetchone(), (21, 22, 23, 24))
+
+    def test_transaction(self):
+        """Testing transaction functionality"""
+        self.db.transaction(self.build_transaction_query(), callback=self.stop_callback)
+        cursors = self.wait_for_result()
+        self.compare_transaction_cursors(cursors)
+
+    def test_unicode_transaction(self):
+        """Testing transaction functionality"""
+        self.db.transaction(self.build_transaction_query(True), callback=self.stop_callback)
+        cursors = self.wait_for_result()
+        self.compare_transaction_cursors(cursors)
 
     def test_transaction_rollback(self):
         """Testing transaction auto-rollback functionality"""
