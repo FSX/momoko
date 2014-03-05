@@ -1,6 +1,14 @@
 Changelog
 =========
 
+1.1.1 (2014-03-6)
+------------------
+
+Fixes:
+
+* ``Connection.transaction`` does not break when passed SQL strings are of ``unicode`` type
+
+
 1.1.0 (2014-02-24)
 ------------------
 
