@@ -776,7 +776,7 @@ class Connection(object):
         callback = callback or _dummy_callback
 
         for statement in statements:
-            if isinstance(statement, str):
+            if isinstance(statement, basestring):
                 queue.append((statement, ()))
             else:
                 queue.append(statement[:2])
