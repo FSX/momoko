@@ -9,6 +9,10 @@ Copyright 2011-2013 by Frank Smit.
 MIT, see LICENSE for more details.
 """
 
+import sys
+if sys.version_info[0] >= 3:
+    basestring = str
+
 from functools import partial
 from collections import deque
 import datetime
