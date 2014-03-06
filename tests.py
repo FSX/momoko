@@ -256,10 +256,10 @@ class MomokoTest(MomokoBaseDataTest):
         _, error = self.wait()
         self.assert_is_instance(error, psycopg2.ProgrammingError)
 
-    def build_transaction_query(self, unicode=False):
+    def build_transaction_query(self, ucode=False):
         return (
-            u'SELECT 1, 2, 3, 4;' if unicode else 'SELECT 1, 2, 3, 4;',
-            u'SELECT 5, 6, 7, 8;' if unicode else 'SELECT 5, 6, 7, 8;',
+            u'SELECT 1, 2, 3, 4;' if ucode else 'SELECT 1, 2, 3, 4;',
+            u'SELECT 5, 6, 7, 8;' if ucode else 'SELECT 5, 6, 7, 8;',
             'SELECT 9, 10, 11, 12;',
             ('SELECT %s+10, %s+10, %s+10, %s+10;', (3, 4, 5, 6)),
             'SELECT 17, 18, 19, 20;',
