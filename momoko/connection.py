@@ -345,7 +345,8 @@ class Pool(object):
         if not getattr(method, "_keep_connection", False):
             self._conns.return_busy(connection)
 
-        return orig_callback(*_args, **_kwargs)
+        if orig_callback:
+            return orig_callback(*_args, **_kwargs)
 
     def ping(self, connection, callback=None):
         """
@@ -418,7 +419,7 @@ class Pool(object):
         the parameters. This method has no ``globally`` parameter, because it
         already registers hstore to all the connections in the pool.
         """
-        self._operate("register_hstore", callback,
+        self._operate(Connection.register_hstore, callback,
                       globally=True, unicode=unicode)
 
     def getconn(self, ping=True, callback=None):
