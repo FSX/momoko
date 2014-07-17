@@ -235,7 +235,7 @@ class Pool(object):
 
         if self._conns.last_connect_attempt_success:
             # Connection to db is OK. If we have waiting requests
-            # and some dead conncetions, we can serve requests faster
+            # and some dead connections, we can serve requests faster
             # if we reanimate dead connections
             num_conns_to_reconnect = min(len(self._conns.dead), len(self._conns.waiting_queue))
             for i in range(num_conns_to_reconnect):
