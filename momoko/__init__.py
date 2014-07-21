@@ -5,7 +5,7 @@ momoko
 
 Momoko wraps Psycopg2's functionality for use in Tornado.
 
-Copyright 2011-2013 by Frank Smit.
+Copyright 2011-2014, Frank Smit & Zaar Hai.
 MIT, see LICENSE for more details.
 """
 

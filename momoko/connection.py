@@ -5,7 +5,7 @@ momoko.connection
 
 Connection handling.
 
-Copyright 2011-2013 by Frank Smit.
+Copyright 2011-2014, Frank Smit & Zaar Hai.
 MIT, see LICENSE for more details.
 """
 

@@ -1,6 +1,12 @@
 Changelog
 =========
 
+1.1.4 (2014-07-21)
+------------------
+
+*  Tornado 4.0 compatablity: backported old ``Task`` class for Tornado 4.0 compatablity.
+
+
 1.1.3 (2014-05-21)
 ------------------
 
