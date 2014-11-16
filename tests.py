@@ -326,6 +326,16 @@ class MomokoTest(MomokoBaseDataTest):
 
         self.assert_raises(psycopg2.ProgrammingError, self.run_gen, func)
 
+    def test_op_early_exception(self):
+        """Testing that Op propagates early exceptions properly"""
+        @gen.engine
+        def func():
+            cursor = yield momoko.Op(self.db.execute, 'SELECT %s FROM %s', ())
+            self.stop()
+
+        self.assert_raises(IndexError, self.run_gen, func)
+        self.assertFalse(self.db._conns.busy, msg="Busy connction was not returned to pool after exception")
+
     def test_wait_op(self):
         """Testing WaitOp"""
         @gen.engine

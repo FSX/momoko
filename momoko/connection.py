@@ -606,7 +606,7 @@ class Connection(object):
             callback = kwargs.get("callback", _dummy_callback)
             try:
                 return func(self, *args, **kwargs)
-            except psycopg2.Error as error:
+            except Exception as error:
                 callback(None, error)
         return wrapper
 
