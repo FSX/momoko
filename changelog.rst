@@ -1,6 +1,14 @@
 Changelog
 =========
 
+1.1.5 (2014-11-17)
+------------------
+
+*  Catching ALL types of early error. Fixes `issue 79`_.
+
+.. _issue 79: https://github.com/FSX/momoko/issues/79
+
+
 1.1.4 (2014-07-21)
 ------------------
 
