@@ -632,7 +632,7 @@ class Connection(object):
 
         """
         cursor = self.connection.cursor()
-        cursor.execute("SELECT 1")
+        cursor.execute("SELECT 1 AS ping")
         self.callback = partial(self._ping_callback, callback or _dummy_callback, cursor)
         self.ioloop.add_handler(self.fileno, self.io_callback, IOLoop.WRITE)
 
