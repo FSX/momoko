@@ -70,7 +70,7 @@ Fixes:
 * Replaced dynamic connection pool with a static one.
 * Add support for hstore_.
 
-.. _Psycopg2: http://www.initd.org/psycopg/
+.. _Psycopg2: http://initd.org/psycopg/
 .. _psycopg2ct: http://pypi.python.org/pypi/psycopg2ct
 .. _psycopg2cffi: http://pypi.python.org/pypi/psycopg2cffi
 .. _pull request 38: https://github.com/FSX/momoko/pull/38
