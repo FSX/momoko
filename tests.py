@@ -43,7 +43,7 @@ elif psycopg2_impl == 'psycopg2ct':
 
 import momoko
 import psycopg2
-from psycopg2.extras import RealDictConnection, RealDictCursor
+from psycopg2.extras import RealDictConnection, RealDictCursor, NamedTupleCursor
 
 # Suspress connection errors on volatile db tests
 momoko.Pool.log_connect_errors = False
@@ -609,6 +609,14 @@ class MomokoFactoriesTest(BaseTest):
         """Testing that connection_factory parameter is properly propagated"""
         db = self.build_pool(con_factory=RealDictConnection)
         self.run_and_check_dict(db)
+
+    def test_connection_manager_with_named_cursor(self):
+        """Test whether connection pinger works fine with named cursors. Issue #74"""
+        #db = self.build_pool()
+        db = self.build_pool(cur_factory=NamedTupleCursor)
+        db.getconn(callback=self.stop_callback)
+        connection = self.wait_for_result()
+        db.putconn(connection)
 
 
 if __name__ == '__main__':
