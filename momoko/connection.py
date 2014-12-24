@@ -447,6 +447,7 @@ class Pool(object):
 
         :param Connection connection:
             Connection object previously returned by :py:meth:`momoko.Pool.getconn`.
+            **NOTE:** This is a synchronous function
         """
 
         if connection.closed:
