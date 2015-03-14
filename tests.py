@@ -18,6 +18,7 @@ db_password = os.environ.get('MOMOKO_TEST_PASSWORD', '')
 db_host = os.environ.get('MOMOKO_TEST_HOST', '')
 db_port = os.environ.get('MOMOKO_TEST_PORT', 5432)
 test_hstore = True if os.environ.get('MOMOKO_TEST_HSTORE', False) == '1' else False
+test_json = True if os.environ.get('MOMOKO_TEST_JSON', False) == '1' else False
 good_dsn = 'dbname=%s user=%s password=%s host=%s port=%s' % (
     db_database, db_user, db_password, db_host, db_port)
 bad_dsn = 'dbname=%s user=%s password=xx%s host=%s port=%s' % (
@@ -219,6 +220,20 @@ class MomokoTest(MomokoBaseDataTest):
             self.wait()
 
             self.db.execute('SELECT \'a=>b, c=>d\'::hstore;', callback=self.stop_callback)
+            cursor = self.wait_for_result()
+            self.assert_equal(cursor.fetchall(), [({'a': 'b', 'c': 'd'},)])
+
+            self.db.execute('SELECT %s;', ({'e': 'f', 'g': 'h'},), callback=self.stop_callback)
+            cursor = self.wait_for_result()
+            self.assert_equal(cursor.fetchall(), [({'e': 'f', 'g': 'h'},)])
+
+    if test_json:
+        def test_json(self):
+            """Testing json"""
+            self.db.register_json(callback=self.stop_callback)
+            self.wait()
+
+            self.db.execute('SELECT \'{"a": "b", "c": "d"}\'::json;', callback=self.stop_callback)
             cursor = self.wait_for_result()
             self.assert_equal(cursor.fetchall(), [({'a': 'b', 'c': 'd'},)])
 

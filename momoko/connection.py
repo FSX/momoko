@@ -21,6 +21,7 @@ from contextlib import contextmanager
 
 import psycopg2
 from psycopg2.extras import register_hstore as _psy_register_hstore
+from psycopg2.extras import register_json as _psy_register_json
 from psycopg2.extensions import POLL_OK, POLL_READ, POLL_WRITE, POLL_ERROR, TRANSACTION_STATUS_IDLE
 
 from tornado import gen
@@ -422,6 +423,17 @@ class Pool(object):
         self._operate(Connection.register_hstore, callback,
                       globally=True, unicode=unicode)
 
+    def register_json(self, loads=None, callback=None):
+        """
+        Register adapter and typecaster for ``dict-json`` conversions.
+
+        See :py:meth:`momoko.Connection.register_json` for documentation about
+        the parameters. This method has no ``globally`` parameter, because it
+        already registers json to all the connections in the pool.
+        """
+        self._operate(Connection.register_json, callback,
+                      globally=True, loads=loads)
+
     def getconn(self, ping=True, callback=None):
         """
         Acquire connection from the pool.
@@ -812,6 +824,35 @@ class Connection(object):
         self.ioloop.add_callback(exec_statement)
 
     @_catch_early_errors
+    def register_json(self, globally=False, loads=None, callback=None):
+        """
+        Register adapter and typecaster for ``dict-json`` conversions.
+
+        More information on the json datatype can be found on the
+        Psycopg2 documentation_.
+
+        :param boolean globally:
+            Register the adapter globally, not only on this connection.
+        :param function loads:
+            The function used to parse the data into a Python object.  If ``None``
+            use ``json.loads()``, where ``json`` is the module chosen according to
+            the Python version.  See psycopg2.extra docs.
+
+        **NOTE:** `callback` should always passed as keyword argument
+
+        .. _documentation: http://initd.org/psycopg/docs/extras.html#json-adaptation
+        """
+        def _json_callback(cursor, error):
+            oid, array_oid = cursor.fetchone()
+            _psy_register_json(None, globally, loads, oid, array_oid)
+
+            if callback:
+                callback(None, error)
+
+        self.execute(
+            "SELECT 'json'::regtype::oid, 'json[]'::regtype::oid",
+            callback=_json_callback)
+
     def register_hstore(self, globally=False, unicode=False, callback=None):
         """
         Register adapter and typecaster for ``dict-hstore`` conversions.
