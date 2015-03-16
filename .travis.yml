@@ -13,7 +13,6 @@ before_script:
 
 env:
   - MOMOKO_PSYCOPG2_IMPL=psycopg2
-  - MOMOKO_PSYCOPG2_IMPL=psycopg2ct
   - MOMOKO_PSYCOPG2_IMPL=psycopg2cffi
 
 install: "pip install --use-mirrors tornado ${MOMOKO_PSYCOPG2_IMPL}"
@@ -22,20 +21,14 @@ script: python setup.py test
 matrix:
   exclude:
     - python: 3.2
-      env: MOMOKO_PSYCOPG2_IMPL=psycopg2ct
-    - python: 3.2
       env: MOMOKO_PSYCOPG2_IMPL=psycopg2cffi
     - python: 3.3
-      env: MOMOKO_PSYCOPG2_IMPL=psycopg2ct
-    - python: 3.3
       env: MOMOKO_PSYCOPG2_IMPL=psycopg2cffi
-    - python: 3.4
-      env: MOMOKO_PSYCOPG2_IMPL=psycopg2ct
     - python: 3.4
       env: MOMOKO_PSYCOPG2_IMPL=psycopg2cffi
     - python: pypy
       env: MOMOKO_PSYCOPG2_IMPL=psycopg2
 
       # Doesn't work on Travis CI
-    - python: pypy
-      env: MOMOKO_PSYCOPG2_IMPL=psycopg2cffi
+    #- python: pypy
+    #  env: MOMOKO_PSYCOPG2_IMPL=psycopg2cffi
