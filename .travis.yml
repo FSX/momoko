@@ -28,7 +28,3 @@ matrix:
       env: MOMOKO_PSYCOPG2_IMPL=psycopg2cffi
     - python: pypy
       env: MOMOKO_PSYCOPG2_IMPL=psycopg2
-
-      # Doesn't work on Travis CI
-    #- python: pypy
-    #  env: MOMOKO_PSYCOPG2_IMPL=psycopg2cffi
