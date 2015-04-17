@@ -179,11 +179,11 @@ Here is the server-side cursor example (based on the code in momoko unittests)::
             self.write(str(error))
 
 .. _Psycopg2 documentation: http://initd.org/psycopg/docs/cursor.html
-.. _tornado.gen: http://www.tornadoweb.org/documentation/gen.html
+.. _tornado.gen: http://tornado.readthedocs.org/en/stable/gen.html
 .. _fetchone: http://initd.org/psycopg/docs/cursor.html#cursor.fetchone
 .. _fetchmany: http://initd.org/psycopg/docs/cursor.html#cursor.fetchmany
 .. _fetchall: http://initd.org/psycopg/docs/cursor.html#cursor.fetchall
-.. _Task: http://www.tornadoweb.org/documentation/gen.html#tornado.gen.Task
-.. _Wait: http://www.tornadoweb.org/documentation/gen.html#tornado.gen.Wait
-.. _WaitAll: http://www.tornadoweb.org/documentation/gen.html#tornado.gen.WaitAll
+.. _Task: http://tornado.readthedocs.org/en/stable/gen.html#tornado.gen.Task
+.. _Wait: http://tornado.readthedocs.org/en/stable/gen.html#tornado.gen.Wait
+.. _WaitAll: http://tornado.readthedocs.org/en/stable/gen.html#tornado.gen.WaitAll
 .. _exceptions: http://initd.org/psycopg/docs/module.html#exceptions
