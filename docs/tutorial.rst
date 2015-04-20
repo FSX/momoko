@@ -3,17 +3,17 @@
 Tutorial
 ========
 
-This tutorial will demonstrate all the functionality found in Momoko. It's assumed
-a working PostgreSQL database is avaiable and dll examples are in the context of a
-webaplication. Not everything is explained.\, because Momoko just wraps Psycopg2
-and this means the `Psycopg2 documentation`_ must be used along with Momoko's.
+This tutorial will demonstrate all the functionality found in Momoko. It's assumed a
+working PostgreSQL database is available, and everything is done in the context of a
+simple tornado web application. Not everything is explained: because Momoko just
+wraps Psycopg2, the `Psycopg2 documentation`_ must be used alongside Momoko's.
 
 
 Boilerplate
 -----------
 
 Here's the code that's needed for this tutorial. Each example will replace parts
-or extend upon this code. The code is kept simple and minimal, its purpose is just
+or extend upon this code. The code is kept simple and minimal; its purpose is just
 to demonstrate Momoko's functionality. Here it goes::
 
     from tornado import gen
@@ -62,15 +62,15 @@ Usage
 -----
 
 :py:meth:`~momoko.Pool.execute`, :py:meth:`~momoko.Pool.callproc`, :py:meth:`~momoko.Pool.transaction`
-and  :py:meth:`~momoko.Pool.mogrify` are methods of :py:class:`momoko.Pool` and
-can  be used to query the database. Well, ``mogrify`` not really, it's used to
-escape strings, but needs a connection. All these methods, except ``mogrify``,
+and  :py:meth:`~momoko.Pool.mogrify` are methods of :py:class:`momoko.Pool` which
+can be used to query the database. (Actually, ``mogrify()`` is only used to
+escape strings, but it needs a connection). All these methods, except ``mogrify()``,
 return a cursor or an exception object. All of the described retrieval methods in
-Psycopg2's documentation like fetchone_, fetchmany_, fetchall_, etc.  can be used
+Psycopg2's documentation—fetchone_, fetchmany_, fetchall_, etc.—can be used
 to fetch the results.
 
 All of the example will be using `tornado.gen`_ instead of callbacks, because callbacks
-are fairly simple and doesn't require as much explanation. Here's one example using a
+are fairly simple and don't require as much explanation. Here's one example using a
 callback::
 
     class TutorialHandler(BaseHandler):
@@ -82,15 +82,14 @@ callback::
             self.write('Results: %r' % (cursor.fetchall(),))
             self.finish()
 
-The callback only need to accept two parameters. The first one is the cursor and
-the second is the exception object. The exception object is ``None`` when no error
-occurs and it contains an instance of one of Psycopg2's exceptions_ when an error
-did occur. That's all there's to know when using callbacks.
+The callback only needs to accept two parameters: the cursor and an exception object.
+The exception object is either ``None`` or an instance of one of Psycopg2's
+exceptions_. That's all there's to know when using callbacks.
 
 Instead of using `tornado.gen`_ directly (or using plain callbacks) Momoko provides
 subclasses of Task_, Wait_ and WaitAll_ that have some advantages. These are
 :py:class:`~momoko.Op`, :py:class:`~momoko.WaitOp` and :py:class:`~momoko.WaitAllOps`.
-These three classes only give a cursor back and raise an exception when something
+These three classes yield only a cursor and raise an exception when something
 goes wrong. Here's an example using :py:class:`~momoko.Op`::
 
     class TutorialHandler(BaseHandler):
@@ -139,7 +138,7 @@ An example with :py:class:`~momoko.WaitOp`::
         self.write('Q2: %r<br>' % (cursor2.fetchall(),))
         self.write('Q3: %r<br>' % (cursor3.fetchall(),))
 
-All the above examples are using :py:meth:`~momoko.Pool.execute`, but are possible
+All the above examples use :py:meth:`~momoko.Pool.execute`, but work
 with :py:meth:`~momoko.Pool.callproc`, :py:meth:`~momoko.Pool.transaction` and
 :py:meth:`~momoko.Pool.mogrify` too.
 
@@ -180,11 +179,11 @@ Here is the server-side cursor example (based on the code in momoko unittests)::
             self.write(str(error))
 
 .. _Psycopg2 documentation: http://initd.org/psycopg/docs/cursor.html
-.. _tornado.gen: http://www.tornadoweb.org/documentation/gen.html
+.. _tornado.gen: http://tornado.readthedocs.org/en/stable/gen.html
 .. _fetchone: http://initd.org/psycopg/docs/cursor.html#cursor.fetchone
 .. _fetchmany: http://initd.org/psycopg/docs/cursor.html#cursor.fetchmany
 .. _fetchall: http://initd.org/psycopg/docs/cursor.html#cursor.fetchall
-.. _Task: http://www.tornadoweb.org/documentation/gen.html#tornado.gen.Task
-.. _Wait: http://www.tornadoweb.org/documentation/gen.html#tornado.gen.Wait
-.. _WaitAll: http://www.tornadoweb.org/documentation/gen.html#tornado.gen.WaitAll
+.. _Task: http://tornado.readthedocs.org/en/stable/gen.html#tornado.gen.Task
+.. _Wait: http://tornado.readthedocs.org/en/stable/gen.html#tornado.gen.Wait
+.. _WaitAll: http://tornado.readthedocs.org/en/stable/gen.html#tornado.gen.WaitAll
 .. _exceptions: http://initd.org/psycopg/docs/module.html#exceptions
