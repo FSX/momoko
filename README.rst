@@ -1,6 +1,12 @@
 Momoko
 ======
 
+.. image:: https://img.shields.io/pypi/v/momoko.svg
+    :target: https://pypi.python.org/pypi/momoko
+
+.. image:: https://img.shields.io/pypi/dm/momoko.svg
+        :target: https://pypi.python.org/pypi/momoko
+
 Momoko wraps Psycopg2_'s functionality for use in Tornado_.
 
 .. _Psycopg2: http://initd.org/psycopg/
