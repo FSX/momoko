@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import os
 import string
 import random
@@ -6,7 +8,7 @@ import unittest
 from collections import deque
 
 from tornado import gen
-from tornado.testing import AsyncTestCase
+from tornado.testing import AsyncTestCase, gen_test
 
 import sys
 if sys.version_info[0] >= 3:
@@ -49,7 +51,28 @@ from psycopg2.extras import RealDictConnection, RealDictCursor, NamedTupleCursor
 momoko.Pool.log_connect_errors = False
 
 
-class BaseTest(AsyncTestCase):
+class Helpers(object):
+    def build_transaction_query(self, ucode=False):
+        return (
+            unicode('SELECT 1, 2, 3, 4;') if ucode else 'SELECT 1, 2, 3, 4;',
+            unicode('SELECT 5, 6, 7, 8;') if ucode else 'SELECT 5, 6, 7, 8;',
+            'SELECT 9, 10, 11, 12;',
+            ('SELECT %s+10, %s+10, %s+10, %s+10;', (3, 4, 5, 6)),
+            'SELECT 17, 18, 19, 20;',
+            ('SELECT %s+20, %s+20, %s+20, %s+20;', (1, 2, 3, 4)),
+        )
+
+    def compare_transaction_cursors(self, cursors):
+        self.assertEqual(len(cursors), 6)
+        self.assertEqual(cursors[0].fetchone(), (1, 2, 3, 4))
+        self.assertEqual(cursors[1].fetchone(), (5, 6, 7, 8))
+        self.assertEqual(cursors[2].fetchone(), (9, 10, 11, 12))
+        self.assertEqual(cursors[3].fetchone(), (13, 14, 15, 16))
+        self.assertEqual(cursors[4].fetchone(), (17, 18, 19, 20))
+        self.assertEqual(cursors[5].fetchone(), (21, 22, 23, 24))
+
+
+class BaseTest(AsyncTestCase, Helpers):
     pool_size = 3
     max_size = None
     raise_connect_errors = True
@@ -258,25 +281,6 @@ class MomokoTest(MomokoBaseDataTest):
                         callback=self.stop_callback)
         _, error = self.wait()
         self.assert_is_instance(error, psycopg2.ProgrammingError)
-
-    def build_transaction_query(self, ucode=False):
-        return (
-            unicode('SELECT 1, 2, 3, 4;') if ucode else 'SELECT 1, 2, 3, 4;',
-            unicode('SELECT 5, 6, 7, 8;') if ucode else 'SELECT 5, 6, 7, 8;',
-            'SELECT 9, 10, 11, 12;',
-            ('SELECT %s+10, %s+10, %s+10, %s+10;', (3, 4, 5, 6)),
-            'SELECT 17, 18, 19, 20;',
-            ('SELECT %s+20, %s+20, %s+20, %s+20;', (1, 2, 3, 4)),
-        )
-
-    def compare_transaction_cursors(self, cursors):
-        self.assert_equal(len(cursors), 6)
-        self.assert_equal(cursors[0].fetchone(), (1, 2, 3, 4))
-        self.assert_equal(cursors[1].fetchone(), (5, 6, 7, 8))
-        self.assert_equal(cursors[2].fetchone(), (9, 10, 11, 12))
-        self.assert_equal(cursors[3].fetchone(), (13, 14, 15, 16))
-        self.assert_equal(cursors[4].fetchone(), (17, 18, 19, 20))
-        self.assert_equal(cursors[5].fetchone(), (21, 22, 23, 24))
 
     def test_transaction(self):
         """Testing transaction functionality"""
@@ -618,6 +622,80 @@ class MomokoFactoriesTest(BaseTest):
         connection = self.wait_for_result()
         db.putconn(connection)
 
+
+class MomokoConnectionTest(AsyncTestCase):
+    @gen_test
+    def test_connect(self):
+        """Test that Connection can connect to the database"""
+        conn = yield momoko.Connection().connect(good_dsn, ioloop=self.io_loop)
+        self.assertIsInstance(conn, momoko.Connection)
+
+    @gen_test
+    def test_bad_connect(self):
+        """Test that Connection raises connection errors"""
+        try:
+            conn = yield momoko.Connection().connect(bad_dsn, ioloop=self.io_loop)
+        except Exception as error:
+            self.assertIsInstance(error, psycopg2.OperationalError)
+
+    @gen_test
+    def test_bad_connect_local(self):
+        """Test that Connection raises connection errors when using local socket"""
+        try:
+            conn = yield momoko.Connection().connect(local_bad_dsn, ioloop=self.io_loop)
+        except Exception as error:
+            self.assertIsInstance(error, psycopg2.OperationalError)
+
+
+class MomokoConnectionCursorTest(AsyncTestCase, Helpers):
+    def setUp(self):
+        super(MomokoConnectionCursorTest, self).setUp()
+        self.set_up()
+
+    @gen_test
+    def set_up(self):
+        self.conn = yield momoko.Connection().connect(good_dsn, ioloop=self.io_loop)
+
+    def tearDown(self):
+        if hasattr(self, "conn") and not self.conn.closed:
+            self.conn.close()
+        super(MomokoConnectionCursorTest, self).tearDown()
+
+    @gen_test
+    def test_execute(self):
+        """Testing simple SELECT on standalone connection"""
+        cursor = yield self.conn.execute("SELECT 1, 2, 3")
+        self.assertEqual(cursor.fetchall(), [(1, 2, 3)])
+
+    @gen_test
+    def test_transaction(self):
+        """Testing transaction on standalone connection"""
+        cursors = yield self.conn.transaction(self.build_transaction_query())
+        self.compare_transaction_cursors(cursors)
+        pass
+
+    @gen_test
+    def test_unicode_transaction(self):
+        """Testing transaction on standalone connection, as unicode string"""
+        cursors = yield self.conn.transaction(self.build_transaction_query(True))
+        self.compare_transaction_cursors(cursors)
+        pass
+
+
+class MomokoConnectionSetsessionTest(AsyncTestCase):
+    @gen_test
+    def test_setsession(self):
+        """Testing that setssion parameter is honoured"""
+        setsession = deque([None, "SELECT 1", "SELECT 2"])
+        time_zones = ["UTC", "Israel", "Australia/Melbourne"]
+
+        for i in range(len(time_zones)):
+            setsession[i] = "SET TIME ZONE '%s'" % time_zones[i]
+            conn = yield momoko.Connection().connect(good_dsn, ioloop=self.io_loop, setsession=setsession)
+            cursor = yield conn.execute("SELECT current_setting('TIMEZONE');")
+            self.assertEqual(cursor.fetchall(), [(time_zones[i],)])
+            conn.close()
+            setsession.rotate(1)
 
 if __name__ == '__main__':
     unittest.main()

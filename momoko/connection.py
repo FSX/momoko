@@ -9,6 +9,8 @@ Copyright 2011-2014, Frank Smit & Zaar Hai.
 MIT, see LICENSE for more details.
 """
 
+from __future__ import print_function
+
 import sys
 if sys.version_info[0] >= 3:
     basestring = str
@@ -25,7 +27,6 @@ from psycopg2.extensions import POLL_OK, POLL_READ, POLL_WRITE, POLL_ERROR
 
 from tornado import gen
 from tornado.ioloop import IOLoop
-from tornado.stack_context import wrap
 from tornado.concurrent import Future
 
 from .exceptions import PoolError
@@ -69,6 +70,7 @@ class Pool(object):
         List of intial sql commands to be executed once connection is established.
         If any of the commands failes, the connection will be closed.
         **NOTE:** The commands will be executed as one transaction block.
+    FIXME: Doc for future that may be passed in and invoked with self when connection is done
     """
 
     class Connections(object):
@@ -171,11 +173,11 @@ class Pool(object):
                  cursor_factory=None,
                  size=1,
                  max_size=None,
-                 callback=None,
                  ioloop=None,
                  raise_connect_errors=True,
                  reconnect_interval=500,
-                 setsession=[]):
+                 setsession=[],
+                 future=None):
         assert size > 0, "The connection pool size must be a number above 0."
 
         self.size = size
@@ -202,8 +204,7 @@ class Pool(object):
         # Create connections
         def after_pool_creation(connection):
             if not self._conns.pending:  # all connections "connected" on way or the other
-                if callback:
-                    callback()
+                future.set_result(self)
 
         for i in range(self.size):
             self._new(after_pool_creation)
@@ -531,7 +532,7 @@ class Connection(object):
                 dsn,
                 connection_factory=None,
                 cursor_factory=None,
-                callback=None,
+                #callback=None,
                 ioloop=None,
                 setsession=[]):
         log.info("Opening new database connection")
@@ -542,63 +543,48 @@ class Connection(object):
         if cursor_factory:
             kwargs["cursor_factory"] = cursor_factory
 
+        future = Future()
         self.connection = None
         try:
             self.connection = psycopg2.connect(dsn, **kwargs)
         except psycopg2.Error as error:
-            if callback:
-                callback(self, error)
-                return
-            else:
-                raise
+            future.set_exception(error)
+            return future
+
         self.fileno = self.connection.fileno()
         self.ioloop = ioloop or IOLoop.instance()
 
-        self._on_connect_callback = partial(callback, self) if callback else None
-
         if setsession:
-            self.callback = self._setsession_callback
-            self.setsession = setsession
+            on_connect_future = Future()
+
+            def on_connect(on_connect_future):
+                self.ioloop.add_future(self.transaction(setsession), lambda x: future.set_result(self))
+
+            self.ioloop.add_future(on_connect_future, on_connect)
+            callback = partial(self._io_callback, on_connect_future, self)
         else:
-            self.callback = self._on_connect_callback
+            callback = partial(self._io_callback, future, self)
 
-        self.ioloop.add_handler(self.fileno, self.io_callback, IOLoop.WRITE)
+        self.ioloop.add_handler(self.fileno, callback, IOLoop.WRITE)
 
-    def _setsession_callback(self, error):
-        """Custom post-connect callback to trigger setsession commands execution in transaction"""
-        if error:
-            return self._on_connect_callback(error)
-        log.debug("Running setsession commands")
-        return self.transaction(self.setsession, callback=self._setsession_transaction_callback)
+        return future
 
-    def _setsession_transaction_callback(self, cursor, error):
-        """
-        Call back that check results of setsession transaction commands and
-        call the real post_connect callback. Closes connection if transaction failed.
-        """
-        if error:
-            log.debug("Closing connection since set session commands failed")
-            self.close()
-        self._on_connect_callback(error)
-
-    def io_callback(self, fd=None, events=None):
+    def _io_callback(self, future, result, fd=None, events=None):
         try:
             state = self.connection.poll()
         except (psycopg2.Warning, psycopg2.Error) as error:
             self.ioloop.remove_handler(self.fileno)
-            if self.callback:
-                self.callback(error)
+            future.set_exception(error)
         else:
             if state == POLL_OK:
                 self.ioloop.remove_handler(self.fileno)
-                if self.callback:
-                    self.callback(None)
+                future.set_result(result)
             elif state == POLL_READ:
                 self.ioloop.update_handler(self.fileno, IOLoop.READ)
             elif state == POLL_WRITE:
                 self.ioloop.update_handler(self.fileno, IOLoop.WRITE)
             else:
-                raise psycopg2.OperationalError('poll() returned {0}'.format(state))
+                future.set_exception(psycopg2.OperationalError('poll() returned {0}'.format(state)))
 
     def _catch_early_errors(func):
         @wraps(func)
@@ -641,12 +627,11 @@ class Connection(object):
             cursor.fetchall()
         return callback(self, error)
 
-    @_catch_early_errors
+    #@_catch_early_errors
     def execute(self,
                 operation,
                 parameters=(),
-                cursor_factory=None,
-                callback=None):
+                cursor_factory=None):
         """
         Prepare and execute a database operation (query or command).
 
@@ -672,8 +657,11 @@ class Connection(object):
         kwargs = {"cursor_factory": cursor_factory} if cursor_factory else {}
         cursor = self.connection.cursor(**kwargs)
         cursor.execute(operation, parameters)
-        self.callback = partial(callback or _dummy_callback, cursor)
-        self.ioloop.add_handler(self.fileno, self.io_callback, IOLoop.WRITE)
+
+        future = Future()
+        callback = partial(self.io_callback, future, cursor)
+        self.ioloop.add_handler(self.fileno, callback, IOLoop.WRITE)
+        return future
 
     @_catch_early_errors
     def callproc(self,
@@ -750,7 +738,7 @@ class Connection(object):
     def transaction(self,
                     statements,
                     cursor_factory=None,
-                    callback=None):
+                    auto_rollback=True):
         """
         Run a sequence of SQL queries in a database transaction.
 
@@ -777,38 +765,49 @@ class Connection(object):
         .. _Connection and cursor factories: http://initd.org/psycopg/docs/advanced.html#subclassing-cursor
         """
         cursors = []
-        queue = deque()
-        callback = callback or _dummy_callback
+        transaction_future = Future()
 
+        queue = self._statement_generator(statements)
+
+        def exec_statements(future):
+            try:
+                cursor = future.result()
+                cursors.append(cursor)
+            except Exception as error:
+                if not auto_rollback:
+                    transaction_future.set_exception(error)
+                else:
+                    self._rollback(transaction_future, error)
+                return
+
+            try:
+                operation, parameters = next(queue)
+            except StopIteration:
+                transaction_future.set_result(cursors[1:-1])
+                return
+
+            f = self.execute(operation, parameters, cursor_factory)
+            self.ioloop.add_future(f, exec_statements)
+
+        self.ioloop.add_future(self.execute("BEGIN;"), exec_statements)
+        return transaction_future
+
+    def _statement_generator(self, statements):
         for statement in statements:
             if isinstance(statement, basestring):
-                queue.append((statement, ()))
+                yield (statement, ())
             else:
-                queue.append(statement[:2])
+                yield statement[:2]
+        yield ('COMMIT;', ())
 
-        queue.appendleft(('BEGIN;', ()))
-        queue.append(('COMMIT;', ()))
-
-        def error_callback(statement_error, cursor, rollback_error):
-            callback(None, rollback_error or statement_error)
-
-        def exec_statement(cursor=None, error=None):
-            if error:
-                try:
-                    self.execute('ROLLBACK;', callback=partial(error_callback, error))
-                except psycopg2.Error as rollback_error:
-                    error_callback(error, cursor, rollback_error)
-                return
-            if cursor:
-                cursors.append(cursor)
-            if not queue:
-                callback(cursors[1:-1], None)
-                return
-
-            operation, parameters = queue.popleft()
-            self.execute(operation, parameters, cursor_factory, callback=exec_statement)
-
-        self.ioloop.add_callback(exec_statement)
+    def _rollback(self, transaction_future, error):
+        def rollback_callback(rb_future):
+            try:
+                rb_future.result()
+            except Exception, rb_error:
+                log.warn("Failed to ROLLBACK transaction %s", rb_error)
+            transaction_future.set_exception(error)
+        self.ioloop.add_future(self.execute("ROLLBACK;"), rollback_callback)
 
     @_catch_early_errors
     def register_hstore(self, globally=False, unicode=False, callback=None):
