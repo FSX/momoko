@@ -21,7 +21,7 @@ from contextlib import contextmanager
 
 import psycopg2
 from psycopg2.extras import register_hstore as _psy_register_hstore
-from psycopg2.extensions import POLL_OK, POLL_READ, POLL_WRITE, POLL_ERROR, TRANSACTION_STATUS_IDLE
+from psycopg2.extensions import POLL_OK, POLL_READ, POLL_WRITE, POLL_ERROR
 
 from tornado import gen
 from tornado.ioloop import IOLoop
@@ -552,7 +552,6 @@ class Connection(object):
             else:
                 raise
         self.fileno = self.connection.fileno()
-        self._transaction_status = self.connection.get_transaction_status
         self.ioloop = ioloop or IOLoop.instance()
 
         self._on_connect_callback = partial(callback, self) if callback else None
@@ -839,13 +838,6 @@ class Connection(object):
         self.execute(
             "SELECT 'hstore'::regtype::oid, 'hstore[]'::regtype::oid",
             callback=_hstore_callback)
-
-    def busy(self):
-        """
-        **(Deprecated)** Check if the connection is busy or not.
-        """
-        return self.connection.isexecuting() or (self.connection.closed == 0 and
-                                                 self._transaction_status() != TRANSACTION_STATUS_IDLE)
 
     @property
     def closed(self):
