@@ -176,7 +176,7 @@ class Pool(object):
                  ioloop=None,
                  raise_connect_errors=True,
                  reconnect_interval=500,
-                 setsession=[],
+                 setsession=(),
                  future=None):
         assert size > 0, "The connection pool size must be a number above 0."
 
@@ -528,37 +528,43 @@ class Connection(object):
     .. _psycopg2.extensions.connection: http://initd.org/psycopg/docs/connection.html#connection
     .. _Connection and cursor factories: http://initd.org/psycopg/docs/advanced.html#subclassing-cursor
     """
-    def connect(self,
-                dsn,
-                connection_factory=None,
-                cursor_factory=None,
-                #callback=None,
-                ioloop=None,
-                setsession=[]):
+    def __init__(self,
+                 dsn,
+                 connection_factory=None,
+                 cursor_factory=None,
+                 ioloop=None,
+                 setsession=()):
         log.info("Opening new database connection")
 
+        self.dsn = dsn
+        self.connection_factory = connection_factory
+        self.cursor_factory = cursor_factory
+        self.ioloop = ioloop or IOLoop.instance()
+        self.setsession = setsession
+
+    def connect(self):
         kwargs = {"async": True}
-        if connection_factory:
-            kwargs["connection_factory"] = connection_factory
-        if cursor_factory:
-            kwargs["cursor_factory"] = cursor_factory
+        if self.connection_factory:
+            kwargs["connection_factory"] = self.connection_factory
+        if self.cursor_factory:
+            kwargs["cursor_factory"] = self.cursor_factory
 
         future = Future()
+
         self.connection = None
         try:
-            self.connection = psycopg2.connect(dsn, **kwargs)
+            self.connection = psycopg2.connect(self.dsn, **kwargs)
         except psycopg2.Error as error:
             future.set_exception(error)
             return future
 
         self.fileno = self.connection.fileno()
-        self.ioloop = ioloop or IOLoop.instance()
 
-        if setsession:
+        if self.setsession:
             on_connect_future = Future()
 
             def on_connect(on_connect_future):
-                self.ioloop.add_future(self.transaction(setsession), lambda x: future.set_result(self))
+                self.ioloop.add_future(self.transaction(self.setsession), lambda x: future.set_result(self))
 
             self.ioloop.add_future(on_connect_future, on_connect)
             callback = partial(self._io_callback, on_connect_future, self)
@@ -659,7 +665,7 @@ class Connection(object):
         cursor.execute(operation, parameters)
 
         future = Future()
-        callback = partial(self.io_callback, future, cursor)
+        callback = partial(self._io_callback, future, cursor)
         self.ioloop.add_handler(self.fileno, callback, IOLoop.WRITE)
         return future
 
@@ -852,3 +858,12 @@ class Connection(object):
         """
         if self.connection:
             self.connection.close()
+
+
+def connect(*args, **kwargs):
+    """
+    Connection factory.
+    See :py:meth:`momoko.Connection` for documentation about the
+    Returns future that resolves to :py:meth:`momoko.Connection` object or raises exception
+    """
+    return Connection(*args, **kwargs).connect()

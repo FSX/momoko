@@ -627,14 +627,14 @@ class MomokoConnectionTest(AsyncTestCase):
     @gen_test
     def test_connect(self):
         """Test that Connection can connect to the database"""
-        conn = yield momoko.Connection().connect(good_dsn, ioloop=self.io_loop)
+        conn = yield momoko.connect(good_dsn, ioloop=self.io_loop)
         self.assertIsInstance(conn, momoko.Connection)
 
     @gen_test
     def test_bad_connect(self):
         """Test that Connection raises connection errors"""
         try:
-            conn = yield momoko.Connection().connect(bad_dsn, ioloop=self.io_loop)
+            conn = yield momoko.connect(bad_dsn, ioloop=self.io_loop)
         except Exception as error:
             self.assertIsInstance(error, psycopg2.OperationalError)
 
@@ -642,7 +642,7 @@ class MomokoConnectionTest(AsyncTestCase):
     def test_bad_connect_local(self):
         """Test that Connection raises connection errors when using local socket"""
         try:
-            conn = yield momoko.Connection().connect(local_bad_dsn, ioloop=self.io_loop)
+            conn = yield momoko.connect(local_bad_dsn, ioloop=self.io_loop)
         except Exception as error:
             self.assertIsInstance(error, psycopg2.OperationalError)
 
@@ -654,7 +654,7 @@ class MomokoConnectionCursorTest(AsyncTestCase, Helpers):
 
     @gen_test
     def set_up(self):
-        self.conn = yield momoko.Connection().connect(good_dsn, ioloop=self.io_loop)
+        self.conn = yield momoko.connect(good_dsn, ioloop=self.io_loop)
 
     def tearDown(self):
         if hasattr(self, "conn") and not self.conn.closed:
@@ -691,7 +691,7 @@ class MomokoConnectionSetsessionTest(AsyncTestCase):
 
         for i in range(len(time_zones)):
             setsession[i] = "SET TIME ZONE '%s'" % time_zones[i]
-            conn = yield momoko.Connection().connect(good_dsn, ioloop=self.io_loop, setsession=setsession)
+            conn = yield momoko.connect(good_dsn, ioloop=self.io_loop, setsession=setsession)
             cursor = yield conn.execute("SELECT current_setting('TIMEZONE');")
             self.assertEqual(cursor.fetchall(), [(time_zones[i],)])
             conn.close()
