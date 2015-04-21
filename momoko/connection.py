@@ -489,7 +489,8 @@ class Pool(object):
 
 class Connection(object):
     """
-    Initiate an asynchronous connect.
+    Asynchronous connection object. All its methods are
+    asynchronous unless stated otherwide in method description.
 
     :param string dsn:
         A `Data Source Name`_ string containing one of the following values:
@@ -512,11 +513,6 @@ class Connection(object):
         The ``cursor_factory`` argument can be used to return non-standart cursor class
         The class returned should be a subclass of `psycopg2.extensions.cursor`_.
         See `Connection and cursor factories`_ for details. Defaults to ``None``.
-
-    :param callable callback:
-        A callable that's called after the connection is created. It accepts one
-        paramater: an instance of :py:class:`momoko.Connection`. Defaults to ``None``.
-    :param ioloop: An instance of Tornado's IOLoop. Defaults to ``None``.
 
     :param list setsession:
         List of intial sql commands to be executed once connection is established.
@@ -543,6 +539,10 @@ class Connection(object):
         self.setsession = setsession
 
     def connect(self):
+        """
+        Initiate asynchronous connect.
+        Returns future that resolves to this connection object.
+        """
         kwargs = {"async": True}
         if self.connection_factory:
             kwargs["connection_factory"] = self.connection_factory
@@ -564,7 +564,7 @@ class Connection(object):
             on_connect_future = Future()
 
             def on_connect(on_connect_future):
-                self.ioloop.add_future(self.transaction(self.setsession), lambda x: future.set_result(self))
+                self.ioloop.add_future(self.transaction(self.setsession), lambda: future.set_result(self))
 
             self.ioloop.add_future(on_connect_future, on_connect)
             callback = partial(self._io_callback, on_connect_future, self)
@@ -572,8 +572,12 @@ class Connection(object):
             callback = partial(self._io_callback, future, self)
 
         self.ioloop.add_handler(self.fileno, callback, IOLoop.WRITE)
+        self.ioloop.add_future(future, self._set_server_version)
 
         return future
+
+    def _set_server_version(self, future):
+        self.server_version = self.connection.server_version
 
     def _io_callback(self, future, result, fd=None, events=None):
         try:
@@ -592,16 +596,6 @@ class Connection(object):
             else:
                 future.set_exception(psycopg2.OperationalError('poll() returned {0}'.format(state)))
 
-    def _catch_early_errors(func):
-        @wraps(func)
-        def wrapper(self, *args, **kwargs):
-            callback = kwargs.get("callback", _dummy_callback)
-            try:
-                return func(self, *args, **kwargs)
-            except Exception as error:
-                callback(None, error)
-        return wrapper
-
     def _keep_connection(func):
         """
         Use this decorator on Connection methods to hint the Pool to not
@@ -610,30 +604,21 @@ class Connection(object):
         func._keep_connection = True
         return func
 
-    @_catch_early_errors
     @_keep_connection
-    def ping(self, callback=None):
+    def ping(self):
         """
         Make sure this connection is alive by executing SELECT 1 statement -
         i.e. roundtrip to the database.
 
-        **NOTE:** On the contrary to other methods, callback function signature is
-              ``callback(self, error)`` and not ``callback(cursor, error)``.
-
-        **NOTE:** `callback` should always passed as keyword argument
-
+        Returns future. If it resolves sucessfully - the connection is alive (or dead otherwise).
         """
-        cursor = self.connection.cursor()
-        cursor.execute("SELECT 1 AS ping")
-        self.callback = partial(self._ping_callback, callback or _dummy_callback, cursor)
-        self.ioloop.add_handler(self.fileno, self.io_callback, IOLoop.WRITE)
+        return self.execute("SELECT 1 AS ping")
 
     def _ping_callback(self, callback, cursor, error):
         if not error:
             cursor.fetchall()
         return callback(self, error)
 
-    #@_catch_early_errors
     def execute(self,
                 operation,
                 parameters=(),
@@ -649,12 +634,8 @@ class Connection(object):
             The ``cursor_factory`` argument can be used to create non-standard cursors.
             The class returned must be a subclass of `psycopg2.extensions.cursor`_.
             See `Connection and cursor factories`_ for details. Defaults to ``None``.
-        :param callable callback:
-            A callable that is executed when the query has finished. It must accept
-            two positional parameters. The first one being the cursor and the second
-            one ``None`` or an instance of an exception if an error has occurred,
-            in that case the first parameter will be ``None``. Defaults to ``None``.
-            **NOTE:** `callback` should always passed as keyword argument
+
+        Returns future that resolves to cursor object containing result.
 
         .. _Passing parameters to SQL queries: http://initd.org/psycopg/docs/usage.html#query-parameters
         .. _psycopg2.extensions.cursor: http://initd.org/psycopg/docs/extensions.html#psycopg2.extensions.cursor
@@ -669,12 +650,10 @@ class Connection(object):
         self.ioloop.add_handler(self.fileno, callback, IOLoop.WRITE)
         return future
 
-    @_catch_early_errors
     def callproc(self,
                  procname,
                  parameters=(),
-                 cursor_factory=None,
-                 callback=None):
+                 cursor_factory=None):
         """
         Call a stored database procedure with the given name.
 
@@ -694,12 +673,8 @@ class Connection(object):
             The ``cursor_factory`` argument can be used to create non-standard cursors.
             The class returned must be a subclass of `psycopg2.extensions.cursor`_.
             See `Connection and cursor factories`_ for details. Defaults to ``None``.
-        :param callable callback:
-            A callable that is executed when the query has finished. It must accept
-            two positional parameters. The first one being the cursor and the second
-            one ``None`` or an instance of an exception if an error has occurred,
-            in that case the first parameter will be ``None``. Defaults to ``None``.
-            **NOTE:** `callback` should always passed as keyword argument
+
+        Returns future that resolves to cursor object containing result.
 
         .. _fetch*(): http://initd.org/psycopg/docs/cursor.html#fetch
         .. _Passing parameters to SQL queries: http://initd.org/psycopg/docs/usage.html#query-parameters
@@ -709,37 +684,31 @@ class Connection(object):
         kwargs = {"cursor_factory": cursor_factory} if cursor_factory else {}
         cursor = self.connection.cursor(**kwargs)
         cursor.callproc(procname, parameters)
-        self.callback = partial(callback or _dummy_callback, cursor)
-        self.ioloop.add_handler(self.fileno, self.io_callback, IOLoop.WRITE)
 
-    @_catch_early_errors
-    def mogrify(self, operation, parameters=(), callback=None):
+        future = Future()
+        callback = partial(self._io_callback, future, cursor)
+        self.ioloop.add_handler(self.fileno, callback, IOLoop.WRITE)
+        return future
+
+    def mogrify(self, operation, parameters=()):
         """
         Return a query string after arguments binding.
 
         The string returned is exactly the one that would be sent to the database
         running the execute() method or similar.
 
+        **NOTE:** This is a synchronous method.
+
         :param string operation: An SQL query.
         :param tuple/list parameters:
             A list or tuple with query parameters. See `Passing parameters to SQL queries`_
             for more information. Defaults to an empty tuple.
-        :param callable callback:
-            A callable that is executed when the query has finished. It must accept
-            two positional parameters. The first one being the resulting query as
-            a byte string and the second one ``None`` or an instance of an exception
-            if an error has occurred. Defaults to ``None``.
-            **NOTE:** `callback` should always passed as keyword argument
 
         .. _Passing parameters to SQL queries: http://initd.org/psycopg/docs/usage.html#query-parameters
         .. _Connection and cursor factories: http://initd.org/psycopg/docs/advanced.html#subclassing-cursor
         """
         cursor = self.connection.cursor()
-        try:
-            result = cursor.mogrify(operation, parameters)
-            self.ioloop.add_callback(partial(callback or _dummy_callback, result, None))
-        except (psycopg2.Warning, psycopg2.Error) as error:
-            self.ioloop.add_callback(partial(callback or _dummy_callback, b'', error))
+        return cursor.mogrify(operation, parameters)
 
     def transaction(self,
                     statements,
@@ -758,13 +727,13 @@ class Connection(object):
             The ``cursor_factory`` argument can be used to create non-standard cursors.
             The class returned must be a subclass of `psycopg2.extensions.cursor`_.
             See `Connection and cursor factories`_ for details. Defaults to ``None``.
-        :param callable callback:
-            A callable that is executed when the transaction has finished. It must accept
-            two positional parameters. The first one being a list of cursors in the same
-            order as the given statements and the second one ``None`` or an instance of
-            an exception if an error has occurred, in that case the first parameter is
-            an empty list. Defaults to ``None``.
-            **NOTE:** `callback` should always passed as keyword argument
+        :param bool auto_rollback:
+            If one of the transaction statements failes, try to automatically
+            execute ROLLBACK to abort the transaction. If ROLLBACK fails, it would
+            not be raised, but only logged.
+
+        Returns future that resolves to ``list`` of cursors. Each cursor contains the result
+        of the corresponding transaction statement.
 
         .. _Passing parameters to SQL queries: http://initd.org/psycopg/docs/usage.html#query-parameters
         .. _psycopg2.extensions.cursor: http://initd.org/psycopg/docs/extensions.html#psycopg2.extensions.cursor
@@ -815,7 +784,6 @@ class Connection(object):
             transaction_future.set_exception(error)
         self.ioloop.add_future(self.execute("ROLLBACK;"), rollback_callback)
 
-    @_catch_early_errors
     def register_hstore(self, globally=False, unicode=False, callback=None):
         """
         Register adapter and typecaster for ``dict-hstore`` conversions.
@@ -829,20 +797,28 @@ class Connection(object):
             If ``True``, keys and values returned from the database will be ``unicode``
             instead of ``str``. The option is not available on Python 3.
 
-        **NOTE:** `callback` should always passed as keyword argument
+        Returns future that resolves to ``None``.
 
         .. _documentation: http://initd.org/psycopg/docs/extras.html#hstore-data-type
         """
-        def _hstore_callback(cursor, error):
+        future = Future()
+
+        def hstore_callback(fut):
+            try:
+                cursor = fut.result()
+            except Exception as error:
+                future.set_exception(error)
+                return
+
             oid, array_oid = cursor.fetchone()
             _psy_register_hstore(None, globally, unicode, oid, array_oid)
+            future.set_result(None)
 
-            if callback:
-                callback(None, error)
-
-        self.execute(
+        self.ioloop.add_future(self.execute(
             "SELECT 'hstore'::regtype::oid, 'hstore[]'::regtype::oid",
-            callback=_hstore_callback)
+        ), hstore_callback)
+
+        return future
 
     @property
     def closed(self):
@@ -854,7 +830,9 @@ class Connection(object):
 
     def close(self):
         """
-        Remove the connection from the IO loop and close it.
+        Closes the connection.
+
+        **NOTE:** This is a synchronous method.
         """
         if self.connection:
             self.connection.close()

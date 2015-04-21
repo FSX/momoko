@@ -249,6 +249,7 @@ class MomokoTest(MomokoBaseDataTest):
             cursor = self.wait_for_result()
             self.assert_equal(cursor.fetchall(), [({'e': 'f', 'g': 'h'},)])
 
+
     def test_callproc(self):
         """Testing callproc"""
         self.db.callproc('unit_test_callproc', (64,), callback=self.stop_callback)
@@ -603,6 +604,7 @@ class MomokoFactoriesTest(BaseTest):
 
     def test_cursor_factory(self):
         """Testing that cursor_factory parameter is properly propagated"""
+        # FIXME: Remove this, we dropped suport for psycopg2-ctypes
         if psycopg2_impl == "psycopg2ct":
             # Known bug: https://github.com/mvantellingen/psycopg2-ctypes/issues/31
             return
@@ -623,7 +625,83 @@ class MomokoFactoriesTest(BaseTest):
         db.putconn(connection)
 
 
-class MomokoConnectionTest(AsyncTestCase):
+############## New stuff is here
+
+
+class BaseTest(AsyncTestCase, Helpers):
+    if not hasattr(AsyncTestCase, "assertLess"):
+        def assertLess(self, a, b, msg):
+            return self.assertTrue(a < b, msg=msg)
+
+    def setUp(self):
+        super(BaseTest, self).setUp()
+        self.set_up()
+
+    def tearDown(self):
+        self.tear_down()
+        super(BaseTest, self).tearDown()
+
+    def set_up(self):
+        pass
+
+    def tear_down(self):
+        pass
+
+    def run_and_check_query(self, executor):
+        cursor = yield executor.execute("SELECT 6, 19, 24;")
+        self.assertEqual(cursor.fetchall(), [(6, 19, 24)])
+
+
+class BaseDataTest(BaseTest):
+    def clean_db(self):
+        yield self.conn.execute("DROP TABLE IF EXISTS unit_test_large_query;")
+        yield self.conn.execute("DROP TABLE IF EXISTS unit_test_transaction;")
+        yield self.conn.execute("DROP TABLE IF EXISTS  unit_test_int_table;")
+        yield self.conn.execute("DROP FUNCTION IF EXISTS  unit_test_callproc(integer);")
+
+    def prepare_db(self):
+        for g in self.clean_db():
+            yield g
+
+        yield self.conn.execute(
+            "CREATE TABLE unit_test_large_query ("
+            "id serial NOT NULL, name character varying, data text);"
+        )
+
+        yield self.conn.execute(
+            "CREATE TABLE unit_test_transaction ("
+            "id serial NOT NULL, name character varying, data text);",
+        )
+
+        yield self.conn.execute("CREATE TABLE unit_test_int_table (id integer);")
+
+        yield self.conn.execute(
+            "CREATE OR REPLACE FUNCTION unit_test_callproc(n integer)\n"
+            "RETURNS integer AS $BODY$BEGIN\n"
+            "RETURN n*n;\n"
+            "END;$BODY$ LANGUAGE plpgsql VOLATILE;"
+        )
+
+    def fill_int_data(self, amount=1000):
+        yield self.conn.transaction([
+            "INSERT INTO unit_test_int_table VALUES %s" % ",".join("(%s)" % i for i in range(amount)),
+        ])
+
+    @gen_test
+    def set_up(self):
+        super(BaseDataTest, self).set_up()
+        self.conn = yield momoko.connect(good_dsn, ioloop=self.io_loop)
+        for g in self.prepare_db():
+            yield g
+
+    @gen_test
+    def tear_down(self):
+        for g in self.clean_db():
+            yield g
+        super(BaseDataTest, self).tear_down()
+
+
+class MomokoConnectionTest(BaseTest):
     @gen_test
     def test_connect(self):
         """Test that Connection can connect to the database"""
@@ -647,42 +725,123 @@ class MomokoConnectionTest(AsyncTestCase):
             self.assertIsInstance(error, psycopg2.OperationalError)
 
 
-class MomokoConnectionCursorTest(AsyncTestCase, Helpers):
-    def setUp(self):
-        super(MomokoConnectionCursorTest, self).setUp()
-        self.set_up()
-
-    @gen_test
-    def set_up(self):
-        self.conn = yield momoko.connect(good_dsn, ioloop=self.io_loop)
-
-    def tearDown(self):
-        if hasattr(self, "conn") and not self.conn.closed:
-            self.conn.close()
-        super(MomokoConnectionCursorTest, self).tearDown()
-
+class MomokoConnectionDataTest(BaseDataTest):
     @gen_test
     def test_execute(self):
-        """Testing simple SELECT on standalone connection"""
+        """Testing simple SELECT"""
         cursor = yield self.conn.execute("SELECT 1, 2, 3")
         self.assertEqual(cursor.fetchall(), [(1, 2, 3)])
+
+    @gen_test
+    def test_large_query(self):
+        """Testing support for large queries"""
+        query_size = 100000
+        chars = string.ascii_letters + string.digits + string.punctuation
+
+        for n in range(5):
+            random_data = ''.join([random.choice(chars) for i in range(query_size)])
+            cursor = yield self.conn.execute("INSERT INTO unit_test_large_query (data) VALUES (%s) "
+                                             "RETURNING data;", (random_data,))
+            self.assertEqual(cursor.fetchone(), (random_data,))
+
+        cursor = yield self.conn.execute("SELECT COUNT(*) FROM unit_test_large_query;")
+        self.assertEqual(cursor.fetchone(), (5,))
 
     @gen_test
     def test_transaction(self):
         """Testing transaction on standalone connection"""
         cursors = yield self.conn.transaction(self.build_transaction_query())
         self.compare_transaction_cursors(cursors)
-        pass
 
     @gen_test
     def test_unicode_transaction(self):
         """Testing transaction on standalone connection, as unicode string"""
         cursors = yield self.conn.transaction(self.build_transaction_query(True))
         self.compare_transaction_cursors(cursors)
-        pass
+
+    @gen_test
+    def test_transaction_rollback(self):
+        """Testing transaction auto-rollback functionality"""
+        chars = string.ascii_letters + string.digits + string.punctuation
+        data = ''.join([random.choice(chars) for i in range(100)])
+
+        try:
+            yield self.conn.transaction((
+                ("INSERT INTO unit_test_transaction (data) VALUES (%s);", (data,)),
+                "SELECT DOES NOT WORK!;"
+            ), auto_rollback=True)
+        except psycopg2.ProgrammingError:
+            pass
+
+        cursor = yield self.conn.execute("SELECT COUNT(*) FROM unit_test_transaction;")
+        self.assertEqual(cursor.fetchone(), (0,))
+
+    if test_hstore:
+        @gen_test
+        def test_hstore(self):
+            """Testing hstore"""
+            yield self.conn.register_hstore()
+
+            cursor = yield self.conn.execute("SELECT 'a=>b, c=>d'::hstore;")
+            self.assertEqual(cursor.fetchall(), [({"a": "b", "c": "d"},)])
+
+            cursor = yield self.conn.execute("SELECT %s;", ({'e': 'f', 'g': 'h'},))
+            self.assertEqual(cursor.fetchall(), [({"e": "f", "g": "h"},)])
+
+    @gen_test
+    def test_callproc(self):
+        """Testing callproc"""
+        cursor = yield self.conn.callproc("unit_test_callproc", (64,))
+        self.assertEqual(cursor.fetchone(), (4096,))
+
+    @gen_test
+    def test_query_error(self):
+        """Testing that execute method propages exception properly"""
+        try:
+            yield self.conn.execute('SELECT DOES NOT WORK!;')
+        except psycopg2.ProgrammingError:
+            pass
+
+    @gen_test
+    def test_mogrify(self):
+        """Testing mogrify"""
+        sql = self.conn.mogrify("SELECT %s, %s;", ('\'"test"\'', "SELECT 1;"))
+        if self.conn.server_version < 90100:
+            self.assertEqual(sql, b"SELECT E'''\"test\"''', E'SELECT 1;';")
+        else:
+            self.assertEqual(sql, b"SELECT '''\"test\"''', 'SELECT 1;';")
+
+        yield self.conn.execute(sql)
+
+    def test_mogrify_error(self):
+        """Testing that mogri propagates exception properly"""
+        try:
+            self.conn.mogrify("SELECT %(foos;", {"foo": "bar"})
+        except psycopg2.ProgrammingError:
+            pass
 
 
-class MomokoConnectionSetsessionTest(AsyncTestCase):
+class MomokoConnectionServerSideCursorTest(BaseDataTest):
+    @gen_test
+    def test_server_side_cursor(self):
+        """Testing server side cursors support"""
+        int_count = 1000
+        offset = 0
+        chunk = 10
+        for g in self.fill_int_data(int_count):
+            yield g
+
+        yield self.conn.execute("BEGIN")
+        yield self.conn.execute("DECLARE all_ints CURSOR FOR SELECT * FROM unit_test_int_table")
+        while offset < int_count:
+            cursor = yield self.conn.execute("FETCH %s FROM all_ints", (chunk,))
+            self.assertEqual(cursor.fetchall(), [(i, ) for i in range(offset, offset+chunk)])
+            offset += chunk
+        yield self.conn.execute("CLOSE all_ints")
+        yield self.conn.execute("COMMIT")
+
+
+class MomokoConnectionSetsessionTest(BaseTest):
     @gen_test
     def test_setsession(self):
         """Testing that setssion parameter is honoured"""
