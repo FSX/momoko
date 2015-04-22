@@ -643,22 +643,28 @@ class BaseTest(AsyncTestCase, Helpers):
     # Our heirs needs to define them carefully to not to step on over other,
     # but its good enough for unit tests.
     # TIP: Use set_up_X where X is between 10 and 99. X80 Basic is back :)
-    def get_methods(self, starting_with):
+    def get_methods(self, starting_with, reverse=False):
         methods = []
-        for m in inspect.getmembers(self, predicate=inspect.ismethod):
+        members = inspect.getmembers(self, predicate=inspect.ismethod)
+        members = sorted(members, key=lambda m: m[0], reverse=reverse)
+        for m in members:
             name, method = m
             if name.startswith(starting_with):
                 methods.append(method)
-        return sorted(methods)
+        return methods
 
     def setUp(self):
         super(BaseTest, self).setUp()
-        for m in self.get_methods("set_up"):
-            m()
+        for method in self.get_methods("set_up"):
+            #print("%s start" % method.__name__)
+            method()
+            #print("%s done" % method.__name__)
 
     def tearDown(self):
-        for m in reversed(self.get_methods("tear_down")):
-            m()
+        for method in self.get_methods("tear_down", reverse=True):
+            #print("%s start" % method.__name__)
+            method()
+            #print("%s done" % method.__name__)
         super(BaseTest, self).tearDown()
 
     def run_and_check_query(self, executor):
@@ -697,9 +703,7 @@ class BaseDataTest(BaseTest):
 
     @gen_test
     def set_up_10(self):
-        print("here 10")
         self.conn = yield momoko.connect(self.dsn, ioloop=self.io_loop)
-        print("Using connection: %s" % self.conn)
         for g in chain(self.clean_db(), self.prepare_db()):
             yield g
 
@@ -738,7 +742,6 @@ class MomokoConnectionDataTest(BaseDataTest):
     def test_execute(self):
         """Testing simple SELECT"""
         cursor = yield self.conn.execute("SELECT 1, 2, 3")
-        print(type(self.conn))
         self.assertEqual(cursor.fetchall(), [(1, 2, 3)])
 
     @gen_test
@@ -865,8 +868,32 @@ class MomokoConnectionSetsessionTest(BaseTest):
             setsession.rotate(1)
 
 
+class MomokoConnectionFactoriesTest(BaseTest):
+    @gen_test
+    def test_cursor_factory(self):
+        """Testing that cursor_factory parameter is properly propagated"""
+        conn = yield momoko.connect(self.dsn, ioloop=self.io_loop, cursor_factory=RealDictCursor)
+        cursor = yield conn.execute("SELECT 1 AS a")
+        self.assertEqual(cursor.fetchone(), {"a": 1})
+
+    @gen_test
+    def test_connection_factory(self):
+        """Testing that connection_factory parameter is properly propagated"""
+        conn = yield momoko.connect(self.dsn, ioloop=self.io_loop, connection_factory=RealDictConnection)
+        cursor = yield conn.execute("SELECT 1 AS a")
+        self.assertEqual(cursor.fetchone(), {"a": 1})
+
+    @gen_test
+    def test_ping_with_named_cursor(self):
+        """Test whether Connection.ping works fine with named cursors. Issue #74"""
+        conn = yield momoko.connect(self.dsn, ioloop=self.io_loop, cursor_factory=RealDictCursor)
+        yield conn.ping()
+#
+# Pool tests
+#
+
 class PoolBaseTest(BaseTest):
-    pool_size = 3
+    pool_size = 1
     max_size = None
     raise_connect_errors = True
 
@@ -884,8 +911,8 @@ class PoolBaseTest(BaseTest):
         return db.connect()
 
     def kill_connections(self, db, amount=None):
-        amount = amount or len(db._conns.free)
-        for conn in db._conns.free:
+        amount = amount or len(db.conns.free)
+        for conn in db.conns.free:
             if not amount:
                 break
             if not conn.closed:
@@ -897,14 +924,13 @@ class PoolBaseTest(BaseTest):
         self.assertEqual(cursor.fetchall(), [(6, 19, 24)])
 
 
-class PoolBaseDataTest(PoolBaseTest):
+class PoolBaseDataTest(PoolBaseTest, BaseDataTest):
     @gen_test
     def set_up_20(self):
-        print("here 20")
         self.db = yield self.build_pool()
 
     @gen_test
-    def tear_down_20(self):
+    def tear_down_00(self):  # closing pool is the last thing that should run
         self.db.close()
 
 
@@ -915,18 +941,33 @@ class MomokoPoolTest(PoolBaseTest):
         self.assertIsInstance(db, momoko.Pool)
 
 
+class MomokoPoolSetsessionTest(PoolBaseTest):
+    pool_size = 1
+
+    @gen_test
+    def test_setsession(self):
+        """Testing that setssion parameter is honoured"""
+        setsession = deque([None, "SELECT 1", "SELECT 2"])
+        time_zones = ["UTC", "Israel", "Australia/Melbourne"]
+
+        for i in range(len(time_zones)):
+            setsession[i] = "SET TIME ZONE '%s'" % time_zones[i]
+            db = yield self.build_pool(setsession=setsession)
+            cursor = yield db.execute("SELECT current_setting('TIMEZONE');")
+            self.assertEqual(cursor.fetchall(), [(time_zones[i],)])
+            db.close()
+            setsession.rotate(1)
+
+
 class MomokoPoolDataTest(PoolBaseDataTest, MomokoConnectionDataTest):
     @gen_test
     def set_up_30(self):
-        print("here 30")
-        #for g in self.mysetup():
-        ##for g in super(MomokoPoolDataTest, self).set_up():
-        #    print(g)
-        #    yield g
-        #self.conn = yield momoko.connect(self.dsn, ioloop=self.io_loop)
         self.conn = self.db
-        #print(type(self.conn))
 
+    def tear_down_30(self):
+        self.assertEqual(len(self.db.conns.busy), 0, msg="Some connections were not recycled")
+
+    # Pool's mogirify is async -> copy/paste
     @gen_test
     def test_mogrify(self):
         """Testing mogrify"""
@@ -938,6 +979,7 @@ class MomokoPoolDataTest(PoolBaseDataTest, MomokoConnectionDataTest):
 
         yield self.conn.execute(sql)
 
+    # Pool's mogirify is async -> copy/paste
     @gen_test
     def test_mogrify_error(self):
         """Testing that mogrify propagates exception properly"""
@@ -945,6 +987,76 @@ class MomokoPoolDataTest(PoolBaseDataTest, MomokoConnectionDataTest):
             yield self.conn.mogrify("SELECT %(foos;", {"foo": "bar"})
         except psycopg2.ProgrammingError:
             pass
+
+    @gen_test
+    def test_transaction_with_reconnect(self):
+        """Test whether transaction works after reconnect"""
+
+        # Added result counting, since there was a bug in retry mechanism that caused
+        # double-execution of query after reconnect
+        self.kill_connections(self.db)
+        yield self.db.transaction(("INSERT INTO unit_test_int_table VALUES (1)",))
+        cursor = yield self.db.execute("SELECT COUNT(1) FROM unit_test_int_table")
+        self.assertEqual(cursor.fetchall(), [(1,)])
+
+    @gen_test
+    def test_getconn_putconn(self):
+        """Testing getconn/putconn functionality"""
+        for i in range(self.pool_size * 5):
+            # Run many times to check that connections get recycled properly
+            conn = yield self.db.getconn()
+            for j in range(10):
+                cursor = yield conn.execute("SELECT %s", (j,))
+                self.assertEqual(cursor.fetchall(), [(j, )])
+            self.db.putconn(conn)
+
+    @gen_test
+    def test_getconn_manage(self):
+        """Testing getconn + context manager functionality"""
+        for i in range(self.pool_size * 5):
+            # Run many times to check that connections get recycled properly
+            conn = yield self.db.getconn()
+            with self.db.manage(conn):
+                for j in range(10):
+                    cursor = yield conn.execute("SELECT %s", (j,))
+                    self.assertEqual(cursor.fetchall(), [(j, )])
+
+
+class MomokoPoolServerSideCursorTest(PoolBaseDataTest):
+    @gen_test
+    def test_server_side_cursor(self):
+        """Testing server side cursors support"""
+        int_count = 1000
+        offset = 0
+        chunk = 10
+        yield self.fill_int_data(int_count)
+
+        conn = yield self.db.getconn()
+        with self.db.manage(conn):
+            yield conn.execute("BEGIN")
+            yield conn.execute("DECLARE all_ints CURSOR FOR SELECT * FROM unit_test_int_table")
+            while offset < int_count:
+                cursor = yield conn.execute("FETCH %s FROM all_ints", (chunk,))
+                self.assertEqual(cursor.fetchall(), [(i, ) for i in range(offset, offset+chunk)])
+                offset += chunk
+            yield conn.execute("CLOSE all_ints")
+            yield conn.execute("COMMIT")
+
+
+class MomokoPoolFactoriesTest(PoolBaseTest):
+    @gen_test
+    def test_cursor_factory(self):
+        """Testing that cursor_factory parameter is properly propagated"""
+        db = yield self.build_pool(cur_factory=RealDictCursor)
+        cursor = yield db.execute("SELECT 1 AS a")
+        self.assertEqual(cursor.fetchone(), {"a": 1})
+
+    @gen_test
+    def test_connection_factory(self):
+        """Testing that connection_factory parameter is properly propagated"""
+        db = yield self.build_pool(con_factory=RealDictConnection)
+        cursor = yield db.execute("SELECT 1 AS a")
+        self.assertEqual(cursor.fetchone(), {"a": 1})
 
 
 if __name__ == '__main__':

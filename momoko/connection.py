@@ -623,7 +623,7 @@ class Pool(object):
 
         return future
 
-    def getconn(self, ping=True):
+    def getconn(self, ping=True):  # FIXME: fix ping
         """
         Acquire connection from the pool.
 
@@ -641,9 +641,7 @@ class Pool(object):
         FIXME: How make sure that returned connection is not dead?
                And what happens when pinging dead connection?
         """
-
-        # FIXME: support for ping
-
+        # FIXME: ping dies on dead connections
         rv = self.conns.acquire()
         if isinstance(rv, Future):
             self._reanimate_and_stretch_if_needed()
@@ -677,6 +675,7 @@ class Pool(object):
         :param Connection connection:
             Connection object previously returned by :py:meth:`momoko.Pool.getconn`.
         """
+        assert connection in self.conns.busy
         self.conns.release(connection)
 
         if self.conns.all_dead:
@@ -697,7 +696,8 @@ class Pool(object):
         try:
             yield connection
         finally:
-            self.putconn(connection)
+            if not connection._keep:
+                self.putconn(connection)
 
     def execute(self, *args, **kwargs):
         """
@@ -767,44 +767,43 @@ class Pool(object):
     def _operate(self, method, args, kwargs, async=True):
         future = Future()
 
-        retry = [True]
+        retry = []
 
         def when_avaialble(fut):
+            if retry:
+                retry[0]._keep = False
+
             try:
                 conn = fut.result()
             except psycopg2.Error as error:
                 future.set_exc_info(sys.exc_info())
+                if retry:
+                    self.putconn(retry)
                 return
 
             with self.manage(conn):
-                if not async:
-                    try:
-                        result = method(conn, *args, **kwargs)
-                    except psycopg2.Error as error:
-                        future.set_exc_info(sys.exc_info())
-                    else:
-                        future.set_result(result)
-                    return
-
-                op_future = method(conn, *args, **kwargs)
-
-                def op_callback(op_fut):
-                    try:
-                        result = op_fut.result()
-                    except psycopg2.Error as error:
-                        # if we got error because we disconnected from the server -
-                        # retry once. We can not know if we are disconnected until we try.
-                        if conn.closed and retry:
-                            retry.pop()
+                try:
+                    future_or_result = method(conn, *args, **kwargs)
+                except psycopg2.Error as error:
+                    if conn.closed:
+                        if not retry:
+                            conn._keep = True  # hint to self.manage above not to release this connection
+                            retry.append(conn)
                             self.ioloop.add_future(conn.connect(), when_avaialble)
                         else:
-                            future.set_exc_info(sys.exc_info())
+                            future.set_exception(self._no_conn_availble_error)
                     else:
-                        future.set_result(result)
+                        future.set_exc_info(sys.exc_info())
+                    return
 
-                self.ioloop.add_future(op_future, op_callback)
+                if not async:
+                    future.set_result(future_or_result)
+                    return
 
-        self.ioloop.add_future(self.getconn(), when_avaialble)
+                chain_future(future_or_result, future)
+
+        # Disabling ping - we'll retry dead connections ourself
+        self.ioloop.add_future(self.getconn(ping=False), when_avaialble)
         return future
 
     def _reanimate(self):
@@ -941,6 +940,10 @@ class Connection(object):
         self.ioloop = ioloop or IOLoop.instance()
         self.setsession = setsession
 
+        # For internal use - prevents Pool.manage to return this connection
+        # back to the pool
+        self._keep = False
+
     def connect(self):
         """
         Initiate asynchronous connect.
@@ -967,7 +970,7 @@ class Connection(object):
             on_connect_future = Future()
 
             def on_connect(on_connect_future):
-                self.ioloop.add_future(self.transaction(self.setsession), lambda: future.set_result(self))
+                self.ioloop.add_future(self.transaction(self.setsession), lambda x: future.set_result(self))
 
             self.ioloop.add_future(on_connect_future, on_connect)
             callback = partial(self._io_callback, on_connect_future, self)
