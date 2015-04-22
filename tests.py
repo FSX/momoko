@@ -6,6 +6,8 @@ import random
 import time
 import unittest
 from collections import deque
+from itertools import chain
+import inspect
 
 from tornado import gen
 from tornado.testing import AsyncTestCase, gen_test
@@ -629,23 +631,35 @@ class MomokoFactoriesTest(BaseTest):
 
 
 class BaseTest(AsyncTestCase, Helpers):
+    dsn = good_dsn
+
     if not hasattr(AsyncTestCase, "assertLess"):
         def assertLess(self, a, b, msg):
             return self.assertTrue(a < b, msg=msg)
 
+    # This is a hack to overcome lack of "yield from" in Python < 3.3.
+    # The goal is to support several set_up methods in inheriatnace chain
+    # So we just name them set_up_X and run them sequentially.
+    # Our heirs needs to define them carefully to not to step on over other,
+    # but its good enough for unit tests.
+    # TIP: Use set_up_X where X is between 10 and 99. X80 Basic is back :)
+    def get_methods(self, starting_with):
+        methods = []
+        for m in inspect.getmembers(self, predicate=inspect.ismethod):
+            name, method = m
+            if name.startswith(starting_with):
+                methods.append(method)
+        return sorted(methods)
+
     def setUp(self):
         super(BaseTest, self).setUp()
-        self.set_up()
+        for m in self.get_methods("set_up"):
+            m()
 
     def tearDown(self):
-        self.tear_down()
+        for m in reversed(self.get_methods("tear_down")):
+            m()
         super(BaseTest, self).tearDown()
-
-    def set_up(self):
-        pass
-
-    def tear_down(self):
-        pass
 
     def run_and_check_query(self, executor):
         cursor = yield executor.execute("SELECT 6, 19, 24;")
@@ -657,24 +671,18 @@ class BaseDataTest(BaseTest):
         yield self.conn.execute("DROP TABLE IF EXISTS unit_test_large_query;")
         yield self.conn.execute("DROP TABLE IF EXISTS unit_test_transaction;")
         yield self.conn.execute("DROP TABLE IF EXISTS  unit_test_int_table;")
-        yield self.conn.execute("DROP FUNCTION IF EXISTS  unit_test_callproc(integer);")
+        yield self.conn.execute("DROP FUNCTION IF EXISTS unit_test_callproc(integer);")
 
     def prepare_db(self):
-        for g in self.clean_db():
-            yield g
-
         yield self.conn.execute(
             "CREATE TABLE unit_test_large_query ("
             "id serial NOT NULL, name character varying, data text);"
         )
-
         yield self.conn.execute(
             "CREATE TABLE unit_test_transaction ("
             "id serial NOT NULL, name character varying, data text);",
         )
-
         yield self.conn.execute("CREATE TABLE unit_test_int_table (id integer);")
-
         yield self.conn.execute(
             "CREATE OR REPLACE FUNCTION unit_test_callproc(n integer)\n"
             "RETURNS integer AS $BODY$BEGIN\n"
@@ -683,22 +691,22 @@ class BaseDataTest(BaseTest):
         )
 
     def fill_int_data(self, amount=1000):
-        yield self.conn.transaction([
+        return self.conn.transaction([
             "INSERT INTO unit_test_int_table VALUES %s" % ",".join("(%s)" % i for i in range(amount)),
         ])
 
     @gen_test
-    def set_up(self):
-        super(BaseDataTest, self).set_up()
-        self.conn = yield momoko.connect(good_dsn, ioloop=self.io_loop)
-        for g in self.prepare_db():
+    def set_up_10(self):
+        print("here 10")
+        self.conn = yield momoko.connect(self.dsn, ioloop=self.io_loop)
+        print("Using connection: %s" % self.conn)
+        for g in chain(self.clean_db(), self.prepare_db()):
             yield g
 
     @gen_test
-    def tear_down(self):
+    def tear_down_10(self):
         for g in self.clean_db():
             yield g
-        super(BaseDataTest, self).tear_down()
 
 
 class MomokoConnectionTest(BaseTest):
@@ -730,6 +738,7 @@ class MomokoConnectionDataTest(BaseDataTest):
     def test_execute(self):
         """Testing simple SELECT"""
         cursor = yield self.conn.execute("SELECT 1, 2, 3")
+        print(type(self.conn))
         self.assertEqual(cursor.fetchall(), [(1, 2, 3)])
 
     @gen_test
@@ -814,7 +823,7 @@ class MomokoConnectionDataTest(BaseDataTest):
         yield self.conn.execute(sql)
 
     def test_mogrify_error(self):
-        """Testing that mogri propagates exception properly"""
+        """Testing that mogrify propagates exception properly"""
         try:
             self.conn.mogrify("SELECT %(foos;", {"foo": "bar"})
         except psycopg2.ProgrammingError:
@@ -828,8 +837,7 @@ class MomokoConnectionServerSideCursorTest(BaseDataTest):
         int_count = 1000
         offset = 0
         chunk = 10
-        for g in self.fill_int_data(int_count):
-            yield g
+        yield self.fill_int_data(int_count)
 
         yield self.conn.execute("BEGIN")
         yield self.conn.execute("DECLARE all_ints CURSOR FOR SELECT * FROM unit_test_int_table")
@@ -850,11 +858,94 @@ class MomokoConnectionSetsessionTest(BaseTest):
 
         for i in range(len(time_zones)):
             setsession[i] = "SET TIME ZONE '%s'" % time_zones[i]
-            conn = yield momoko.connect(good_dsn, ioloop=self.io_loop, setsession=setsession)
+            conn = yield momoko.connect(self.dsn, ioloop=self.io_loop, setsession=setsession)
             cursor = yield conn.execute("SELECT current_setting('TIMEZONE');")
             self.assertEqual(cursor.fetchall(), [(time_zones[i],)])
             conn.close()
             setsession.rotate(1)
+
+
+class PoolBaseTest(BaseTest):
+    pool_size = 3
+    max_size = None
+    raise_connect_errors = True
+
+    def build_pool(self, dsn=None, setsession=(), con_factory=None, cur_factory=None):
+        db = momoko.Pool(
+            dsn=(dsn or self.dsn),
+            size=self.pool_size,
+            max_size=self.max_size,
+            ioloop=self.io_loop,
+            setsession=setsession,
+            raise_connect_errors=self.raise_connect_errors,
+            connection_factory=con_factory,
+            cursor_factory=cur_factory,
+        )
+        return db.connect()
+
+    def kill_connections(self, db, amount=None):
+        amount = amount or len(db._conns.free)
+        for conn in db._conns.free:
+            if not amount:
+                break
+            if not conn.closed:
+                conn.close()
+                amount -= 1
+
+    def run_and_check_query(self, db):
+        cursor = yield db.execute("SELECT 6, 19, 24;")
+        self.assertEqual(cursor.fetchall(), [(6, 19, 24)])
+
+
+class PoolBaseDataTest(PoolBaseTest):
+    @gen_test
+    def set_up_20(self):
+        print("here 20")
+        self.db = yield self.build_pool()
+
+    @gen_test
+    def tear_down_20(self):
+        self.db.close()
+
+
+class MomokoPoolTest(PoolBaseTest):
+    @gen_test
+    def test_connect(self):
+        db = yield self.build_pool()
+        self.assertIsInstance(db, momoko.Pool)
+
+
+class MomokoPoolDataTest(PoolBaseDataTest, MomokoConnectionDataTest):
+    @gen_test
+    def set_up_30(self):
+        print("here 30")
+        #for g in self.mysetup():
+        ##for g in super(MomokoPoolDataTest, self).set_up():
+        #    print(g)
+        #    yield g
+        #self.conn = yield momoko.connect(self.dsn, ioloop=self.io_loop)
+        self.conn = self.db
+        #print(type(self.conn))
+
+    @gen_test
+    def test_mogrify(self):
+        """Testing mogrify"""
+        sql = yield self.conn.mogrify("SELECT %s, %s;", ('\'"test"\'', "SELECT 1;"))
+        if self.conn.server_version < 90100:
+            self.assertEqual(sql, b"SELECT E'''\"test\"''', E'SELECT 1;';")
+        else:
+            self.assertEqual(sql, b"SELECT '''\"test\"''', 'SELECT 1;';")
+
+        yield self.conn.execute(sql)
+
+    @gen_test
+    def test_mogrify_error(self):
+        """Testing that mogrify propagates exception properly"""
+        try:
+            yield self.conn.mogrify("SELECT %(foos;", {"foo": "bar"})
+        except psycopg2.ProgrammingError:
+            pass
+
 
 if __name__ == '__main__':
     unittest.main()
