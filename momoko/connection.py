@@ -807,7 +807,7 @@ class Pool(object):
         return future
 
     def _reanimate(self):
-        assert not self.conns.dead, "BUG: dont' call reanimate when there is no one to reanimate"
+        assert self.conns.dead, "BUG: dont' call reanimate when there is no one to reanimate"
 
         future = Future()
 
