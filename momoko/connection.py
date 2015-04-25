@@ -623,7 +623,7 @@ class Pool(object):
 
         return future
 
-    def getconn(self, ping=True):  # FIXME: fix ping
+    def getconn(self, ping=True):
         """
         Acquire connection from the pool.
 
@@ -636,12 +636,8 @@ class Pool(object):
         Returns future that resolves to the acquired connection object.
 
         :param boolean ping:
-            Whether to ping the connection before returning it by executing :py:meth:`momoko.Pool.ping`.
-
-        FIXME: How make sure that returned connection is not dead?
-               And what happens when pinging dead connection?
+            Whether to ping the connection before returning it by executing :py:meth:`momoko.Connection.ping`.
         """
-        # FIXME: ping dies on dead connections
         rv = self.conns.acquire()
         if isinstance(rv, Future):
             self._reanimate_and_stretch_if_needed()
@@ -698,6 +694,7 @@ class Pool(object):
         finally:
             if not connection._keep:
                 self.putconn(connection)
+            connection._keep = False
 
     def execute(self, *args, **kwargs):
         """
@@ -764,7 +761,8 @@ class Pool(object):
         self.conns.empty()
         self.closed = True
 
-    def _operate(self, method, args, kwargs, async=True):
+    def _operate(self, method, args=(), kwargs=None, async=True, keep=False, connection=None):
+        kwargs = kwargs or {}
         future = Future()
 
         retry = []
@@ -778,7 +776,7 @@ class Pool(object):
             except psycopg2.Error as error:
                 future.set_exc_info(sys.exc_info())
                 if retry:
-                    self.putconn(retry)
+                    self.putconn(retry[0])
                 return
 
             with self.manage(conn):
@@ -800,10 +798,15 @@ class Pool(object):
                     future.set_result(future_or_result)
                     return
 
+                conn._keep = keep
                 chain_future(future_or_result, future)
 
-        # Disabling ping - we'll retry dead connections ourself
-        self.ioloop.add_future(self.getconn(ping=False), when_avaialble)
+        if not connection:
+            self.ioloop.add_future(self.getconn(ping=False), when_avaialble)
+        else:
+            f = Future()
+            f.set_result(connection)
+            when_avaialble(f)
         return future
 
     def _reanimate(self):
@@ -882,7 +885,8 @@ class Pool(object):
                 else:
                     ping_future.set_result(conn)
 
-            self.ioloop.add_future(conn.ping(), on_ping_done)
+            f = self._operate(Connection.ping, keep=True, connection=conn)
+            self.ioloop.add_future(f, on_ping_done)
 
         self.ioloop.add_future(conn_future, on_connection_available)
 
@@ -1010,11 +1014,6 @@ class Connection(object):
         Returns future. If it resolves sucessfully - the connection is alive (or dead otherwise).
         """
         return self.execute("SELECT 1 AS ping")
-
-    def _ping_callback(self, callback, cursor, error):
-        if not error:
-            cursor.fetchall()
-        return callback(self, error)
 
     def execute(self,
                 operation,

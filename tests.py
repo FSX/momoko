@@ -892,8 +892,9 @@ class MomokoConnectionFactoriesTest(BaseTest):
 # Pool tests
 #
 
+
 class PoolBaseTest(BaseTest):
-    pool_size = 1
+    pool_size = 3
     max_size = None
     raise_connect_errors = True
 
@@ -1011,8 +1012,20 @@ class MomokoPoolDataTest(PoolBaseDataTest, MomokoConnectionDataTest):
             self.db.putconn(conn)
 
     @gen_test
+    def test_getconn_putconn_with_reconnect(self):
+        """Testing getconn/putconn functionality with reconnect"""
+        for i in range(self.pool_size * 5):
+            # Run many times to check that connections get recycled properly
+            self.kill_connections(self.db)
+            conn = yield self.db.getconn()
+            for j in range(10):
+                cursor = yield conn.execute("SELECT %s", (j,))
+                self.assertEqual(cursor.fetchall(), [(j, )])
+            self.db.putconn(conn)
+
+    @gen_test
     def test_getconn_manage(self):
-        """Testing getconn + context manager functionality"""
+        """Testing getcontest_getconn_putconn_with_reconnectn + context manager functionality"""
         for i in range(self.pool_size * 5):
             # Run many times to check that connections get recycled properly
             conn = yield self.db.getconn()
@@ -1020,6 +1033,18 @@ class MomokoPoolDataTest(PoolBaseDataTest, MomokoConnectionDataTest):
                 for j in range(10):
                     cursor = yield conn.execute("SELECT %s", (j,))
                     self.assertEqual(cursor.fetchall(), [(j, )])
+
+    @gen_test
+    def test_getconn_manage_with_exception(self):
+        """Testing getconn + context manager functionality + deliberate exception"""
+        self.kill_connections(self.db)
+        conn = yield self.db.getconn(ping=False)
+        with self.db.manage(conn):
+            try:
+                cursor = yield conn.execute("SELECT 1")
+            except psycopg2.Error as error:
+                pass
+        self.assertEqual(len(self.db.conns.busy), 0, msg="Some connections were not recycled")
 
 
 class MomokoPoolServerSideCursorTest(PoolBaseDataTest):
