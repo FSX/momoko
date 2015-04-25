@@ -8,6 +8,7 @@ import unittest
 from collections import deque
 from itertools import chain
 import inspect
+import logging
 
 from tornado import gen
 from tornado.testing import AsyncTestCase, gen_test
@@ -16,6 +17,9 @@ import sys
 if sys.version_info[0] >= 3:
     unicode = str
 
+log = logging.getLogger("unittest")
+
+debug = os.environ.get('MOMOKO_TEST_DEBUG', None)
 db_database = os.environ.get('MOMOKO_TEST_DB', 'momoko_test')
 db_user = os.environ.get('MOMOKO_TEST_USER', 'postgres')
 db_password = os.environ.get('MOMOKO_TEST_PASSWORD', '')
@@ -656,20 +660,12 @@ class BaseTest(AsyncTestCase, Helpers):
     def setUp(self):
         super(BaseTest, self).setUp()
         for method in self.get_methods("set_up"):
-            #print("%s start" % method.__name__)
             method()
-            #print("%s done" % method.__name__)
 
     def tearDown(self):
         for method in self.get_methods("tear_down", reverse=True):
-            #print("%s start" % method.__name__)
             method()
-            #print("%s done" % method.__name__)
         super(BaseTest, self).tearDown()
-
-    def run_and_check_query(self, executor):
-        cursor = yield executor.execute("SELECT 6, 19, 24;")
-        self.assertEqual(cursor.fetchall(), [(6, 19, 24)])
 
 
 class BaseDataTest(BaseTest):
@@ -911,6 +907,11 @@ class PoolBaseTest(BaseTest):
         )
         return db.connect()
 
+    def build_pool_sync(self, *args, **kwargs):
+        f = self.build_pool(*args, **kwargs)
+        gen_test(lambda x: (yield f))(self)
+        return f.result()
+
     def kill_connections(self, db, amount=None):
         amount = amount or len(db.conns.free)
         for conn in db.conns.free:
@@ -920,12 +921,11 @@ class PoolBaseTest(BaseTest):
                 conn.close()
                 amount -= 1
 
+    @gen_test
     def run_and_check_query(self, db):
         cursor = yield db.execute("SELECT 6, 19, 24;")
         self.assertEqual(cursor.fetchall(), [(6, 19, 24)])
 
-
-class PoolBaseDataTest(PoolBaseTest, BaseDataTest):
     @gen_test
     def set_up_20(self):
         self.db = yield self.build_pool()
@@ -933,6 +933,10 @@ class PoolBaseDataTest(PoolBaseTest, BaseDataTest):
     @gen_test
     def tear_down_00(self):  # closing pool is the last thing that should run
         self.db.close()
+
+
+class PoolBaseDataTest(PoolBaseTest, BaseDataTest):
+    pass
 
 
 class MomokoPoolTest(PoolBaseTest):
@@ -1084,5 +1088,153 @@ class MomokoPoolFactoriesTest(PoolBaseTest):
         self.assertEqual(cursor.fetchone(), {"a": 1})
 
 
+class MomokoPoolParallelTest(PoolBaseTest):
+    pool_size = 1
+
+    def run_parallel_queries(self, jobs=None):
+        """Testing that pool queries database in parallel"""
+        jobs = jobs or max(self.pool_size, self.max_size if self.max_size else 0)
+        query_sleep = 2
+        sleep_time = query_sleep * float(jobs/self.pool_size)
+
+        def func(self):
+            to_yield = []
+            for i in range(jobs):
+                to_yield.append(self.db.execute('SELECT pg_sleep(%s);' % query_sleep))
+            yield to_yield
+
+        start_time = time.time()
+        gen_test(func)(self)
+        execution_time = time.time() - start_time
+        self.assertLess(execution_time, sleep_time*1.10, msg="Query execution was too long")
+
+    def test_parallel_queries(self):
+        """Testing that pool queries database in parallel"""
+        self.run_parallel_queries()
+        # and once again to test that connections can be reused properly
+        self.run_parallel_queries()
+
+    def test_request_queueing(self):
+        """Test that pool queues outstaning requests when all connections are busy"""
+        self.run_parallel_queries(self.pool_size*2)
+
+    def test_parallel_queries_after_reconnect_all(self):
+        """Testing that pool still queries database in parallel after ALL connections were killed"""
+        self.kill_connections(self.db)
+        self.run_parallel_queries()
+
+    def test_parallel_queries_after_reconnect_some(self):
+        """Testing that pool still queries database in parallel after SOME connections were killed"""
+        self.kill_connections(self.db, amount=self.pool_size/2)
+        self.run_parallel_queries()
+
+
+class MomokoPoolStretchTest(MomokoPoolParallelTest):
+    pool_size = 1
+    max_size = 5
+
+    def test_parallel_queries(self):
+        """Run parallel queies and check that pool size matches number of jobs"""
+        jobs = self.max_size - 1
+        super(MomokoPoolStretchTest, self).run_parallel_queries(jobs)
+        self.assertEqual(self.db.conns.total, jobs)
+
+    def test_dont_stretch(self):
+        """Testing that we do not stretch unless needed"""
+        self.run_and_check_query(self.db)
+        self.run_and_check_query(self.db)
+        self.run_and_check_query(self.db)
+        self.assertEqual(self.db.conns.total, self.pool_size+1)
+
+    def test_dont_stretch_after_reconnect(self):
+        """Testing that reconnecting dead connection does not trigger pool stretch"""
+        self.kill_connections(self.db)
+        self.test_dont_stretch()
+
+    def test_stretch_after_disonnect(self):
+        """Testing that stretch works after disconnect"""
+        self.kill_connections(self.db)
+        self.test_parallel_queries()
+
+    @gen_test
+    def test_stretch_genconn(self):
+        """Testing that stretch works together with get/putconn"""
+        f1 = self.db.getconn()
+        f2 = self.db.getconn()
+        f3 = self.db.getconn()
+        yield [f1, f2, f3]
+
+        conn1 = f1.result()
+        conn2 = f2.result()
+        conn3 = f3.result()
+
+        f1 = conn1.execute("SELECT 1;")
+        f2 = conn2.execute("SELECT 2;")
+        f3 = conn3.execute("SELECT 3;")
+
+        yield [f1, f2, f3]
+
+        cursor1 = f1.result()
+        cursor2 = f2.result()
+        cursor3 = f3.result()
+
+        self.assertEqual(cursor1.fetchone(), (1,))
+        self.assertEqual(cursor2.fetchone(), (2,))
+        self.assertEqual(cursor3.fetchone(), (3,))
+
+        for conn in conn1, conn2, conn3:
+            self.db.putconn(conn)
+
+        self.assertEqual(self.db.conns.total, 3)
+
+
+class MomokoPoolVolatileDbTest(PoolBaseTest):
+    raise_connect_errors = False
+    pool_size = 3
+
+    @gen_test
+    def test_startup(self):
+        """Testing that all connections are dead after pool init with bad dsn"""
+        db = yield self.build_pool(dsn=bad_dsn)
+        self.assertEqual(self.pool_size, len(db.conns.dead))
+
+    @gen_test
+    def test_startup_local(self):
+        """Testing that we catch early exeception with local connections"""
+        db = yield self.build_pool(dsn=local_bad_dsn)
+        self.assertEqual(self.pool_size, len(db.conns.dead))
+
+    def test_reconnect(self):
+        """Testing if we can reconnect if connections dies"""
+        db = self.build_pool_sync(dsn=good_dsn)
+        self.kill_connections(db)
+        self.run_and_check_query(db)
+
+    def test_reconnect_interval_good_path(self):
+        """Testing that we can recover if database was down during startup"""
+        db = self.build_pool_sync(dsn=bad_dsn)
+        self.assertEqual(self.pool_size, len(db.conns.dead))
+        for conn in db.conns.dead:
+            conn.dsn = good_dsn
+        time.sleep(db.reconnect_interval)
+        self.run_and_check_query(db)
+
+    def test_reconnect_interval_bad_path(self):
+        """Testing that pool does not try to reconnect right after last connection attempt failed"""
+        db = self.build_pool_sync(dsn=bad_dsn)
+        self.assertEqual(self.pool_size, len(db.conns.dead))
+        for conn in db.conns.dead:
+            conn.dsn = good_dsn
+        try:
+            self.run_and_check_query(db)
+        except psycopg2.DatabaseError:
+            pass
+
+
 if __name__ == '__main__':
+    if debug:
+        FORMAT = '%(asctime)-15s %(levelname)s:%(name)s %(funcName)-15s: %(message)s'
+        logging.basicConfig(format=FORMAT)
+        logging.getLogger("momoko").setLevel(logging.DEBUG)
+        logging.getLogger("unittest").setLevel(logging.DEBUG)
     unittest.main()

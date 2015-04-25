@@ -504,16 +504,20 @@ class ConnectionContainer(object):
 
     def add_free(self, conn):
         self.pending.discard(conn)
+        log.debug("handling connection %s", conn.fileno)
 
         if not self.waiting_queue:
+            log.debug("No outstanding requests - adding to free pool")
             self.free.add(conn)
             return
 
+        log.debug("There are outstanding requests - resumed future from waiting queue")
         self.busy.add(conn)
         future = self.waiting_queue.pop()
         future.set_result(conn)
 
     def add_dead(self, conn):
+        log.debug("Adding dead connection")
         self.pending.discard(conn)
         self.dead.add(conn)
 
@@ -524,24 +528,28 @@ class ConnectionContainer(object):
             conn = self.free.pop()
             self.busy.add(conn)
             future.set_result(conn)
+            log.debug("acquired free connection %s", conn.fileno)
             return future
         elif self.busy:
-            self.waiting_queue.append_left(future)
+            log.debug("No free connections, and some are busy - put in waiting queue")
+            self.waiting_queue.appendleft(future)
             return future
         else:
+            # FIXME: test this case
+            log.debug("All connections are dead")
             return None
 
     def release(self, conn):
+        log.debug("About to release connection %s", conn.fileno)
         assert conn in self.busy, "Tried to release non-busy connection"
-        if conn.closed:
-            self.busy.remove(conn)
-            self.dead.add(conn)
-            return
-
         self.busy.remove(conn)
-        self.add_free(conn)
+        if conn.closed:
+            self.dead.add(conn)
+        else:
+            self.add_free(conn)
 
     def abort_waiting_queue(self, error):
+        #FIXME: Test this!
         while self.waiting_queue:
             future = self.waiting_queue.pop()
             future.set_exception(error)
@@ -600,16 +608,18 @@ class Pool(object):
         """
         Returns future that resolves to this Pool object.
 
-        #FIXME: address:
-        If some connection failed to connected, raises PartiallyConnected
+        #FIXME: test PartiallyConnected
+        If some connection failed to connected, raises :py:meth:`momoko.exceptions.PartiallyConnected`
         if self.raise_connect_errors is true
 
         FIXME: add rst referenceses above
         """
         future = Future()
+        pending = [self.size-1]
 
         def on_connect(fut):
-            if self.conns.pending:
+            if pending[0]:
+                pending[0] -= 1
                 return
             # all connection attemts are complete
             if self.conns.dead and self.raise_connect_errors:
@@ -617,6 +627,7 @@ class Pool(object):
                 future.set_exception(ecp)
             else:
                 future.set_result(self)
+            log.debug("All initial connection requests complete")
 
         for i in range(self.size):
             self.ioloop.add_future(self._new_connection(), on_connect)
@@ -651,6 +662,7 @@ class Pool(object):
             def on_reanimate_done(fut):
                 if self.conns.all_dead:
                     future.set_exception(self._no_conn_availble_error)
+                    return
                 f = self.conns.acquire()
                 assert isinstance(f, Future)
                 chain_future(f, future)
@@ -671,6 +683,7 @@ class Pool(object):
         :param Connection connection:
             Connection object previously returned by :py:meth:`momoko.Pool.getconn`.
         """
+
         assert connection in self.conns.busy
         self.conns.release(connection)
 
@@ -692,9 +705,7 @@ class Pool(object):
         try:
             yield connection
         finally:
-            if not connection._keep:
-                self.putconn(connection)
-            connection._keep = False
+            self.putconn(connection)
 
     def execute(self, *args, **kwargs):
         """
@@ -768,38 +779,41 @@ class Pool(object):
         retry = []
 
         def when_avaialble(fut):
-            if retry:
-                retry[0]._keep = False
-
             try:
                 conn = fut.result()
             except psycopg2.Error as error:
                 future.set_exc_info(sys.exc_info())
                 if retry:
+                    log.debug(1)
                     self.putconn(retry[0])
                 return
 
-            with self.manage(conn):
-                try:
-                    future_or_result = method(conn, *args, **kwargs)
-                except psycopg2.Error as error:
-                    if conn.closed:
-                        if not retry:
-                            conn._keep = True  # hint to self.manage above not to release this connection
-                            retry.append(conn)
-                            self.ioloop.add_future(conn.connect(), when_avaialble)
-                        else:
-                            future.set_exception(self._no_conn_availble_error)
+            log.debug("got connection: %s", conn.fileno)
+            try:
+                future_or_result = method(conn, *args, **kwargs)
+            except psycopg2.Error as error:
+                if conn.closed:
+                    if not retry:
+                        retry.append(conn)
+                        self.ioloop.add_future(conn.connect(), when_avaialble)
+                        return
                     else:
-                        future.set_exc_info(sys.exc_info())
-                    return
+                        future.set_exception(self._no_conn_availble_error)
+                else:
+                    future.set_exc_info(sys.exc_info())
+                log.debug(2)
+                self.putconn(conn)
+                return
 
-                if not async:
-                    future.set_result(future_or_result)
-                    return
+            if not async:
+                future.set_result(future_or_result)
+                log.debug(3)
+                self.putconn(conn)
+                return
 
-                conn._keep = keep
-                chain_future(future_or_result, future)
+            chain_future(future_or_result, future)
+            if not keep:
+                future.add_done_callback(lambda f: self.putconn(conn))
 
         if not connection:
             self.ioloop.add_future(self.getconn(ping=False), when_avaialble)
@@ -811,10 +825,12 @@ class Pool(object):
 
     def _reanimate(self):
         assert self.conns.dead, "BUG: dont' call reanimate when there is no one to reanimate"
+        log.debug("reanimate is here")
 
         future = Future()
 
         if self.ioloop.time() - self._last_connect_time < self.reconnect_interval:
+            log.debug("Not reconnecting - too soon")
             future.set_result(None)
             return future
 
@@ -826,7 +842,6 @@ class Pool(object):
             conn = self.conns.dead.pop()
             self.ioloop.add_future(self._connect_one(conn), on_connect)
 
-        self._last_connect_time = self.ioloop.time()
         return future
 
     def _reanimate_and_stretch_if_needed(self):
@@ -859,12 +874,13 @@ class Pool(object):
 
         def on_connect(fut):
             try:
-                conn = fut.result()
+                fut.result()
             except psycopg2.Error as error:
                 self.conns.add_dead(conn)
             else:
                 self.conns.add_free(conn)
                 self.server_version = conn.server_version
+            self._last_connect_time = self.ioloop.time()
             future.set_result(conn)
 
         self.ioloop.add_future(conn.connect(), on_connect)
@@ -943,10 +959,6 @@ class Connection(object):
         self.cursor_factory = cursor_factory
         self.ioloop = ioloop or IOLoop.instance()
         self.setsession = setsession
-
-        # For internal use - prevents Pool.manage to return this connection
-        # back to the pool
-        self._keep = False
 
     def connect(self):
         """
