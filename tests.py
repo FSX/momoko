@@ -894,10 +894,10 @@ class PoolBaseTest(BaseTest):
     max_size = None
     raise_connect_errors = True
 
-    def build_pool(self, dsn=None, setsession=(), con_factory=None, cur_factory=None):
+    def build_pool(self, dsn=None, setsession=(), con_factory=None, cur_factory=None, size=None):
         db = momoko.Pool(
             dsn=(dsn or self.dsn),
-            size=self.pool_size,
+            size=(size or self.pool_size),
             max_size=self.max_size,
             ioloop=self.io_loop,
             setsession=setsession,
@@ -913,8 +913,8 @@ class PoolBaseTest(BaseTest):
         return f.result()
 
     def kill_connections(self, db, amount=None):
-        amount = amount or len(db.conns.free)
-        for conn in db.conns.free:
+        amount = amount or (len(db.conns.free) + len(db.conns.busy))
+        for conn in db.conns.free.union(db.conns.busy):
             if not amount:
                 break
             if not conn.closed:
@@ -1229,6 +1229,28 @@ class MomokoPoolVolatileDbTest(PoolBaseTest):
             self.run_and_check_query(db)
         except psycopg2.DatabaseError:
             pass
+
+    @gen_test
+    def test_abort_waiting_queue(self):
+        """Testing that waiting queue is aborted properly when all connections are dead"""
+        db = yield self.build_pool(dsn=good_dsn, size=1)
+        f1 = db.execute("SELECT 1")
+        f2 = db.execute("SELECT 1")
+
+        self.assertEqual(len(db.conns.waiting_queue), 1)
+
+        def total_kill(f):
+            self.kill_connections(db)
+            for conn in db.conns.dead:
+                conn.dsn = bad_dsn
+
+        f1.add_done_callback(total_kill)
+
+        try:
+            yield [f1, f2]
+        except psycopg2.DatabaseError:
+            pass
+        self.assertEqual(len(db.conns.waiting_queue), 0)
 
 
 if __name__ == '__main__':
