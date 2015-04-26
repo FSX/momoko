@@ -34,10 +34,10 @@ else:
 
 setup(
     name='Momoko',
-    version='1.1.5',
+    version='1.1.6',
     description="Momoko wraps Psycopg2's functionality for use in Tornado.",
     long_description=open('README.rst').read(),
-    author='Frank Smit',
+    author='Frank Smit & Zaar Hai',
     author_email='frank@61924.nl',
     url='http://momoko.61924.nl/',
     packages=['momoko'],
@@ -45,7 +45,7 @@ setup(
     test_suite='tests',
     install_requires=dependencies,
     classifiers = [
-        'Development Status :: 4 - Beta',
+        'Development Status :: 5 - Production/Stable',
         'Intended Audience :: Developers',
         'License :: OSI Approved :: MIT License',
         'Programming Language :: Python :: Implementation :: PyPy',
@@ -54,6 +54,7 @@ setup(
         'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3.2',
         'Programming Language :: Python :: 3.3',
+        'Programming Language :: Python :: 3.4',
         'Topic :: Database',
         'Topic :: Database :: Front-Ends'
     ]

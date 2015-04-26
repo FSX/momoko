@@ -1,6 +1,13 @@
 Changelog
 =========
 
+1.1.6 (2015-04-26)
+------------------
+*  Aadded register_json
+*  Docs: fix typos, spelling, grammatical errors; improve unclear wording
+*  Removed support for psycopg2ct
+
+
 1.1.5 (2014-11-17)
 ------------------
 

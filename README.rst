@@ -7,10 +7,12 @@ Momoko
 .. image:: https://img.shields.io/pypi/dm/momoko.svg
         :target: https://pypi.python.org/pypi/momoko
 
-Momoko wraps Psycopg2_'s functionality for use in Tornado_.
+Momoko wraps Psycopg2_'s functionality for use in Tornado_. Have a look at tutorial_ or full documentation_.
 
 .. _Psycopg2: http://initd.org/psycopg/
 .. _Tornado: http://www.tornadoweb.org/
+.. _tutorial: http://momoko.61924.nl/en/latest/tutorial.html
+.. _documentation: http://momoko.61924.nl/en/latest/
 
 
 Installation
