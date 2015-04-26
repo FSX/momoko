@@ -26,6 +26,7 @@ db_password = os.environ.get('MOMOKO_TEST_PASSWORD', '')
 db_host = os.environ.get('MOMOKO_TEST_HOST', '')
 db_port = os.environ.get('MOMOKO_TEST_PORT', 5432)
 test_hstore = True if os.environ.get('MOMOKO_TEST_HSTORE', False) == '1' else False
+test_json = True if os.environ.get('MOMOKO_TEST_JSON', False) == '1' else False
 good_dsn = 'dbname=%s user=%s password=%s host=%s port=%s' % (
     db_database, db_user, db_password, db_host, db_port)
 bad_dsn = 'dbname=%s user=%s password=xx%s host=%s port=%s' % (
@@ -237,6 +238,17 @@ class MomokoConnectionDataTest(BaseDataTest):
 
             cursor = yield self.conn.execute("SELECT %s;", ({'e': 'f', 'g': 'h'},))
             self.assertEqual(cursor.fetchall(), [({"e": "f", "g": "h"},)])
+
+    if test_json:
+        @gen_test
+        def test_json(self):
+            """Testing json"""
+            if self.conn.server_version < 90400:
+                self.skipTest("skiping test - server too old. At least 9.4 is required")
+            yield self.conn.register_json()
+
+            cursor = yield self.conn.execute('SELECT \'{"a": "b", "c": "d"}\'::json;')
+            self.assertEqual(cursor.fetchall(), [({"a": "b", "c": "d"},)])
 
     @gen_test
     def test_callproc(self):
