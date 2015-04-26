@@ -829,7 +829,7 @@ class Connection(object):
         Register adapter and typecaster for ``dict-json`` conversions.
 
         More information on the json datatype can be found on the
-        Psycopg2 documentation_.
+        Psycopg2 |regjsondoc|_.
 
         :param boolean globally:
             Register the adapter globally, not only on this connection.
@@ -840,7 +840,9 @@ class Connection(object):
 
         **NOTE:** `callback` should always passed as keyword argument
 
-        .. _documentation: http://initd.org/psycopg/docs/extras.html#json-adaptation
+        .. |regjsondoc| replace:: documentation
+
+        .. _regjsondoc: http://initd.org/psycopg/docs/extras.html#json-adaptation
         """
         def _json_callback(cursor, error):
             oid, array_oid = cursor.fetchone()
@@ -858,7 +860,7 @@ class Connection(object):
         Register adapter and typecaster for ``dict-hstore`` conversions.
 
         More information on the hstore datatype can be found on the
-        Psycopg2 documentation_.
+        Psycopg2 |hstoredoc|_.
 
         :param boolean globally:
             Register the adapter globally, not only on this connection.
@@ -868,7 +870,9 @@ class Connection(object):
 
         **NOTE:** `callback` should always passed as keyword argument
 
-        .. _documentation: http://initd.org/psycopg/docs/extras.html#hstore-data-type
+        .. |hstoredoc| replace:: documentation
+
+        .. _hstoredoc: http://initd.org/psycopg/docs/extras.html#hstore-data-type
         """
         def _hstore_callback(cursor, error):
             oid, array_oid = cursor.fetchone()
