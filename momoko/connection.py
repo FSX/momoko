@@ -827,9 +827,13 @@ class Pool(object):
             future.set_result(None)
             return future
 
+        pending = [len(self.conns.dead)-1]
+
         def on_connect(fut):
-            if not self.conns.pending:
-                future.set_result(None)
+            if pending[0]:
+                pending[0] -= 1
+                return
+            future.set_result(None)
 
         while self.conns.dead:
             conn = self.conns.dead.pop()
