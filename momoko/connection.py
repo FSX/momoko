@@ -43,7 +43,6 @@ from .utils import log
 def _dummy_callback(cursor, error):
     pass
 
-# FIXME: use future.set_exc_info to preserve exceptions in Python 2. Think how to test it.
 
 class Pool(object):
     """
@@ -971,7 +970,7 @@ class Connection(object):
         try:
             self.connection = psycopg2.connect(self.dsn, **kwargs)
         except psycopg2.Error as error:
-            future.set_exception(error)
+            future.set_exc_info(sys.exc_info())
             return future
 
         self.fileno = self.connection.fileno()
@@ -1000,7 +999,7 @@ class Connection(object):
             state = self.connection.poll()
         except (psycopg2.Warning, psycopg2.Error) as error:
             self.ioloop.remove_handler(self.fileno)
-            future.set_exception(error)
+            future.set_exc_info(sys.exc_info())
         else:
             if state == POLL_OK:
                 self.ioloop.remove_handler(self.fileno)
@@ -1152,7 +1151,7 @@ class Connection(object):
                 cursors.append(cursor)
             except Exception as error:
                 if not auto_rollback:
-                    transaction_future.set_exception(error)
+                    transaction_future.set_exc_info(sys.exc_info())
                 else:
                     self._rollback(transaction_future, error)
                 return
@@ -1209,7 +1208,7 @@ class Connection(object):
             try:
                 cursor = fut.result()
             except Exception as error:
-                future.set_exception(error)
+                future.set_exc_info(sys.exc_info())
                 return
 
             oid, array_oid = cursor.fetchone()
