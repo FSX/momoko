@@ -7,6 +7,17 @@ SPHINXBUILD   = sphinx-build
 PAPER         =
 BUILDDIR      = _build
 
+ifdef VIRTUAL_ENV
+VENV_PPATH = $(shell echo $(VIRTUAL_ENV)/lib/*/site-packages)
+SRC_PPATH = $(shell find $(VIRTUAL_ENV)/src -mindepth 1 -maxdepth 1 -type d 2>/dev/null|xargs echo |tr ' ' :)
+ifdef PYTHONPATH
+PYTHONPATH = $(VENV_PPATH):$(SRC_PATH):$(PYTHONPATH)
+else
+PYTHONPATH = $(VENV_PPATH):$(SRC_PATH)
+export PYTHONPATH
+endif
+endif
+
 # Internal variables.
 PAPEROPT_a4     = -D latex_paper_size=a4
 PAPEROPT_letter = -D latex_paper_size=letter
