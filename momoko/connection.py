@@ -504,7 +504,7 @@ class ConnectionContainer(object):
 
     def add_free(self, conn):
         self.pending.discard(conn)
-        log.debug("handling connection %s", conn.fileno)
+        log.debug("Handling free connection %s", conn.fileno)
 
         if not self.waiting_queue:
             log.debug("No outstanding requests - adding to free pool")
@@ -528,14 +528,13 @@ class ConnectionContainer(object):
             conn = self.free.pop()
             self.busy.add(conn)
             future.set_result(conn)
-            log.debug("acquired free connection %s", conn.fileno)
+            log.debug("Acquired free connection %s", conn.fileno)
             return future
         elif self.busy:
             log.debug("No free connections, and some are busy - put in waiting queue")
             self.waiting_queue.appendleft(future)
             return future
         else:
-            # FIXME: test this case
             log.debug("All connections are dead")
             return None
 
@@ -549,7 +548,6 @@ class ConnectionContainer(object):
             self.add_free(conn)
 
     def abort_waiting_queue(self, error):
-        #FIXME: Test this!
         while self.waiting_queue:
             future = self.waiting_queue.pop()
             future.set_exception(error)
@@ -610,9 +608,7 @@ class Pool(object):
 
         #FIXME: test PartiallyConnected
         If some connection failed to connected, raises :py:meth:`momoko.exceptions.PartiallyConnected`
-        if self.raise_connect_errors is true
-
-        FIXME: add rst referenceses above
+        if self.raise_connect_errors is true.
         """
         future = Future()
         pending = [self.size-1]
@@ -784,11 +780,10 @@ class Pool(object):
             except psycopg2.Error as error:
                 future.set_exc_info(sys.exc_info())
                 if retry:
-                    log.debug(1)
                     self.putconn(retry[0])
                 return
 
-            log.debug("got connection: %s", conn.fileno)
+            log.debug("Obtained connection: %s", conn.fileno)
             try:
                 future_or_result = method(conn, *args, **kwargs)
             except psycopg2.Error as error:
@@ -825,7 +820,6 @@ class Pool(object):
 
     def _reanimate(self):
         assert self.conns.dead, "BUG: dont' call reanimate when there is no one to reanimate"
-        log.debug("reanimate is here")
 
         future = Future()
 
@@ -861,6 +855,7 @@ class Pool(object):
         self._new_connection()
 
     def _new_connection(self):
+        log.debug("Spawning new connection")
         conn = Connection(self.dsn,
                           connection_factory=self.connection_factory,
                           cursor_factory=self.cursor_factory,
@@ -952,7 +947,6 @@ class Connection(object):
                  cursor_factory=None,
                  ioloop=None,
                  setsession=()):
-        log.info("Opening new database connection")
 
         self.dsn = dsn
         self.connection_factory = connection_factory
