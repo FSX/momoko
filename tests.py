@@ -4,14 +4,16 @@ import os
 import string
 import random
 import time
-import unittest
 from collections import deque
 from itertools import chain
 import inspect
 import logging
 
 from tornado import gen
-from tornado.testing import AsyncTestCase, gen_test
+from tornado.testing import unittest, AsyncTestCase, gen_test
+
+
+
 
 import sys
 if sys.version_info[0] >= 3:
@@ -60,16 +62,6 @@ momoko.Pool.log_connect_errors = False
 
 class BaseTest(AsyncTestCase):
     dsn = good_dsn
-
-    if not hasattr(AsyncTestCase, "assertLess"):
-        def assertLess(self, a, b, msg):
-            return self.assertTrue(a < b, msg=msg)
-
-    if not hasattr(AsyncTestCase, "assertIsInstance"):
-        def assertIsInstance(self, obj, cls, msg=None):
-            if not isinstance(obj, cls):
-                standardMsg = '%s is not an instance of %r' % (safe_repr(obj), cls)
-                self.fail(self._formatMessage(msg, standardMsg))
 
     # This is a hack to overcome lack of "yield from" in Python < 3.3.
     # The goal is to support several set_up methods in inheriatnace chain
