@@ -65,6 +65,12 @@ class BaseTest(AsyncTestCase):
         def assertLess(self, a, b, msg):
             return self.assertTrue(a < b, msg=msg)
 
+    if not hasattr(AsyncTestCase, "assertIsInstance"):
+        def assertIsInstance(self, obj, cls, msg=None):
+            if not isinstance(obj, cls):
+                standardMsg = '%s is not an instance of %r' % (safe_repr(obj), cls)
+                self.fail(self._formatMessage(msg, standardMsg))
+
     # This is a hack to overcome lack of "yield from" in Python < 3.3.
     # The goal is to support several set_up methods in inheriatnace chain
     # So we just name them set_up_X and run them sequentially.
@@ -367,7 +373,12 @@ class PoolBaseTest(BaseTest):
 
     def build_pool_sync(self, *args, **kwargs):
         f = self.build_pool(*args, **kwargs)
-        gen_test(lambda x: (yield f))(self)
+
+        # could use gen_test(lambda x: (yield f))(self)
+        # but it does not work in Python 2.6 for some reason
+        def runner(x):
+            yield f
+        gen_test(runner)(self)
         return f.result()
 
     def kill_connections(self, db, amount=None):
