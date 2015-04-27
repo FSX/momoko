@@ -744,7 +744,7 @@ class Connection(object):
         def rollback_callback(rb_future):
             try:
                 rb_future.result()
-            except Exception, rb_error:
+            except Exception as rb_error:
                 log.warn("Failed to ROLLBACK transaction %s", rb_error)
             transaction_future.set_exception(error)
         self.ioloop.add_future(self.execute("ROLLBACK;"), rollback_callback)
