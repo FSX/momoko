@@ -12,9 +12,6 @@ import logging
 from tornado import gen
 from tornado.testing import unittest, AsyncTestCase, gen_test
 
-
-
-
 import sys
 if sys.version_info[0] >= 3:
     unicode = str
@@ -41,7 +38,6 @@ assert (db_database or db_user or db_password or db_host or db_port) is not None
     'variables: MOMOKO_TEST_DB, MOMOKO_TEST_USER, MOMOKO_TEST_PASSWORD, '
     'MOMOKO_TEST_HOST, MOMOKO_TEST_PORT')
 
-
 psycopg2_impl = os.environ.get('MOMOKO_PSYCOPG2_IMPL', 'psycopg2')
 
 if psycopg2_impl == 'psycopg2cffi':
@@ -53,6 +49,7 @@ elif psycopg2_impl == 'psycopg2ct':
 
 
 import momoko
+import momoko.exceptions
 import psycopg2
 from psycopg2.extras import RealDictConnection, RealDictCursor, NamedTupleCursor
 
@@ -348,7 +345,7 @@ class MomokoConnectionFactoriesTest(BaseTest):
 class PoolBaseTest(BaseTest):
     pool_size = 3
     max_size = None
-    raise_connect_errors = True
+    raise_connect_errors = False
 
     def build_pool(self, dsn=None, setsession=(), con_factory=None, cur_factory=None, size=None):
         db = momoko.Pool(
@@ -370,7 +367,7 @@ class PoolBaseTest(BaseTest):
         # but it does not work in Python 2.6 for some reason
         def runner(x):
             yield f
-        gen_test(runner)(self)
+        gen_test(timeout=30)(runner)(self)
         return f.result()
 
     def kill_connections(self, db, amount=None):
@@ -650,7 +647,6 @@ class MomokoPoolStretchTest(MomokoPoolParallelTest):
 
 
 class MomokoPoolVolatileDbTest(PoolBaseTest):
-    raise_connect_errors = False
     pool_size = 3
 
     @gen_test
@@ -712,6 +708,16 @@ class MomokoPoolVolatileDbTest(PoolBaseTest):
         except psycopg2.DatabaseError:
             pass
         self.assertEqual(len(db.conns.waiting_queue), 0)
+
+
+class MomokoPoolPartiallyConnectedTest(PoolBaseTest):
+    raise_connect_errors = True
+    pool_size = 3
+
+    def test_partially_connected(self):
+        """Test that PartiallyConnected is raised properly"""
+        exp = momoko.exceptions.PartiallyConnected
+        self.assertRaises(exp, self.build_pool_sync, dsn=bad_dsn)
 
 
 if __name__ == '__main__':

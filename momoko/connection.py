@@ -153,7 +153,6 @@ class Pool(object):
         """
         Returns future that resolves to this Pool object.
 
-        #FIXME: test PartiallyConnected
         If some connection failed to connected, raises :py:meth:`momoko.exceptions.PartiallyConnected`
         if self.raise_connect_errors is true.
         """
