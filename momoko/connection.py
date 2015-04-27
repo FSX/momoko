@@ -556,6 +556,8 @@ class Connection(object):
         return future
 
     def _set_server_version(self, future):
+        if future.exception():
+            return
         self.server_version = self.connection.server_version
 
     def _io_callback(self, future, result, fd=None, events=None):
