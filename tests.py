@@ -227,28 +227,32 @@ class MomokoConnectionDataTest(BaseDataTest):
         cursor = yield self.conn.execute("SELECT COUNT(*) FROM unit_test_transaction;")
         self.assertEqual(cursor.fetchone(), (0,))
 
-    if test_hstore:
-        @gen_test
-        def test_hstore(self):
-            """Testing hstore"""
-            yield self.conn.register_hstore()
+    @gen_test
+    def test_hstore(self):
+        """Testing hstore"""
+        if not test_hstore:
+            self.skipTest("skiping test as requested")
 
-            cursor = yield self.conn.execute("SELECT 'a=>b, c=>d'::hstore;")
-            self.assertEqual(cursor.fetchall(), [({"a": "b", "c": "d"},)])
+        yield self.conn.register_hstore()
 
-            cursor = yield self.conn.execute("SELECT %s;", ({'e': 'f', 'g': 'h'},))
-            self.assertEqual(cursor.fetchall(), [({"e": "f", "g": "h"},)])
+        cursor = yield self.conn.execute("SELECT 'a=>b, c=>d'::hstore;")
+        self.assertEqual(cursor.fetchall(), [({"a": "b", "c": "d"},)])
 
-    if test_json:
-        @gen_test
-        def test_json(self):
-            """Testing json"""
-            if self.conn.server_version < 90400:
-                self.skipTest("skiping test - server too old. At least 9.4 is required")
-            yield self.conn.register_json()
+        cursor = yield self.conn.execute("SELECT %s;", ({'e': 'f', 'g': 'h'},))
+        self.assertEqual(cursor.fetchall(), [({"e": "f", "g": "h"},)])
 
-            cursor = yield self.conn.execute('SELECT \'{"a": "b", "c": "d"}\'::json;')
-            self.assertEqual(cursor.fetchall(), [({"a": "b", "c": "d"},)])
+    @gen_test
+    def test_json(self):
+        """Testing json"""
+        if not test_json:
+            self.skipTest("skiping test as requested")
+        if self.conn.server_version < 90400:
+            self.skipTest("skiping test - server too old. At least 9.4 is required")
+
+        yield self.conn.register_json()
+
+        cursor = yield self.conn.execute('SELECT \'{"a": "b", "c": "d"}\'::json;')
+        self.assertEqual(cursor.fetchall(), [({"a": "b", "c": "d"},)])
 
     @gen_test
     def test_callproc(self):

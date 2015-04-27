@@ -305,7 +305,7 @@ class Pool(object):
 
     def register_json(self, *args, **kwargs):
         """
-        Register adapter and typecaster for ``dict-json`` conversions.
+        Create and register typecasters converting :sql:`json` type to Python objects.
 
         See :py:meth:`momoko.Connection.register_json` for documentation about
         the parameters. This method has no ``globally`` parameter, because it
@@ -749,6 +749,17 @@ class Connection(object):
             transaction_future.set_exception(error)
         self.ioloop.add_future(self.execute("ROLLBACK;"), rollback_callback)
 
+    def _register(self, future, registrator, fut):
+        try:
+            cursor = fut.result()
+        except Exception as error:
+            future.set_exc_info(sys.exc_info())
+            return
+
+        oid, array_oid = cursor.fetchone()
+        registrator(oid, array_oid)
+        future.set_result(None)
+
     def register_hstore(self, globally=False, unicode=False):
         """
         Register adapter and typecaster for ``dict-hstore`` conversions.
@@ -769,27 +780,17 @@ class Connection(object):
         .. _hstoredoc: http://initd.org/psycopg/docs/extras.html#hstore-data-type
         """
         future = Future()
-
-        def hstore_callback(fut):
-            try:
-                cursor = fut.result()
-            except Exception as error:
-                future.set_exc_info(sys.exc_info())
-                return
-
-            oid, array_oid = cursor.fetchone()
-            _psy_register_hstore(None, globally, unicode, oid, array_oid)
-            future.set_result(None)
-
+        registrator = partial(_psy_register_hstore, None, globally, unicode)
+        callback = partial(self._register, future, registrator)
         self.ioloop.add_future(self.execute(
             "SELECT 'hstore'::regtype::oid, 'hstore[]'::regtype::oid",
-        ), hstore_callback)
+        ), callback)
 
         return future
 
     def register_json(self, globally=False, loads=None):
         """
-        Register adapter and typecaster for ``dict-json`` conversions.
+        Create and register typecasters converting :sql:`json` type to Python objects.
 
         More information on the json datatype can be found on the Psycopg2 |regjsondoc|_.
 
@@ -807,21 +808,11 @@ class Connection(object):
         .. _regjsondoc: http://initd.org/psycopg/docs/extras.html#json-adaptation
         """
         future = Future()
-
-        def json_callback(fut):
-            try:
-                cursor = fut.result()
-            except Exception as error:
-                future.set_exc_info(sys.exc_info())
-                return
-
-            oid, array_oid = cursor.fetchone()
-            _psy_register_json(None, globally, loads, oid, array_oid)
-            future.set_result(None)
-
+        registrator = partial(_psy_register_json, None, globally, loads)
+        callback = partial(self._register, future, registrator)
         self.ioloop.add_future(self.execute(
             "SELECT 'json'::regtype::oid, 'json[]'::regtype::oid"
-        ), json_callback)
+        ), callback)
 
         return future
 
