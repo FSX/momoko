@@ -716,7 +716,7 @@ class MomokoPoolPartiallyConnectedTest(PoolBaseTest):
 
     def test_partially_connected(self):
         """Test that PartiallyConnected is raised properly"""
-        exp = momoko.exceptions.PartiallyConnected
+        exp = momoko.exceptions.PartiallyConnectedError
         self.assertRaises(exp, self.build_pool_sync, dsn=bad_dsn)
 
 

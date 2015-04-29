@@ -17,7 +17,7 @@ class PoolError(Exception):
     pass
 
 
-class PartiallyConnected(PoolError):
+class PartiallyConnectedError(PoolError):
     """
     Raised  when :py:meth:`momoko.Pool` can initialize all requested connections.
     """

@@ -30,7 +30,7 @@ from tornado import gen
 from tornado.ioloop import IOLoop
 from tornado.concurrent import chain_future, Future
 
-from .exceptions import PoolError, PartiallyConnected
+from .exceptions import PoolError, PartiallyConnectedError
 
 from .utils import log
 
@@ -153,7 +153,7 @@ class Pool(object):
         """
         Returns future that resolves to this Pool object.
 
-        If some connection failed to connected, raises :py:meth:`momoko.exceptions.PartiallyConnected`
+        If some connection failed to connected, raises :py:meth:`momoko.PartiallyConnectedError`
         if self.raise_connect_errors is true.
         """
         future = Future()
@@ -165,7 +165,7 @@ class Pool(object):
                 return
             # all connection attemts are complete
             if self.conns.dead and self.raise_connect_errors:
-                ecp = PartiallyConnected("%s connection(s) failed to connect" % len(self.conns.dead))
+                ecp = PartiallyConnectedError("%s connection(s) failed to connect" % len(self.conns.dead))
                 future.set_exception(ecp)
             else:
                 future.set_result(self)

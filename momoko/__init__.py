@@ -13,8 +13,8 @@ import psycopg2
 from psycopg2 import ProgrammingError
 
 from .connection import Pool, Connection, connect
-from .exceptions import PoolError
 from .utils import Op, WaitOp, WaitAllOps
+from .exceptions import PoolError, PartiallyConnectedError
 
 
 try:
