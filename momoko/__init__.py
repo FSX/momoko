@@ -10,7 +10,6 @@ MIT, see LICENSE for more details.
 """
 
 import psycopg2
-from psycopg2 import ProgrammingError
 
 from .connection import Pool, Connection, connect
 from .exceptions import PoolError, PartiallyConnectedError
