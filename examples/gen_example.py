@@ -25,7 +25,6 @@ db_password = os.environ.get('MOMOKO_TEST_PASSWORD', '')
 db_host = os.environ.get('MOMOKO_TEST_HOST', '')
 db_port = os.environ.get('MOMOKO_TEST_PORT', 5432)
 enable_hstore = True if os.environ.get('MOMOKO_TEST_HSTORE', False) == '1' else False
-enable_json = True if os.environ.get('MOMOKO_TEST_JSON', False) == '1' else False
 dsn = 'dbname=%s user=%s password=%s host=%s port=%s' % (
     db_database, db_user, db_password, db_host, db_port)
 
@@ -101,7 +100,7 @@ class HstoreQueryHandler(BaseHandler):
 class JsonQueryHandler(BaseHandler):
     @gen.coroutine
     def get(self):
-        if enable_json:
+        if self.db.server_version >= 90200:
             try:
                 cursor = yield self.db.execute('SELECT \'{"a": "b", "c": "d"}\'::json;')
                 self.write("Query results: %s<br>" % cursor.fetchall())
@@ -210,7 +209,7 @@ def main():
             # This is the other way to run ioloop in sync
             ioloop.run_sync(lambda: future)
 
-        if enable_json:
+        if application.db.server_version >= 90200:
             future = application.db.register_json()
             # This is the other way to run ioloop in sync
             ioloop.run_sync(lambda: future)
