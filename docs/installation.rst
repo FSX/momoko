@@ -37,9 +37,6 @@ Here's an example for the environment variables::
     # Set to '0' if hstore extension isn't enabled
     export MOMOKO_TEST_HSTORE='1'  # Default: 0
 
-    # Set to '0' if json data type isn't enabled (PostgreSQL 9.4 and earlier)
-    export MOMOKO_TEST_JSON='1'  # Default: 0
-
 And running the tests is easy::
 
    python setup.py test
