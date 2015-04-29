@@ -13,7 +13,6 @@ import psycopg2
 from psycopg2 import ProgrammingError
 
 from .connection import Pool, Connection, connect
-from .utils import Op, WaitOp, WaitAllOps
 from .exceptions import PoolError, PartiallyConnectedError
 
 
