@@ -12,6 +12,10 @@ Momoko
 
 Momoko wraps Psycopg2_'s functionality for use in Tornado_. Have a look at tutorial_ or full documentation_.
 
+**Important:** This is the 2.x version of Momoko. It uses futures instead of calllbacks
+and introduces slightly different API compared to 1.x version. While trasition is very
+straight forward, the API is not backward compatible with 1.x!
+
 .. _Psycopg2: http://initd.org/psycopg/
 .. _Tornado: http://www.tornadoweb.org/
 .. _tutorial: http://momoko.61924.nl/en/latest/tutorial.html

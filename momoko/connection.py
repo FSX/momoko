@@ -305,7 +305,7 @@ class Pool(object):
 
     def register_json(self, *args, **kwargs):
         """
-        Create and register typecasters converting :sql:`json` type to Python objects.
+        Create and register typecasters converting ``json`` type to Python objects.
 
         See :py:meth:`momoko.Connection.register_json` for documentation about
         the parameters. This method has no ``globally`` parameter, because it
@@ -792,7 +792,7 @@ class Connection(object):
 
     def register_json(self, globally=False, loads=None):
         """
-        Create and register typecasters converting :sql:`json` type to Python objects.
+        Create and register typecasters converting ``json`` type to Python objects.
 
         More information on the json datatype can be found on the Psycopg2 |regjsondoc|_.
 
@@ -839,7 +839,8 @@ class Connection(object):
 def connect(*args, **kwargs):
     """
     Connection factory.
-    See :py:meth:`momoko.Connection` for documentation about the
-    Returns future that resolves to :py:meth:`momoko.Connection` object or raises exception
+    See :py:meth:`momoko.Connection` for documentation about the parameters.
+
+    Returns future that resolves to :py:meth:`momoko.Connection` object or raises exception.
     """
     return Connection(*args, **kwargs).connect()
