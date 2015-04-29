@@ -15,6 +15,7 @@ import sys
 if sys.version_info[0] >= 3:
     basestring = str
 
+import logging
 from functools import partial
 from collections import deque
 import datetime
@@ -32,7 +33,7 @@ from tornado.concurrent import chain_future, Future
 
 from .exceptions import PoolError, PartiallyConnectedError
 
-from .utils import log
+log = logging.getLogger('momoko')
 
 
 class ConnectionContainer(object):
