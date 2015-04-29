@@ -16,25 +16,14 @@ Connections
 .. autoclass:: momoko.Connection
    :members:
 
-
-
-Utilities
----------
-
-.. autoclass:: momoko.Op
-   :members:
-
-
-.. autoclass:: momoko.WaitOp
-   :members:
-
-
-.. autoclass:: momoko.WaitAllOps
-   :members:
+.. autofunction:: momoko.connect
 
 
 Exceptions
 ----------
 
 .. autoclass:: momoko.PoolError
+   :members:
+
+.. autoclass:: momoko.PartiallyConnectedError
    :members:

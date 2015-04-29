@@ -19,5 +19,5 @@ class PoolError(Exception):
 
 class PartiallyConnectedError(PoolError):
     """
-    Raised  when :py:meth:`momoko.Pool` can initialize all requested connections.
+    Raised  when :py:meth:`momoko.Pool` can not initialize all of the requested connections.
     """
