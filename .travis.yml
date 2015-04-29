@@ -12,8 +12,8 @@ addons:
   postgresql: "9.2"
 
 before_script:
-  - psql -c 'CREATE EXTENSION IF NOT EXISTS hstore' -U postgres
   - psql -c 'CREATE DATABASE momoko_test;' -U postgres
+  - psql -U postgres momoko_test -c 'CREATE EXTENSION IF NOT EXISTS hstore'
 
 env:
   global:
