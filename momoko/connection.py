@@ -250,6 +250,16 @@ class Pool(object):
         finally:
             self.putconn(connection)
 
+    def ping(self):
+        """
+        Make sure this connection is alive by executing SELECT 1 statement -
+        i.e. roundtrip to the database.
+
+        See :py:meth:`momoko.Connection.ping` for documentation about the
+        parameters.
+        """
+        return self._operate(Connection.ping)
+
     def execute(self, *args, **kwargs):
         """
         Prepare and execute a database operation (query or command).

@@ -178,6 +178,11 @@ class MomokoConnectionDataTest(BaseDataTest):
         self.assertEqual(cursor.fetchall(), [(1, 2, 3)])
 
     @gen_test
+    def test_ping(self):
+        """Testing ping"""
+        yield self.conn.ping()
+
+    @gen_test
     def test_large_query(self):
         """Testing support for large queries"""
         query_size = 100000
