@@ -12,7 +12,12 @@ MIT, see LICENSE for more details.
 
 class PoolError(Exception):
     """
-    The ``PoolError`` exception is raised when something goes wrong in the connection
-    pool. When the maximum amount is exceeded for example.
+    Raised when something goes wrong in the connection pool.
     """
     pass
+
+
+class PartiallyConnectedError(PoolError):
+    """
+    Raised  when :py:meth:`momoko.Pool` can initialize all requested connections.
+    """

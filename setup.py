@@ -18,7 +18,7 @@ except ImportError:
     from distutils.core import setup, Extension, Command
 
 
-dependencies = ['tornado']
+dependencies = ['tornado >= 4.0']
 psycopg2_impl = os.environ.get('MOMOKO_PSYCOPG2_IMPL', 'psycopg2')
 
 if psycopg2_impl == 'psycopg2cffi':
@@ -44,6 +44,7 @@ setup(
     license='MIT',
     test_suite='tests',
     install_requires=dependencies,
+    test_require=dependencies + ["unittest2"],
     classifiers = [
         'Development Status :: 5 - Production/Stable',
         'Intended Audience :: Developers',
