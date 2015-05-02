@@ -18,8 +18,8 @@ straight forward, the API is not backward compatible with 1.x!
 
 .. _Psycopg2: http://initd.org/psycopg/
 .. _Tornado: http://www.tornadoweb.org/
-.. _tutorial: http://momoko.61924.nl/en/latest/tutorial.html
-.. _documentation: http://momoko.61924.nl/en/latest/
+.. _tutorial: http://momoko.readthedocs.org/en/master/tutorial.html
+.. _documentation: http://momoko.readthedocs.org/en/master
 
 
 Installation
