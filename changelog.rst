@@ -1,6 +1,13 @@
 Changelog
 =========
 
+2.0.0 (2015-05-10)
+------------------
+*  Full rewrite using using Futures_
+*  NOTE: The new API is similar but not backwards compatible. Make sure to read documentation first.
+
+.. _Futures: http://tornado.readthedocs.org/en/latest/concurrent.html
+
 1.1.6 (2015-04-26)
 ------------------
 *  Aadded register_json
