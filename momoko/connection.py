@@ -38,7 +38,7 @@ log = logging.getLogger('momoko')
 
 class ConnectionContainer(object):
     """
-    Helper class that stores connecttions according to their state
+    Helper class that stores connections according to their state
     """
     def __init__(self):
         self.empty()
@@ -154,8 +154,8 @@ class Pool(object):
         """
         Returns future that resolves to this Pool object.
 
-        If some connection failed to connected, raises :py:meth:`momoko.PartiallyConnectedError`
-        if self.raise_connect_errors is true.
+        If some connection failed to connect *and* self.raise_connect_errors
+        is true, raises :py:meth:`momoko.PartiallyConnectedError`.
         """
         future = Future()
         pending = [self.size-1]
@@ -164,7 +164,7 @@ class Pool(object):
             if pending[0]:
                 pending[0] -= 1
                 return
-            # all connection attemts are complete
+            # all connection attempts are complete
             if self.conns.dead and self.raise_connect_errors:
                 ecp = PartiallyConnectedError("%s connection(s) failed to connect" % len(self.conns.dead))
                 future.set_exception(ecp)
@@ -343,7 +343,7 @@ class Pool(object):
 
         retry = []
 
-        def when_avaialble(fut):
+        def when_available(fut):
             try:
                 conn = fut.result()
             except psycopg2.Error as error:
@@ -359,7 +359,7 @@ class Pool(object):
                 if conn.closed:
                     if not retry:
                         retry.append(conn)
-                        self.ioloop.add_future(conn.connect(), when_avaialble)
+                        self.ioloop.add_future(conn.connect(), when_available)
                         return
                     else:
                         future.set_exception(self._no_conn_availble_error)
@@ -380,15 +380,15 @@ class Pool(object):
                 future.add_done_callback(lambda f: self.putconn(conn))
 
         if not connection:
-            self.ioloop.add_future(self.getconn(ping=False), when_avaialble)
+            self.ioloop.add_future(self.getconn(ping=False), when_available)
         else:
             f = Future()
             f.set_result(connection)
-            when_avaialble(f)
+            when_available(f)
         return future
 
     def _reanimate(self):
-        assert self.conns.dead, "BUG: dont' call reanimate when there is no one to reanimate"
+        assert self.conns.dead, "BUG: don't call reanimate when there is no one to reanimate"
 
         future = Future()
 
