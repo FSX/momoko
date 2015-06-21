@@ -154,8 +154,8 @@ class Pool(object):
         """
         Returns future that resolves to this Pool object.
 
-        If some connection failed to connected, raises :py:meth:`momoko.PartiallyConnectedError`
-        if self.raise_connect_errors is true.
+        If some connection failed to connect *and* self.raise_connect_errors
+        is true, raises :py:meth:`momoko.PartiallyConnectedError`.
         """
         future = Future()
         pending = [self.size-1]
