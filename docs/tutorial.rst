@@ -147,7 +147,7 @@ First, lets rewrite our trivial example using Tornado web handlers::
             self.write("Results: %s" % cursor.fetchone())
             self.finish()
 
-To execute several queries in parallell, accumulate connresponding futures and
+To execute several queries in parallel, accumulate corresponding futures and
 yield them at once::
 
     class TutorialHandler(BaseHandler):

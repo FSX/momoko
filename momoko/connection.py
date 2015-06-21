@@ -38,7 +38,7 @@ log = logging.getLogger('momoko')
 
 class ConnectionContainer(object):
     """
-    Helper class that stores connecttions according to their state
+    Helper class that stores connections according to their state
     """
     def __init__(self):
         self.empty()
@@ -164,7 +164,7 @@ class Pool(object):
             if pending[0]:
                 pending[0] -= 1
                 return
-            # all connection attemts are complete
+            # all connection attempts are complete
             if self.conns.dead and self.raise_connect_errors:
                 ecp = PartiallyConnectedError("%s connection(s) failed to connect" % len(self.conns.dead))
                 future.set_exception(ecp)
@@ -388,7 +388,7 @@ class Pool(object):
         return future
 
     def _reanimate(self):
-        assert self.conns.dead, "BUG: dont' call reanimate when there is no one to reanimate"
+        assert self.conns.dead, "BUG: don't call reanimate when there is no one to reanimate"
 
         future = Future()
 
