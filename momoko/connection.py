@@ -106,6 +106,9 @@ class ConnectionContainer(object):
                 conn.close()
 
     def shrink(self, size):
+        if len(self.free) <= size:
+            return
+        log.debug("Shrinking Pool")
         while len(self.free) > size:
             conn = self.free.pop()
             conn.close()
