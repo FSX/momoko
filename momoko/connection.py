@@ -105,11 +105,11 @@ class ConnectionContainer(object):
             if not conn.closed:
                 conn.close()
 
-    def shrink(self, size):
-        if len(self.free) <= size:
+    def shrink(self, target_size):
+        if len(self.free) <= target_size:
             return
         log.debug("Shrinking Pool")
-        while len(self.free) > size:
+        while len(self.free) > target_size:
             conn = self.free.pop()
             conn.close()
 
@@ -134,7 +134,7 @@ class Pool(object):
                  reconnect_interval=500,
                  setsession=(),
                  auto_shrink=False,
-                 shrink_timer=datetime.timedelta(minutes=2)
+                 shrink_period=datetime.timedelta(minutes=2)
                  ):
 
         assert size > 0, "The connection pool size must be a number above 0."
@@ -160,14 +160,14 @@ class Pool(object):
 
         self._last_connect_time = 0
         self._no_conn_availble_error = psycopg2.DatabaseError("No database connection available")
-        self.shrink_timer = shrink_timer
+        self.shrink_period = shrink_period
         if auto_shrink:
             self._auto_shrink()
 
 
     def _auto_shrink(self):
         self.conns.shrink(self.size)
-        self.ioloop.add_timeout(self.shrink_timer,self._auto_shrink)
+        self.ioloop.add_timeout(self.shrink_period,self._auto_shrink)
 
     def connect(self):
         """
