@@ -18,6 +18,7 @@ if sys.version_info[0] >= 3:
 import logging
 from functools import partial
 from collections import deque
+import time
 import datetime
 from functools import wraps
 from contextlib import contextmanager
@@ -56,7 +57,7 @@ class ConnectionContainer(object):
 
         if not self.waiting_queue:
             log.debug("No outstanding requests - adding to free pool")
-            conn.last_used_time = datetime.datetime.now()
+            conn.last_used_time = time.time()
             self.free.append(conn)
             return
 
@@ -106,18 +107,11 @@ class ConnectionContainer(object):
             if not conn.closed:
                 conn.close()
 
-    def shrink(self, target_size, delay):
-        if len(self.free) <= target_size:
-            return
-        log.debug("Attempting to Shrink Pool")
-
-        while len(self.free) > target_size:
+    def shrink(self, target_size, delay_in_seconds):
+        now = time.time()
+        while len(self.free) > target_size and now - self.free[0].last_used_time > delay_in_seconds:
             conn = self.free.popleft()
-            if datetime.datetime.now() - conn.last_used_time >= delay:
-                conn.close()
-            else:
-                self.free.appendleft(conn)
-                return
+            conn.close()
 
     @property
     def all_dead(self):
@@ -140,8 +134,8 @@ class Pool(object):
                  reconnect_interval=500,
                  setsession=(),
                  auto_shrink=False,
-                 shrink_period=datetime.timedelta(minutes=2),
-                 shrink_delay=datetime.timedelta(minutes=2)
+                 shrink_delay=datetime.timedelta(minutes=2),
+                 shrink_period=datetime.timedelta(minutes=2)
                  ):
 
         assert size > 0, "The connection pool size must be a number above 0."
@@ -169,11 +163,12 @@ class Pool(object):
         self._no_conn_availble_error = psycopg2.DatabaseError("No database connection available")
         self.shrink_period = shrink_period
         self.shrink_delay = shrink_delay
+        self.auto_shrink = auto_shrink
         if auto_shrink:
             self._auto_shrink()
 
     def _auto_shrink(self):
-        self.conns.shrink(self.size, self.shrink_delay)
+        self.conns.shrink(self.size, self.shrink_delay.seconds)
         self.ioloop.add_timeout(self.shrink_period, self._auto_shrink)
 
     def connect(self):

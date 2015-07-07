@@ -9,6 +9,7 @@ from itertools import chain
 import inspect
 import logging
 import datetime
+import threading
 from tornado.concurrent import Future
 
 from tornado import gen
@@ -741,19 +742,50 @@ class MomokoPoolShrinkTest(MomokoPoolParallelTest):
         f3 = db.execute("Select 3")
         f4 = db.execute("Select 4")
         f5 = db.execute("Select 5")
-        cursor = yield [f1, f2, f3, f4, f5]
+        cursors = yield [f1, f2, f3, f4, f5]
         yield gen.sleep(.7)
 
         self.assertEqual(db.conns.total, 5)
-        self.assertEqual(cursor[0].fetchone()[0], 1)
-        self.assertEqual(cursor[1].fetchone()[0], 2)
-        self.assertEqual(cursor[2].fetchone()[0], 3)
-        self.assertEqual(cursor[3].fetchone()[0], 4)
-        self.assertEqual(cursor[4].fetchone()[0], 5)
+        self.assertEqual(cursors[0].fetchone()[0], 1)
+        self.assertEqual(cursors[1].fetchone()[0], 2)
+        self.assertEqual(cursors[2].fetchone()[0], 3)
+        self.assertEqual(cursors[3].fetchone()[0], 4)
+        self.assertEqual(cursors[4].fetchone()[0], 5)
 
         yield gen.sleep(1)
 
         self.assertEqual(db.conns.total, 2)
+
+    @gen_test
+    def test_pool_shrinking_with_shrink_delay(self):
+        db = yield self.build_pool(auto_shrink=True, shrink_delay=datetime.timedelta(seconds=1),
+                                   shrink_period=datetime.timedelta(milliseconds=500))
+        f1 = db.execute("Select 1")
+        f2 = db.execute("Select 2")
+        f3 = db.execute("Select 3")
+        f4 = db.execute("Select 4")
+        f5 = db.execute("Select 5")
+        cursors = yield [f1, f2, f3, f4, f5]
+        yield gen.sleep(.7)
+
+        self.assertEqual(db.conns.total, 5)
+        self.assertEqual(cursors[0].fetchone()[0], 1)
+        self.assertEqual(cursors[1].fetchone()[0], 2)
+        self.assertEqual(cursors[2].fetchone()[0], 3)
+        self.assertEqual(cursors[3].fetchone()[0], 4)
+        self.assertEqual(cursors[4].fetchone()[0], 5)
+
+        f1 = db.execute("Select 1")
+        f2 = db.execute("Select 2")
+        f3 = db.execute("Select 3")
+        cursors = yield [f1, f2, f3]
+        self.assertEqual(cursors[0].fetchone()[0], 1)
+        self.assertEqual(cursors[1].fetchone()[0], 2)
+        self.assertEqual(cursors[2].fetchone()[0], 3)
+
+        yield gen.sleep(1)
+
+        self.assertEqual(db.conns.total, 3)
 
 if __name__ == '__main__':
     if debug:
