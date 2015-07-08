@@ -737,11 +737,11 @@ class MomokoPoolShrinkTest(MomokoPoolParallelTest):
     def test_pool_shrinking(self):
         db = yield self.build_pool(auto_shrink=True, shrink_delay=datetime.timedelta(seconds=1),
                                    shrink_period=datetime.timedelta(milliseconds=500))
-        f1 = db.execute("Select 1")
-        f2 = db.execute("Select 2")
-        f3 = db.execute("Select 3")
-        f4 = db.execute("Select 4")
-        f5 = db.execute("Select 5")
+        f1 = db.execute("SELECT 1")
+        f2 = db.execute("SELECT 2")
+        f3 = db.execute("SELECT 3")
+        f4 = db.execute("SELECT 4")
+        f5 = db.execute("SELECT 5")
         cursors = yield [f1, f2, f3, f4, f5]
         yield gen.sleep(.7)
 
@@ -760,11 +760,11 @@ class MomokoPoolShrinkTest(MomokoPoolParallelTest):
     def test_pool_shrinking_with_shrink_delay(self):
         db = yield self.build_pool(auto_shrink=True, shrink_delay=datetime.timedelta(seconds=1),
                                    shrink_period=datetime.timedelta(milliseconds=500))
-        f1 = db.execute("Select 1")
-        f2 = db.execute("Select 2")
-        f3 = db.execute("Select 3")
-        f4 = db.execute("Select 4")
-        f5 = db.execute("Select 5")
+        f1 = db.execute("SELECT 1")
+        f2 = db.execute("SELECT 2")
+        f3 = db.execute("SELECT 3")
+        f4 = db.execute("SELECT 4")
+        f5 = db.execute("SELECT 5")
         cursors = yield [f1, f2, f3, f4, f5]
         yield gen.sleep(.7)
 
@@ -775,9 +775,9 @@ class MomokoPoolShrinkTest(MomokoPoolParallelTest):
         self.assertEqual(cursors[3].fetchone()[0], 4)
         self.assertEqual(cursors[4].fetchone()[0], 5)
 
-        f1 = db.execute("Select 1")
-        f2 = db.execute("Select 2")
-        f3 = db.execute("Select 3")
+        f1 = db.execute("SELECT 1")
+        f2 = db.execute("SELECT 2")
+        f3 = db.execute("SELECT 3")
         cursors = yield [f1, f2, f3]
         self.assertEqual(cursors[0].fetchone()[0], 1)
         self.assertEqual(cursors[1].fetchone()[0], 2)
