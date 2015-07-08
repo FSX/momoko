@@ -123,6 +123,78 @@ class ConnectionContainer(object):
 
 
 class Pool(object):
+    """
+    Asynchronous conntion pool object. All its methods are
+    asynchronous unless stated otherwide in method description.
+
+    :param string dsn:
+        A `Data Source Name`_ string containing one of the following values:
+
+        * **dbname** - the database name
+        * **user** - user name used to authenticate
+        * **password** - password used to authenticate
+        * **host** - database host address (defaults to UNIX socket if not provided)
+        * **port** - connection port number (defaults to 5432 if not provided)
+
+        Or any other parameter supported by PostgreSQL. See the PostgreSQL
+        documentation for a complete list of supported parameters_.
+
+    :param connection_factory:
+        The ``connection_factory`` argument can be used to create non-standard
+        connections. The class returned should be a subclass of `psycopg2.extensions.connection`_.
+        See `Connection and cursor factories`_ for details. Defaults to ``None``.
+
+    :param cursor_factory:
+        The ``cursor_factory`` argument can be used to return non-standart cursor class
+        The class returned should be a subclass of `psycopg2.extensions.cursor`_.
+        See `Connection and cursor factories`_ for details. Defaults to ``None``.
+
+    :param int size:
+        Minimal number of connections to maintain. ``size`` connections will be opened
+        and maintained after calling :py:meth:`momoko.Pool.connect`.
+
+    :param max_size:
+        if not ``None``, the pool size will dynamically grow on demand up to ``max_size``
+        open connections. By default the connections will still be maintained even if
+        when the pool load decreases. See also ``auto_shrink`` parameter.
+    :type max_size: int or None
+
+    :param ioloop:
+        Tornado IOloop instance to use. Defaults to Tornado's ``IOLoop.instance()``.
+
+    :param bool raise_connect_errors:
+        Whether to raise :py:meth:`momoko.PartiallyConnectedError` when failing to
+        connect to database during :py:meth:`momoko.Pool.connect`.
+
+    :param int reconnect_interval:
+        If database server becomes unavailble, the pool will try to reestablish
+        the connection. The attempt frequency is ``reconnect_interval``
+        milliseconds.
+
+    :param list setsession:
+        List of intial sql commands to be executed once connection is established.
+        If any of the commands failes, the connection will be closed.
+        **NOTE:** The commands will be executed as one transaction block.
+
+    :param bool auto_shrink:
+        Garbage-collect idle connections. Only applicable if ``max_size`` was specified.
+        Nevertheless, the pool will mainatain at least ``size`` connections.
+
+    :param shrink_delay:
+        A connection is declared idle if it was not used for ``shrink_delay`` time period.
+        Idle connections will be garbage-collected if ``auto_shrink`` is set to ``True``.
+    :type shrink_delay: :py:meth:`datetime.timedelta`
+
+    :param shrink_period:
+        If ``auto_shink`` is enabled, this parameter defines how the pool will check for
+        idle connections.
+    :type shrink_period: :py:meth:`datetime.timedelta`
+
+    .. _Data Source Name: http://en.wikipedia.org/wiki/Data_Source_Name
+    .. _parameters: http://www.postgresql.org/docs/current/static/libpq-connect.html#LIBPQ-PQCONNECTDBPARAMS
+    .. _psycopg2.extensions.connection: http://initd.org/psycopg/docs/connection.html#connection
+    .. _Connection and cursor factories: http://initd.org/psycopg/docs/advanced.html#subclassing-cursor
+    """
     def __init__(self,
                  dsn,
                  connection_factory=None,
