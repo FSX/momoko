@@ -8,6 +8,9 @@ from collections import deque
 from itertools import chain
 import inspect
 import logging
+import datetime
+import threading
+from tornado.concurrent import Future
 
 from tornado import gen
 from tornado.testing import unittest, AsyncTestCase, gen_test
@@ -349,7 +352,8 @@ class PoolBaseTest(BaseTest):
     max_size = None
     raise_connect_errors = False
 
-    def build_pool(self, dsn=None, setsession=(), con_factory=None, cur_factory=None, size=None):
+    def build_pool(self, dsn=None, setsession=(), con_factory=None, cur_factory=None, size=None, auto_shrink=False,
+                   shrink_delay=datetime.timedelta(seconds=1), shrink_period=datetime.timedelta(milliseconds=500)):
         db = momoko.Pool(
             dsn=(dsn or self.dsn),
             size=(size or self.pool_size),
@@ -359,6 +363,9 @@ class PoolBaseTest(BaseTest):
             raise_connect_errors=self.raise_connect_errors,
             connection_factory=con_factory,
             cursor_factory=cur_factory,
+            auto_shrink=auto_shrink,
+            shrink_period=shrink_period,
+            shrink_delay=shrink_delay
         )
         return db.connect()
 
@@ -374,7 +381,7 @@ class PoolBaseTest(BaseTest):
 
     def kill_connections(self, db, amount=None):
         amount = amount or (len(db.conns.free) + len(db.conns.busy))
-        for conn in db.conns.free.union(db.conns.busy):
+        for conn in db.conns.busy.union(db.conns.free):
             if not amount:
                 break
             if not conn.closed:
@@ -721,6 +728,64 @@ class MomokoPoolPartiallyConnectedTest(PoolBaseTest):
         exp = momoko.exceptions.PartiallyConnectedError
         self.assertRaises(exp, self.build_pool_sync, dsn=bad_dsn)
 
+
+class MomokoPoolShrinkTest(MomokoPoolParallelTest):
+    pool_size = 2
+    max_size = 5
+
+    @gen_test
+    def test_pool_shrinking(self):
+        db = yield self.build_pool(auto_shrink=True, shrink_delay=datetime.timedelta(seconds=1),
+                                   shrink_period=datetime.timedelta(milliseconds=500))
+        f1 = db.execute("Select 1")
+        f2 = db.execute("Select 2")
+        f3 = db.execute("Select 3")
+        f4 = db.execute("Select 4")
+        f5 = db.execute("Select 5")
+        cursors = yield [f1, f2, f3, f4, f5]
+        yield gen.sleep(.7)
+
+        self.assertEqual(db.conns.total, 5)
+        self.assertEqual(cursors[0].fetchone()[0], 1)
+        self.assertEqual(cursors[1].fetchone()[0], 2)
+        self.assertEqual(cursors[2].fetchone()[0], 3)
+        self.assertEqual(cursors[3].fetchone()[0], 4)
+        self.assertEqual(cursors[4].fetchone()[0], 5)
+
+        yield gen.sleep(1)
+
+        self.assertEqual(db.conns.total, 2)
+
+    @gen_test
+    def test_pool_shrinking_with_shrink_delay(self):
+        db = yield self.build_pool(auto_shrink=True, shrink_delay=datetime.timedelta(seconds=1),
+                                   shrink_period=datetime.timedelta(milliseconds=500))
+        f1 = db.execute("Select 1")
+        f2 = db.execute("Select 2")
+        f3 = db.execute("Select 3")
+        f4 = db.execute("Select 4")
+        f5 = db.execute("Select 5")
+        cursors = yield [f1, f2, f3, f4, f5]
+        yield gen.sleep(.7)
+
+        self.assertEqual(db.conns.total, 5)
+        self.assertEqual(cursors[0].fetchone()[0], 1)
+        self.assertEqual(cursors[1].fetchone()[0], 2)
+        self.assertEqual(cursors[2].fetchone()[0], 3)
+        self.assertEqual(cursors[3].fetchone()[0], 4)
+        self.assertEqual(cursors[4].fetchone()[0], 5)
+
+        f1 = db.execute("Select 1")
+        f2 = db.execute("Select 2")
+        f3 = db.execute("Select 3")
+        cursors = yield [f1, f2, f3]
+        self.assertEqual(cursors[0].fetchone()[0], 1)
+        self.assertEqual(cursors[1].fetchone()[0], 2)
+        self.assertEqual(cursors[2].fetchone()[0], 3)
+
+        yield gen.sleep(1)
+
+        self.assertEqual(db.conns.total, 3)
 
 if __name__ == '__main__':
     if debug:

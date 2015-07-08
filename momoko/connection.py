@@ -18,6 +18,7 @@ if sys.version_info[0] >= 3:
 import logging
 from functools import partial
 from collections import deque
+import time
 import datetime
 from functools import wraps
 from contextlib import contextmanager
@@ -44,7 +45,7 @@ class ConnectionContainer(object):
         self.empty()
 
     def empty(self):
-        self.free = set()
+        self.free = deque()
         self.busy = set()
         self.dead = set()
         self.pending = set()
@@ -56,7 +57,8 @@ class ConnectionContainer(object):
 
         if not self.waiting_queue:
             log.debug("No outstanding requests - adding to free pool")
-            self.free.add(conn)
+            conn.last_used_time = time.time()
+            self.free.append(conn)
             return
 
         log.debug("There are outstanding requests - resumed future from waiting queue")
@@ -101,9 +103,15 @@ class ConnectionContainer(object):
             future.set_exception(error)
 
     def close_alive(self):
-        for conn in self.free.union(self.busy):
+        for conn in self.busy.union(self.free):
             if not conn.closed:
                 conn.close()
+
+    def shrink(self, target_size, delay_in_seconds):
+        now = time.time()
+        while len(self.free) > target_size and now - self.free[0].last_used_time > delay_in_seconds:
+            conn = self.free.popleft()
+            conn.close()
 
     @property
     def all_dead(self):
@@ -124,7 +132,11 @@ class Pool(object):
                  ioloop=None,
                  raise_connect_errors=True,
                  reconnect_interval=500,
-                 setsession=()):
+                 setsession=(),
+                 auto_shrink=False,
+                 shrink_delay=datetime.timedelta(minutes=2),
+                 shrink_period=datetime.timedelta(minutes=2)
+                 ):
 
         assert size > 0, "The connection pool size must be a number above 0."
 
@@ -149,6 +161,15 @@ class Pool(object):
 
         self._last_connect_time = 0
         self._no_conn_availble_error = psycopg2.DatabaseError("No database connection available")
+        self.shrink_period = shrink_period
+        self.shrink_delay = shrink_delay
+        self.auto_shrink = auto_shrink
+        if auto_shrink:
+            self._auto_shrink()
+
+    def _auto_shrink(self):
+        self.conns.shrink(self.size, self.shrink_delay.seconds)
+        self.ioloop.add_timeout(self.shrink_period, self._auto_shrink)
 
     def connect(self):
         """
