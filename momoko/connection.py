@@ -312,7 +312,7 @@ class Pool(object):
 
     def putconn(self, connection):
         """
-        Retrun busy connection back to the pool.
+        Return busy connection back to the pool.
 
         **NOTE:** This is a synchronous method.
 
@@ -320,7 +320,6 @@ class Pool(object):
             Connection object previously returned by :py:meth:`momoko.Pool.getconn`.
         """
 
-        assert connection in self.conns.busy
         self.conns.release(connection)
 
         if self.conns.all_dead:
