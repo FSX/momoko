@@ -554,6 +554,20 @@ class MomokoPoolFactoriesTest(PoolBaseTest):
         cursor = yield db.execute("SELECT 1 AS a")
         self.assertEqual(cursor.fetchone(), {"a": 1})
 
+    @gen_test
+    def test_cursor_factory_with_extensions(self):
+        """Testing that NamedTupleCursor factory is working with hstore and json"""
+        db = yield self.build_pool(cur_factory=NamedTupleCursor)
+
+        yield db.register_hstore()
+        yield db.register_json()
+
+        cursor = yield self.db.execute("SELECT 'a=>b, c=>d'::hstore;")
+        self.assertEqual(cursor.fetchall(), [({"a": "b", "c": "d"},)])
+
+        cursor = yield self.db.execute("SELECT %s;", ({'e': 'f', 'g': 'h'},))
+        self.assertEqual(cursor.fetchall(), [({"e": "f", "g": "h"},)])
+
 
 class MomokoPoolParallelTest(PoolBaseTest):
     pool_size = 1

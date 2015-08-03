@@ -887,7 +887,7 @@ class Connection(object):
         registrator = partial(_psy_register_hstore, None, globally, unicode)
         callback = partial(self._register, future, registrator)
         self.ioloop.add_future(self.execute(
-            "SELECT 'hstore'::regtype::oid, 'hstore[]'::regtype::oid",
+            "SELECT 'hstore'::regtype::oid AS hstore_oid, 'hstore[]'::regtype::oid AS hstore_arr_oid",
         ), callback)
 
         return future
@@ -915,7 +915,7 @@ class Connection(object):
         registrator = partial(_psy_register_json, None, globally, loads)
         callback = partial(self._register, future, registrator)
         self.ioloop.add_future(self.execute(
-            "SELECT 'json'::regtype::oid, 'json[]'::regtype::oid"
+            "SELECT 'json'::regtype::oid AS json_oid, 'json[]'::regtype::oid AS json_arr_oid"
         ), callback)
 
         return future
