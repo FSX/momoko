@@ -1,6 +1,13 @@
 Changelog
 =========
 
+2.1.1 (2015-08-03)
+------------------
+*  Fixed JSON/HSTORE support with named cursors (`issue 112`_). Thanks to helminster_.
+
+.. _issue 112: https://github.com/FSX/momoko/issues/112
+.. _helminster: https://github.com/helminster
+
 2.1.0 (2015-07-08)
 ------------------
 *  Auto shrink support. Thanks to `John Chumnanvech`_.

@@ -34,7 +34,7 @@ else:
 
 setup(
     name='Momoko',
-    version='2.1.0',
+    version='2.1.1',
     description="Momoko wraps Psycopg2's functionality for use in Tornado.",
     long_description=open('README.rst').read(),
     author='Frank Smit & Zaar Hai',
