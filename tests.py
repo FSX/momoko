@@ -812,9 +812,71 @@ class MomokoPoolVolatileDbTest(PoolBaseTest):
             pass
         self.assertEqual(len(db.conns.waiting_queue), 0)
 
+    @gen_test
+    def test_execute_can_start_before_connection_is_done(self):
+        db = momoko.Pool(dsn=self.good_dsn, size=1, ioloop=self.io_loop)
+        db.connect()
+        cursor = yield db.execute("SELECT 1")
+        self.assertEqual(cursor.fetchone()[0], 1)
+
+    @gen_test
+    def test_execute_before_connection_is_done_will_error(self):
+        db = momoko.Pool(dsn=bad_dsn, size=1, ioloop=self.io_loop)
+        db.connect()
+
+        try:
+            yield db.execute("SELECT 1")
+
+            # This likely won't get hit; instead the test will timeout on
+            # failure.
+            self.fail("Exception should have been raised")
+        except psycopg2.DatabaseError:
+            pass
+
 
 class MomokoPoolVolatileDbTestProxy(ProxyMixIn, MomokoPoolVolatileDbTest):
-    pass
+
+    @gen_test
+    def test_execute_can_wait_for_connection_after_disconnect(self):
+        db = yield self.build_pool(dsn=self.good_dsn, size=1)
+
+        f1 = db.execute("SELECT 1")
+        self.terminate_proxy()
+        try:
+            yield f1
+        except psycopg2.DatabaseError:
+            pass
+        self.start_proxy()
+        yield gen.sleep(db.reconnect_interval)
+        f2 = db.execute("SELECT 1")
+        f3 = db.execute("SELECT 1")
+
+        cursors = yield [f2, f3]
+        self.assertEqual(cursors[0].fetchone()[0], 1)
+        self.assertEqual(cursors[1].fetchone()[0], 1)
+
+    @gen_test
+    def test_execute_can_fail_after_disconnect_with_no_reconnect(self):
+        db = yield self.build_pool(dsn=self.good_dsn, size=1)
+
+        f1 = db.execute("SELECT 1")
+        self.terminate_proxy()
+        try:
+            yield f1
+        except psycopg2.DatabaseError:
+            pass
+
+        # No start proxy here!
+        yield gen.sleep(db.reconnect_interval)
+        f2 = db.execute("SELECT 1")
+        f3 = db.execute("SELECT 1")
+
+        try:
+            yield [f2, f3]
+            self.fail("Exception should have been raised")
+        except psycopg2.DatabaseError:
+            pass
+        self.assertEqual(len(db.conns.waiting_queue), 0)
 
 
 class MomokoPoolPartiallyConnectedTest(PoolBaseTest):

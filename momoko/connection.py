@@ -71,6 +71,11 @@ class ConnectionContainer(object):
         self.pending.discard(conn)
         self.dead.add(conn)
 
+        # If everything is dead, abort anything pending.
+        if not self.pending:
+            self.abort_waiting_queue(Pool.DatabaseNotAvailable(
+                "No database connection available"))
+
     def acquire(self):
         """Occupy free connection"""
         future = Future()
@@ -82,6 +87,10 @@ class ConnectionContainer(object):
             return future
         elif self.busy:
             log.debug("No free connections, and some are busy - put in waiting queue")
+            self.waiting_queue.appendleft(future)
+            return future
+        elif self.pending:
+            log.debug("No free connections, but some are pending - put in waiting queue")
             self.waiting_queue.appendleft(future)
             return future
         else:
@@ -115,7 +124,7 @@ class ConnectionContainer(object):
 
     @property
     def all_dead(self):
-        return not (self.free or self.busy)
+        return not (self.free or self.busy or self.waiting_queue)
 
     @property
     def total(self):
@@ -295,8 +304,6 @@ class Pool(object):
             future = rv
         else:
             # Else, all connections are dead
-            assert len(self.conns.pending) == 0, "BUG! should be no pending connection"
-
             future = Future()
 
             def on_reanimate_done(fut):
