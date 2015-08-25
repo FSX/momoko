@@ -35,8 +35,9 @@ And this is how the same code looks with Momoko/Tornado::
     ioloop = IOLoop.instance()
 
     conn = momoko.Connection(dsn="...")
-    ioloop.add_future(conn.connect(), lambda x: ioloop.stop())
+    future = ioloop.add_future(conn.connect(), lambda x: ioloop.stop())
     ioloop.start()
+    future.result()  # raises exception on connection error
 
     future = conn.execute("SELECT 1")
     ioloop.add_future(future, lambda x: ioloop.stop())
@@ -118,6 +119,7 @@ to demonstrate Momoko's functionality. Here it goes::
         future = application.db.connect()
         ioloop.add_future(future, lambda f: ioloop.stop())
         ioloop.start()
+        future.result()  # raises exception on connection error
 
         http_server = HTTPServer(application)
         http_server.listen(8888, 'localhost')
