@@ -1,7 +1,7 @@
 #ifndef _REDIS_FMACRO_H
 #define _REDIS_FMACRO_H
 
-#define _BSD_SOURCE
+#define _DEFAULT_SOURCE
 
 #if defined(__linux__) || defined(__OpenBSD__)
 #define _XOPEN_SOURCE 700
