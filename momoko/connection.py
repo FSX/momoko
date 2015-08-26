@@ -821,10 +821,10 @@ class Connection(object):
                 cursor = future.result()
                 cursors.append(cursor)
             except Exception as error:
-                if not auto_rollback:
-                    transaction_future.set_exc_info(sys.exc_info())
-                else:
+                if auto_rollback and not self.closed:
                     self._rollback(transaction_future, error)
+                else:
+                    transaction_future.set_exc_info(sys.exc_info())
                 return
 
             try:
