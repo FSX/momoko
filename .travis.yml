@@ -15,6 +15,7 @@ before_script:
   - psql -c 'CREATE DATABASE momoko_test;' -U postgres
   - psql -U postgres momoko_test -c 'CREATE EXTENSION IF NOT EXISTS hstore'
   - make -C tcproxy
+  - echo Hi | nc -v localhost 5432
 
 env:
   global:
