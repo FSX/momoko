@@ -22,7 +22,7 @@ can also be used by setting the ``MOMOKO_PSYCOPG2_IMPL`` environment variable to
     # 'psycopg2' or 'psycopg2cffi'
     export MOMOKO_PSYCOPG2_IMPL='psycopg2cffi'
 
-The unit tests als use this variable. It needs to be set if something else is used
+The unit tests all use this variable. It needs to be set if something else is used
 instead of Psycopg2 when running the unit tests. Besides ``MOMOKO_PSYCOPG2_IMPL``
 there are also other variables that need to be set for the unit tests.
 
@@ -37,11 +37,17 @@ Here's an example for the environment variables::
     # Set to '0' if hstore extension isn't enabled
     export MOMOKO_TEST_HSTORE='1'  # Default: 0
 
-And running the tests is easy::
+Momoko tests use tcproxy_ for simulating Postgres server unavailablity. The copy
+of tcproxy is bundled with Momoko, but you need to build it first::
+
+    make -C tcproxy
+
+Finally, running the tests is easy::
 
    python setup.py test
 
 
+.. _tcproxy: https://github.com/dccmx/tcproxy
 .. _psycopg2cffi: http://pypi.python.org/pypi/psycopg2cffi
 .. _Tornado: http://www.tornadoweb.org/
 .. _Psycopg2: http://initd.org/psycopg/

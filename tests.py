@@ -10,7 +10,9 @@ import inspect
 import logging
 import datetime
 import threading
+import socket
 from tornado.concurrent import Future
+import subprocess
 
 from tornado import gen
 from tornado.testing import unittest, AsyncTestCase, gen_test
@@ -27,13 +29,18 @@ db_user = os.environ.get('MOMOKO_TEST_USER', 'postgres')
 db_password = os.environ.get('MOMOKO_TEST_PASSWORD', '')
 db_host = os.environ.get('MOMOKO_TEST_HOST', '')
 db_port = os.environ.get('MOMOKO_TEST_PORT', 5432)
+db_proxy_port = os.environ.get('MOMOKO_TEST_PROXY_PORT', 15432)
 test_hstore = True if os.environ.get('MOMOKO_TEST_HSTORE', False) == '1' else False
 good_dsn = 'dbname=%s user=%s password=%s host=%s port=%s' % (
     db_database, db_user, db_password, db_host, db_port)
+good_proxy_dsn = 'dbname=%s user=%s password=%s host=%s port=%s' % (
+    db_database, db_user, db_password, db_host, db_proxy_port)
 bad_dsn = 'dbname=%s user=%s password=xx%s host=%s port=%s' % (
     'db', 'user', 'password', "127.0.0.127", 11111)
 local_bad_dsn = 'dbname=%s user=%s password=xx%s' % (
     'db', 'user', 'password')
+
+TCPPROXY_PATH = os.environ.get('MOMOKO_TCPPROXY_PATH', "./tcproxy/src/tcproxy")
 
 assert (db_database or db_user or db_password or db_host or db_port) is not None, (
     'Environment variables for the unit tests are not set. Please set the following '
@@ -61,6 +68,7 @@ momoko.Pool.log_connect_errors = False
 
 class BaseTest(AsyncTestCase):
     dsn = good_dsn
+    good_dsn = good_dsn
 
     # This is a hack to overcome lack of "yield from" in Python < 3.3.
     # The goal is to support several set_up methods in inheriatnace chain
@@ -342,6 +350,8 @@ class MomokoConnectionFactoriesTest(BaseTest):
         """Test whether Connection.ping works fine with named cursors. Issue #74"""
         conn = yield momoko.connect(self.dsn, ioloop=self.io_loop, cursor_factory=RealDictCursor)
         yield conn.ping()
+
+
 #
 # Pool tests
 #
@@ -388,6 +398,13 @@ class PoolBaseTest(BaseTest):
                 conn.close()
                 amount -= 1
 
+    shutter = close_connections
+
+    def total_close(self, db):
+        self.shutter(db)
+        for conn in db.conns.busy.union(db.conns.free).union(db.conns.dead):
+            conn.dsn = bad_dsn
+
     @gen_test
     def run_and_check_query(self, db):
         cursor = yield db.execute("SELECT 6, 19, 24;")
@@ -404,6 +421,34 @@ class PoolBaseTest(BaseTest):
 
 class PoolBaseDataTest(PoolBaseTest, BaseDataTest):
     pass
+
+
+class ProxyMixIn(object):
+    dsn = good_proxy_dsn
+    good_dsn = good_proxy_dsn
+
+    def start_proxy(self):
+        # Dirty way to make sure there are no proxies leftovers
+        subprocess.call(("killall", TCPPROXY_PATH), stderr=open("/dev/null", "w"))
+
+        proxy_conf = "127.0.0.1:%s -> %s:%s" % (db_proxy_port, db_host, db_port)
+        self.proxy = subprocess.Popen((TCPPROXY_PATH, proxy_conf,))
+        time.sleep(0.1)
+
+    def terminate_proxy(self):
+        self.proxy.terminate()
+
+    def kill_connections(self, db, amount=None):
+        self.terminate_proxy()
+        self.start_proxy()
+
+    def set_up_00(self):
+        self.start_proxy()
+
+    def tear_down_00(self):
+        self.terminate_proxy()
+
+    shutter = kill_connections
 
 
 class MomokoPoolTest(PoolBaseTest):
@@ -462,11 +507,11 @@ class MomokoPoolDataTest(PoolBaseDataTest, MomokoConnectionDataTest):
 
     @gen_test
     def test_transaction_with_reconnect(self):
-        """Test whether transaction works after reconnect"""
+        """Test whether transaction works after connections were closed"""
 
         # Added result counting, since there was a bug in retry mechanism that caused
         # double-execution of query after reconnect
-        self.close_connections(self.db)
+        self.shutter(self.db)
         yield self.db.transaction(("INSERT INTO unit_test_int_table VALUES (1)",))
         cursor = yield self.db.execute("SELECT COUNT(1) FROM unit_test_int_table")
         self.assertEqual(cursor.fetchall(), [(1,)])
@@ -484,10 +529,10 @@ class MomokoPoolDataTest(PoolBaseDataTest, MomokoConnectionDataTest):
 
     @gen_test
     def test_getconn_putconn_with_reconnect(self):
-        """Testing getconn/putconn functionality with reconnect"""
+        """Testing getconn/putconn functionality with reconnect after closing connections"""
         for i in range(self.pool_size * 5):
             # Run many times to check that connections get recycled properly
-            self.close_connections(self.db)
+            self.shutter(self.db)
             conn = yield self.db.getconn()
             for j in range(10):
                 cursor = yield conn.execute("SELECT %s", (j,))
@@ -496,7 +541,7 @@ class MomokoPoolDataTest(PoolBaseDataTest, MomokoConnectionDataTest):
 
     @gen_test
     def test_getconn_manage(self):
-        """Testing getcontest_getconn_putconn_with_reconnectn + context manager functionality"""
+        """Testing getcontest_getconn_putconn + context manager functionality"""
         for i in range(self.pool_size * 5):
             # Run many times to check that connections get recycled properly
             conn = yield self.db.getconn()
@@ -506,9 +551,21 @@ class MomokoPoolDataTest(PoolBaseDataTest, MomokoConnectionDataTest):
                     self.assertEqual(cursor.fetchall(), [(j, )])
 
     @gen_test
+    def test_getconn_manage_with_reconnect(self):
+        """Testing getcontest_getconn_putconn_with_reconnect + context manager functionality"""
+        for i in range(self.pool_size * 5):
+            # Run many times to check that connections get recycled properly
+            self.shutter(self.db)
+            conn = yield self.db.getconn()
+            with self.db.manage(conn):
+                for j in range(10):
+                    cursor = yield conn.execute("SELECT %s", (j,))
+                    self.assertEqual(cursor.fetchall(), [(j, )])
+
+    @gen_test
     def test_getconn_manage_with_exception(self):
         """Testing getconn + context manager functionality + deliberate exception"""
-        self.close_connections(self.db)
+        self.shutter(self.db)
         conn = yield self.db.getconn(ping=False)
         with self.db.manage(conn):
             try:
@@ -516,6 +573,10 @@ class MomokoPoolDataTest(PoolBaseDataTest, MomokoConnectionDataTest):
             except psycopg2.Error as error:
                 pass
         self.assertEqual(len(self.db.conns.busy), 0, msg="Some connections were not recycled")
+
+
+class MomokoPoolDataTestProxy(ProxyMixIn, MomokoPoolDataTest):
+    pass
 
 
 class MomokoPoolServerSideCursorTest(PoolBaseDataTest):
@@ -601,13 +662,17 @@ class MomokoPoolParallelTest(PoolBaseTest):
 
     def test_parallel_queries_after_reconnect_all(self):
         """Testing that pool still queries database in parallel after ALL connections were closeded"""
-        self.close_connections(self.db)
+        self.shutter(self.db)
         self.run_parallel_queries()
 
     def test_parallel_queries_after_reconnect_some(self):
         """Testing that pool still queries database in parallel after SOME connections were closed"""
-        self.close_connections(self.db, amount=self.pool_size/2)
+        self.shutter(self.db, amount=self.pool_size/2)
         self.run_parallel_queries()
+
+
+class MomokoPoolParallelTestProxy(ProxyMixIn, MomokoPoolParallelTest):
+    pass
 
 
 class MomokoPoolStretchTest(MomokoPoolParallelTest):
@@ -629,12 +694,12 @@ class MomokoPoolStretchTest(MomokoPoolParallelTest):
 
     def test_dont_stretch_after_reconnect(self):
         """Testing that reconnecting dead connection does not trigger pool stretch"""
-        self.close_connections(self.db)
+        self.shutter(self.db)
         self.test_dont_stretch()
 
     def test_stretch_after_disonnect(self):
         """Testing that stretch works after disconnect"""
-        self.close_connections(self.db)
+        self.shutter(self.db)
         self.test_parallel_queries()
 
     @gen_test
@@ -669,6 +734,10 @@ class MomokoPoolStretchTest(MomokoPoolParallelTest):
         self.assertEqual(self.db.conns.total, 3)
 
 
+class MomokoPoolStretchTestProxy(ProxyMixIn, MomokoPoolStretchTest):
+    pass
+
+
 class MomokoPoolVolatileDbTest(PoolBaseTest):
     pool_size = 3
 
@@ -686,8 +755,9 @@ class MomokoPoolVolatileDbTest(PoolBaseTest):
 
     def test_reconnect(self):
         """Testing if we can reconnect if connections dies"""
-        db = self.build_pool_sync(dsn=good_dsn)
-        self.close_connections(db)
+        db = self.build_pool_sync(dsn=self.good_dsn)
+        log.debug("Killing connections")
+        self.shutter(db)
         self.run_and_check_query(db)
 
     def test_reconnect_interval_good_path(self):
@@ -711,26 +781,35 @@ class MomokoPoolVolatileDbTest(PoolBaseTest):
             pass
 
     @gen_test
+    def test_ping_error(self):
+        """Test that getconn uses ping properly to detect database unavailablity"""
+        db = yield self.build_pool(dsn=self.good_dsn, size=3)
+        self.total_close(db)
+        try:
+            yield db.getconn()
+        except db.DatabaseNotAvailable as err:
+            pass
+
+    @gen_test
     def test_abort_waiting_queue(self):
         """Testing that waiting queue is aborted properly when all connections are dead"""
-        db = yield self.build_pool(dsn=good_dsn, size=1)
+        db = yield self.build_pool(dsn=self.good_dsn, size=1)
         f1 = db.execute("SELECT 1")
         f2 = db.execute("SELECT 1")
 
         self.assertEqual(len(db.conns.waiting_queue), 1)
 
-        def total_close(f):
-            self.close_connections(db)
-            for conn in db.conns.dead:
-                conn.dsn = bad_dsn
-
-        f1.add_done_callback(total_close)
+        f1.add_done_callback(lambda f: self.total_close(db))
 
         try:
             yield [f1, f2]
         except psycopg2.DatabaseError:
             pass
         self.assertEqual(len(db.conns.waiting_queue), 0)
+
+
+class MomokoPoolVolatileDbTestProxy(ProxyMixIn, MomokoPoolVolatileDbTest):
+    pass
 
 
 class MomokoPoolPartiallyConnectedTest(PoolBaseTest):
