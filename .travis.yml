@@ -9,7 +9,7 @@ python:
   - pypy
 
 addons:
-  postgresql: "9.2"
+  postgresql: "9.4"
 
 before_script:
   - psql -c 'CREATE DATABASE momoko_test;' -U postgres
