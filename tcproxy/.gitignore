@@ -1,0 +1,9 @@
+*.o
+*.DS_Store
+*.log
+cachegrind.out.*
+callgrind.out.*
+massif.out.*
+memcheck.out
+tcproxy
+core

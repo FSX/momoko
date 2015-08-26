@@ -1,0 +1,18 @@
+2011-06-2 Release 0.2.2
+	* fix a bug that causes infinit loop when process write
+
+2011-05-21 Release 0.2.1
+	* fix ip address parse bug
+
+2011-05-20 Release 0.2
+	* nonblock connect implemented
+	* semicolon bind to address not port now
+	* some performance optimization
+	* some bugfix
+
+2011-05-18 Release 0.1.1
+	* -l option added to write log file
+	* minor code refinement
+
+2011-05-16 Release 0.1
+	* first public beta release
