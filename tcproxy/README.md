@@ -1,3 +1,5 @@
+**Copied from https://github.com/dccmx/tcproxy.git. Used for connection issues simulation.**
+
 tcproxy
 =======
 tcproxy is a small efficient tcp proxy that can be used for port forwarding or load balancing.
