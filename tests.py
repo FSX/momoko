@@ -379,7 +379,7 @@ class PoolBaseTest(BaseTest):
         gen_test(timeout=30)(runner)(self)
         return f.result()
 
-    def kill_connections(self, db, amount=None):
+    def close_connections(self, db, amount=None):
         amount = amount or (len(db.conns.free) + len(db.conns.busy))
         for conn in db.conns.busy.union(db.conns.free):
             if not amount:
@@ -466,7 +466,7 @@ class MomokoPoolDataTest(PoolBaseDataTest, MomokoConnectionDataTest):
 
         # Added result counting, since there was a bug in retry mechanism that caused
         # double-execution of query after reconnect
-        self.kill_connections(self.db)
+        self.close_connections(self.db)
         yield self.db.transaction(("INSERT INTO unit_test_int_table VALUES (1)",))
         cursor = yield self.db.execute("SELECT COUNT(1) FROM unit_test_int_table")
         self.assertEqual(cursor.fetchall(), [(1,)])
@@ -487,7 +487,7 @@ class MomokoPoolDataTest(PoolBaseDataTest, MomokoConnectionDataTest):
         """Testing getconn/putconn functionality with reconnect"""
         for i in range(self.pool_size * 5):
             # Run many times to check that connections get recycled properly
-            self.kill_connections(self.db)
+            self.close_connections(self.db)
             conn = yield self.db.getconn()
             for j in range(10):
                 cursor = yield conn.execute("SELECT %s", (j,))
@@ -508,7 +508,7 @@ class MomokoPoolDataTest(PoolBaseDataTest, MomokoConnectionDataTest):
     @gen_test
     def test_getconn_manage_with_exception(self):
         """Testing getconn + context manager functionality + deliberate exception"""
-        self.kill_connections(self.db)
+        self.close_connections(self.db)
         conn = yield self.db.getconn(ping=False)
         with self.db.manage(conn):
             try:
@@ -600,13 +600,13 @@ class MomokoPoolParallelTest(PoolBaseTest):
         self.run_parallel_queries(self.pool_size*2)
 
     def test_parallel_queries_after_reconnect_all(self):
-        """Testing that pool still queries database in parallel after ALL connections were killed"""
-        self.kill_connections(self.db)
+        """Testing that pool still queries database in parallel after ALL connections were closeded"""
+        self.close_connections(self.db)
         self.run_parallel_queries()
 
     def test_parallel_queries_after_reconnect_some(self):
-        """Testing that pool still queries database in parallel after SOME connections were killed"""
-        self.kill_connections(self.db, amount=self.pool_size/2)
+        """Testing that pool still queries database in parallel after SOME connections were closed"""
+        self.close_connections(self.db, amount=self.pool_size/2)
         self.run_parallel_queries()
 
 
@@ -629,12 +629,12 @@ class MomokoPoolStretchTest(MomokoPoolParallelTest):
 
     def test_dont_stretch_after_reconnect(self):
         """Testing that reconnecting dead connection does not trigger pool stretch"""
-        self.kill_connections(self.db)
+        self.close_connections(self.db)
         self.test_dont_stretch()
 
     def test_stretch_after_disonnect(self):
         """Testing that stretch works after disconnect"""
-        self.kill_connections(self.db)
+        self.close_connections(self.db)
         self.test_parallel_queries()
 
     @gen_test
@@ -687,7 +687,7 @@ class MomokoPoolVolatileDbTest(PoolBaseTest):
     def test_reconnect(self):
         """Testing if we can reconnect if connections dies"""
         db = self.build_pool_sync(dsn=good_dsn)
-        self.kill_connections(db)
+        self.close_connections(db)
         self.run_and_check_query(db)
 
     def test_reconnect_interval_good_path(self):
@@ -719,12 +719,12 @@ class MomokoPoolVolatileDbTest(PoolBaseTest):
 
         self.assertEqual(len(db.conns.waiting_queue), 1)
 
-        def total_kill(f):
-            self.kill_connections(db)
+        def total_close(f):
+            self.close_connections(db)
             for conn in db.conns.dead:
                 conn.dsn = bad_dsn
 
-        f1.add_done_callback(total_kill)
+        f1.add_done_callback(total_close)
 
         try:
             yield [f1, f2]
