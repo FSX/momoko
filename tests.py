@@ -27,7 +27,7 @@ debug = os.environ.get('MOMOKO_TEST_DEBUG', None)
 db_database = os.environ.get('MOMOKO_TEST_DB', 'momoko_test')
 db_user = os.environ.get('MOMOKO_TEST_USER', 'postgres')
 db_password = os.environ.get('MOMOKO_TEST_PASSWORD', '')
-db_host = os.environ.get('MOMOKO_TEST_HOST', 'localhost')
+db_host = os.environ.get('MOMOKO_TEST_HOST', '127.0.0.1')
 db_port = os.environ.get('MOMOKO_TEST_PORT', 5432)
 db_proxy_port = os.environ.get('MOMOKO_TEST_PROXY_PORT', 15432)
 test_hstore = True if os.environ.get('MOMOKO_TEST_HSTORE', False) == '1' else False
