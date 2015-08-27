@@ -44,7 +44,6 @@ setup(
     license='MIT',
     test_suite='tests',
     install_requires=dependencies,
-    test_require=dependencies + ["unittest2"],
     classifiers = [
         'Development Status :: 5 - Production/Stable',
         'Intended Audience :: Developers',

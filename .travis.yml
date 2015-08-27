@@ -9,15 +9,20 @@ python:
   - pypy
 
 addons:
-  postgresql: "9.2"
+  postgresql: "9.4"
 
 before_script:
   - psql -c 'CREATE DATABASE momoko_test;' -U postgres
   - psql -U postgres momoko_test -c 'CREATE EXTENSION IF NOT EXISTS hstore'
+  - make -C tcproxy
+  - env
 
 env:
   global:
     - MOMOKO_TEST_HSTORE=1
+    - MOMOKO_TEST_JSON=1
+    - MOMOKO_TEST_HOST=127.0.0.1
+    - PGHOST=127.0.0.1
   matrix:
     - MOMOKO_PSYCOPG2_IMPL=psycopg2
     - MOMOKO_PSYCOPG2_IMPL=psycopg2cffi
