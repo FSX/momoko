@@ -25,7 +25,7 @@ log = logging.getLogger("unittest")
 
 debug = os.environ.get('MOMOKO_TEST_DEBUG', None)
 db_database = os.environ.get('MOMOKO_TEST_DB', 'momoko_test')
-db_user = os.environ.get('MOMOKO_TEST_USER', 'wrongpostgres')
+db_user = os.environ.get('MOMOKO_TEST_USER', 'postgres')
 db_password = os.environ.get('MOMOKO_TEST_PASSWORD', '')
 db_host = os.environ.get('MOMOKO_TEST_HOST', '127.0.0.1')
 db_port = os.environ.get('MOMOKO_TEST_PORT', 5432)
@@ -33,8 +33,8 @@ db_proxy_port = os.environ.get('MOMOKO_TEST_PROXY_PORT', 15432)
 test_hstore = True if os.environ.get('MOMOKO_TEST_HSTORE', False) == '1' else False
 good_dsn = 'dbname=%s user=%s password=%s host=%s port=%s' % (
     db_database, db_user, db_password, db_host, db_port)
-good_proxy_dsn = 'dbname=%s user=%s password=%s hostaddr=127.0.0.1 port=%s' % (
-    db_database, db_user, db_password, db_proxy_port)
+good_proxy_dsn = 'dbname=%s user=%s password=%s host=%s port=%s' % (
+    db_database, db_user, db_password, db_host, db_proxy_port)
 bad_dsn = 'dbname=%s user=%s password=xx%s host=%s port=%s' % (
     'db', 'user', 'password', "127.0.0.127", 11111)
 local_bad_dsn = 'dbname=%s user=%s password=xx%s' % (
