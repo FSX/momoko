@@ -428,6 +428,7 @@ class PoolBaseDataTest(PoolBaseTest, BaseDataTest):
     pass
 
 
+@unittest.skipIf(psycopg2_impl == "psycopg2cffi", "Skipped. See: https://github.com/chtd/psycopg2cffi/issues/49")
 class ProxyMixIn(object):
     dsn = good_proxy_dsn
     good_dsn = good_proxy_dsn
