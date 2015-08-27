@@ -47,6 +47,11 @@ assert (db_database or db_user or db_password or db_host or db_port) is not None
     'variables: MOMOKO_TEST_DB, MOMOKO_TEST_USER, MOMOKO_TEST_PASSWORD, '
     'MOMOKO_TEST_HOST, MOMOKO_TEST_PORT')
 
+print("good_dsn %s" % good_dsn)
+print("good_proxy_dsn %s" % good_proxy_dsn)
+print("bad_dsn %s" % bad_dsn)
+print("local_bad_dsn %s" % local_bad_dsn)
+
 psycopg2_impl = os.environ.get('MOMOKO_PSYCOPG2_IMPL', 'psycopg2')
 
 if psycopg2_impl == 'psycopg2cffi':
