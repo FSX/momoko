@@ -242,11 +242,10 @@ class MomokoConnectionDataTest(BaseDataTest):
         cursor = yield self.conn.execute("SELECT COUNT(*) FROM unit_test_transaction;")
         self.assertEqual(cursor.fetchone(), (0,))
 
+    @unittest.skipIf(not test_hstore, "Skipping test as requested")
     @gen_test
     def test_hstore(self):
         """Testing hstore"""
-        if not test_hstore:
-            self.skipTest("skiping test as requested")
 
         yield self.conn.register_hstore()
 
@@ -521,6 +520,7 @@ class MomokoPoolDataTest(PoolBaseDataTest, MomokoConnectionDataTest):
         yield self.db.transaction(("INSERT INTO unit_test_int_table VALUES (1)",))
         cursor = yield self.db.execute("SELECT COUNT(1) FROM unit_test_int_table")
         self.assertEqual(cursor.fetchall(), [(1,)])
+        log.debug("test done")
 
     @gen_test
     def test_getconn_putconn(self):
@@ -762,7 +762,6 @@ class MomokoPoolVolatileDbTest(PoolBaseTest):
     def test_reconnect(self):
         """Testing if we can reconnect if connections dies"""
         db = self.build_pool_sync(dsn=self.good_dsn)
-        log.debug("Killing connections")
         self.shutter(db)
         self.run_and_check_query(db)
 
