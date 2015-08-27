@@ -25,7 +25,7 @@ log = logging.getLogger("unittest")
 
 debug = os.environ.get('MOMOKO_TEST_DEBUG', None)
 db_database = os.environ.get('MOMOKO_TEST_DB', 'momoko_test')
-db_user = os.environ.get('MOMOKO_TEST_USER', 'postgres')
+db_user = os.environ.get('MOMOKO_TEST_USER', 'wrongpostgres')
 db_password = os.environ.get('MOMOKO_TEST_PASSWORD', '')
 db_host = os.environ.get('MOMOKO_TEST_HOST', '127.0.0.1')
 db_port = os.environ.get('MOMOKO_TEST_PORT', 5432)
@@ -55,6 +55,15 @@ if psycopg2_impl == 'psycopg2cffi':
 elif psycopg2_impl == 'psycopg2ct':
     from psycopg2ct import compat
     compat.register()
+
+
+print('Variables:')
+print('good_dsn', good_dsn)
+print('good_proxy_dsn', good_proxy_dsn)
+print('bad_dsn', bad_dsn)
+print('local_bad_dsn', local_bad_dsn)
+print('TCPPROXY_PATH', TCPPROXY_PATH)
+print('psycopg2_impl', psycopg2_impl)
 
 
 import momoko
