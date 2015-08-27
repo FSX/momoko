@@ -21,6 +21,8 @@ before_script:
 env:
   global:
     - MOMOKO_TEST_HSTORE=1
+    - MOMOKO_TEST_HOST=127.0.0.1
+    - PGHOST=127.0.0.1
   matrix:
     - MOMOKO_PSYCOPG2_IMPL=psycopg2
     - MOMOKO_PSYCOPG2_IMPL=psycopg2cffi
