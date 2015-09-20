@@ -1,6 +1,16 @@
 Changelog
 =========
 
+2.2.0 (2015-09-20)
+------------------
+*  Fixed serious flaw with connection retrials. `More details`_.
+*  Fixed ping to handle failures properly (`issue 115`_).
+*  NOTE: gcc is now required to run tests - we supply built-in version of `tcproxy`_ for connection failure simulation.
+
+.. _More details: https://github.com/FSX/momoko/commit/85183f5370181f75a29e876f5211d99c40b4ba5e
+.. _issue 115: https://github.com/FSX/momoko/issues/115
+.. _tcproxy: https://github.com/dccmx/tcproxy
+
 2.1.1 (2015-08-03)
 ------------------
 *  Fixed JSON/HSTORE support with named cursors (`issue 112`_). Thanks to helminster_.
