@@ -73,8 +73,7 @@ class ConnectionContainer(object):
 
         # If everything is dead, abort anything pending.
         if not self.pending:
-            self.abort_waiting_queue(Pool.DatabaseNotAvailable(
-                "No database connection available"))
+            self.abort_waiting_queue(Pool.DatabaseNotAvailable("No database connection available"))
 
     def acquire(self):
         """Occupy free connection"""
