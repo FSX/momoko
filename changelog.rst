@@ -3,9 +3,9 @@ Changelog
 
 2.2.1 (2015-10-13)
 ------------------
-*  Wait for pending connections during connection acquiring (`issue 121`_). Thanks to jbowes_.
+*  Wait for pending connections during connection acquiring (`issue 122`_). Thanks to jbowes_.
 
-.. _issue 121: https://github.com/FSX/momoko/issues/121
+.. _issue 122: https://github.com/FSX/momoko/issues/122
 .. _jbowes: https://github.com/jbowes
 
 2.2.0 (2015-09-20)
