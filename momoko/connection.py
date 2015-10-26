@@ -703,15 +703,21 @@ class Connection(object):
             self.ioloop.remove_handler(self.fileno)
             future.set_exc_info(sys.exc_info())
         else:
-            if state == POLL_OK:
+            try:
+                if state == POLL_OK:
+                    self.ioloop.remove_handler(self.fileno)
+                    future.set_result(result)
+                elif state == POLL_READ:
+                    self.ioloop.update_handler(self.fileno, IOLoop.READ)
+                elif state == POLL_WRITE:
+                    self.ioloop.update_handler(self.fileno, IOLoop.WRITE)
+                else:
+                    future.set_exception(psycopg2.OperationalError("poll() returned %s" % state))
+            except IOError:
+                # Can happen when there are quite a lof of outstanding
+                # requests. See https://github.com/FSX/momoko/issues/127
                 self.ioloop.remove_handler(self.fileno)
-                future.set_result(result)
-            elif state == POLL_READ:
-                self.ioloop.update_handler(self.fileno, IOLoop.READ)
-            elif state == POLL_WRITE:
-                self.ioloop.update_handler(self.fileno, IOLoop.WRITE)
-            else:
-                future.set_exception(psycopg2.OperationalError("poll() returned %s" % state))
+                future.set_exception(psycopg2.OperationalError("IOError on socker"))
 
     def ping(self):
         """
