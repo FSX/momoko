@@ -286,13 +286,13 @@ class Pool(object):
         """
         Acquire connection from the pool.
 
-        You can then use this connection for subsequest queries.
+        You can then use this connection for subsequent queries.
         Just use ``connection.execute`` instead of ``Pool.execute``.
 
         Make sure to return connection to the pool by calling :py:meth:`momoko.Pool.putconn`,
-        otherwise the connection will remain forever-busy and you'll starvate your pool quickly.
+        otherwise the connection will remain forever busy and you'll starve your pool.
 
-        Returns future that resolves to the acquired connection object.
+        Returns a future that resolves to the acquired connection object.
 
         :param boolean ping:
             Whether to ping the connection before returning it by executing :py:meth:`momoko.Connection.ping`.
