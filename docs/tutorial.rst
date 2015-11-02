@@ -11,9 +11,10 @@ wraps Psycopg2, the `Psycopg2 documentation`_ must be used alongside Momoko's.
 
 The principle
 -------------
-All of the :py:meth:`~momoko.Pool` and :py:meth:`~momoko.Connection` methods return
-_futures. There are some notable exceptions like :py:meth:`~momoko.Pool.close` - make sure
-to consule API documentation for the details.
+Almost every method of :py:meth:`~momoko.Pool` and :py:meth:`~momoko.Connection`
+returns a `future`_. There are some notable exceptions, like
+:py:meth:`~momoko.Pool.close`; be sure to consult API documentation for the
+details.
 
 These future objects can be simply ``yield``-ed in Tornado methods decorated with ``gen.coroutine``.
 For SQL execution related methods these futures resolve to corresponding cursor objects.
@@ -226,4 +227,4 @@ Here is the server-side cursor example (based on the code in momoko unittests)::
 .. _Wait: http://tornado.readthedocs.org/en/stable/gen.html#tornado.gen.Wait
 .. _WaitAll: http://tornado.readthedocs.org/en/stable/gen.html#tornado.gen.WaitAll
 .. _exceptions: http://initd.org/psycopg/docs/module.html#exceptions
-.. _futures: http://tornado.readthedocs.org/en/latest/concurrent.html
+.. _future: http://tornado.readthedocs.org/en/latest/concurrent.html
