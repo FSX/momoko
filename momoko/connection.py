@@ -175,7 +175,7 @@ class Pool(object):
         connect to database during :py:meth:`momoko.Pool.connect`.
 
     :param int reconnect_interval:
-        If database server becomes unavailble, the pool will try to reestablish
+        If database server becomes unavailable, the pool will try to reestablish
         the connection. The attempt frequency is ``reconnect_interval``
         milliseconds.
 
@@ -244,7 +244,7 @@ class Pool(object):
         self.conns = ConnectionContainer()
 
         self._last_connect_time = 0
-        self._no_conn_availble_error = self.DatabaseNotAvailable("No database connection available")
+        self._no_conn_available_error = self.DatabaseNotAvailable("No database connection available")
         self.shrink_period = shrink_period
         self.shrink_delay = shrink_delay
         self.auto_shrink = auto_shrink
@@ -286,13 +286,13 @@ class Pool(object):
         """
         Acquire connection from the pool.
 
-        You can then use this connection for subsequest queries.
+        You can then use this connection for subsequent queries.
         Just use ``connection.execute`` instead of ``Pool.execute``.
 
         Make sure to return connection to the pool by calling :py:meth:`momoko.Pool.putconn`,
-        otherwise the connection will remain forever-busy and you'll starvate your pool quickly.
+        otherwise the connection will remain forever busy and you'll starve your pool.
 
-        Returns future that resolves to the acquired connection object.
+        Returns a future that resolves to the acquired connection object.
 
         :param boolean ping:
             Whether to ping the connection before returning it by executing :py:meth:`momoko.Connection.ping`.
@@ -307,7 +307,7 @@ class Pool(object):
 
             def on_reanimate_done(fut):
                 if self.conns.all_dead:
-                    future.set_exception(self._no_conn_availble_error)
+                    future.set_exception(self._no_conn_available_error)
                     return
                 f = self.conns.acquire()
                 assert isinstance(f, Future)
@@ -333,7 +333,7 @@ class Pool(object):
         self.conns.release(connection)
 
         if self.conns.all_dead:
-            self.conns.abort_waiting_queue(self._no_conn_availble_error)
+            self.conns.abort_waiting_queue(self._no_conn_available_error)
 
     @contextmanager
     def manage(self, connection):
@@ -495,7 +495,7 @@ class Pool(object):
                 self.ioloop.add_future(conn.connect(), what)
                 return
             else:
-                future.set_exception(self._no_conn_availble_error)
+                future.set_exception(self._no_conn_available_error)
         else:
             future.set_exc_info(sys.exc_info())
         if not keep:
@@ -580,7 +580,7 @@ class Pool(object):
                     ping_fut.result()
                 except psycopg2.Error as error:
                     if conn.closed:
-                        ping_future.set_exception(self._no_conn_availble_error)
+                        ping_future.set_exception(self._no_conn_available_error)
                     else:
                         ping_future.set_exc_info(sys.exc_info())
                     self.putconn(conn)

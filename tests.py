@@ -667,7 +667,7 @@ class MomokoPoolParallelTest(PoolBaseTest):
         self.run_parallel_queries(self.pool_size*2)
 
     def test_parallel_queries_after_reconnect_all(self):
-        """Testing that pool still queries database in parallel after ALL connections were closeded"""
+        """Testing that pool still queries database in parallel after ALL connections were closed"""
         self.shutter(self.db)
         self.run_parallel_queries()
 
