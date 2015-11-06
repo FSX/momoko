@@ -40,7 +40,7 @@ Testing
 Set the following environment variables with your own values before running the
 unit tests::
 
-    make -C tcpproxy
+    make -C tcproxy
     export MOMOKO_TEST_DB='your_db'
     export MOMOKO_TEST_USER='your_user'
     export MOMOKO_TEST_PASSWORD='your_password'
