@@ -580,6 +580,15 @@ class MomokoPoolDataTest(PoolBaseDataTest, MomokoConnectionDataTest):
                 pass
         self.assertEqual(len(self.db.conns.busy), 0, msg="Some connections were not recycled")
 
+    @gen_test
+    def test_non_psycopg2_errors(self):
+        """Testing that non-psycopg2 errors are catched properly"""
+        try:
+            sql = yield self.conn.execute("SELECT %s %s;", (1,))
+        except IndexError:
+            pass
+        self.assertEqual(len(self.db.conns.busy), 0, msg="Some connections were not recycled")
+
 
 class MomokoPoolDataTestProxy(ProxyMixIn, MomokoPoolDataTest):
     pass
@@ -815,14 +824,20 @@ class MomokoPoolVolatileDbTest(PoolBaseTest):
     @gen_test
     def test_execute_can_start_before_connection_is_done(self):
         db = momoko.Pool(dsn=self.good_dsn, size=1, ioloop=self.io_loop)
-        db.connect()
+        f = db.connect()
         cursor = yield db.execute("SELECT 1")
         self.assertEqual(cursor.fetchone()[0], 1)
+
+        # This is to hide tornado warnings about unconsumed futures
+        try:
+            yield f
+        except:
+            pass
 
     @gen_test
     def test_execute_before_connection_is_done_will_error(self):
         db = momoko.Pool(dsn=bad_dsn, size=1, ioloop=self.io_loop)
-        db.connect()
+        f = db.connect()
 
         try:
             yield db.execute("SELECT 1")
@@ -831,6 +846,12 @@ class MomokoPoolVolatileDbTest(PoolBaseTest):
             # failure.
             self.fail("Exception should have been raised")
         except psycopg2.DatabaseError:
+            pass
+
+        # This is to hide tornado warnings about unconsumed futures
+        try:
+            yield f
+        except:
             pass
 
 
@@ -869,13 +890,13 @@ class MomokoPoolVolatileDbTestProxy(ProxyMixIn, MomokoPoolVolatileDbTest):
         # No start proxy here!
         yield gen.sleep(db.reconnect_interval)
         f2 = db.execute("SELECT 1")
-        f3 = db.execute("SELECT 1")
 
         try:
-            yield [f2, f3]
+            yield f2
             self.fail("Exception should have been raised")
         except psycopg2.DatabaseError:
             pass
+
         self.assertEqual(len(db.conns.waiting_queue), 0)
 
 
