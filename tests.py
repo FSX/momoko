@@ -899,6 +899,7 @@ class MomokoPoolVolatileDbTestProxy(ProxyMixIn, MomokoPoolVolatileDbTest):
 
         self.assertEqual(len(db.conns.waiting_queue), 0)
 
+
 class MomokoPoolPartiallyConnectedTest(PoolBaseTest):
     raise_connect_errors = True
     pool_size = 3
