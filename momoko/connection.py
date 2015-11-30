@@ -457,7 +457,7 @@ class Pool(object):
             log.debug("Obtained connection: %s", conn.fileno)
             try:
                 future_or_result = method(conn, *args, **kwargs)
-            except psycopg2.Error as error:
+            except Exception as error:
                 log.debug("Method failed synchronously")
                 return self._retry(retry, when_available, conn, keep, future)
 

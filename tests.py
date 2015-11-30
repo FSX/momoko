@@ -580,6 +580,15 @@ class MomokoPoolDataTest(PoolBaseDataTest, MomokoConnectionDataTest):
                 pass
         self.assertEqual(len(self.db.conns.busy), 0, msg="Some connections were not recycled")
 
+    @gen_test
+    def test_non_psycopg2_errors(self):
+        """Testing that non-psycopg2 errors are catched properly"""
+        try:
+            sql = yield self.conn.execute("SELECT %s %s;", (1,))
+        except IndexError:
+            pass
+        self.assertEqual(len(self.db.conns.busy), 0, msg="Some connections were not recycled")
+
 
 class MomokoPoolDataTestProxy(ProxyMixIn, MomokoPoolDataTest):
     pass
