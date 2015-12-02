@@ -1,6 +1,21 @@
 Changelog
 =========
 
+2.2.2 (2015-12-02)
+------------------
+*  Doc fixes (`issue 131`_). Thanks to gward_.
+*  Makefile fix (`issue 132`_). Thanks to bitwolaiye_.
+*  Catching all syncrhonous exceptions (`issue 134`_). Thanks to m-messiah_.
+*  Catchin ``IOError``\ s in IOLoop handlers (`issue 127`_). 
+
+.. _issue 127: https://github.com/FSX/momoko/issues/127
+.. _issue 131: https://github.com/FSX/momoko/issues/131
+.. _issue 132: https://github.com/FSX/momoko/issues/132
+.. _issue 134: https://github.com/FSX/momoko/issues/134
+.. _bitwolaiye: https://github.com/bitwolaiye
+.. _gward: https://github.com/gward
+.. _m-messiah: https://github.com/m-messiah
+
 2.2.1 (2015-10-13)
 ------------------
 *  Wait for pending connections during connection acquiring (`issue 122`_). Thanks to jbowes_.
