@@ -752,7 +752,10 @@ class Connection(object):
         """
         kwargs = {"cursor_factory": cursor_factory} if cursor_factory else {}
         cursor = self.connection.cursor(**kwargs)
-        cursor.execute(operation, parameters)
+        if parameters:
+            cursor.execute(operation, parameters)
+        else:
+            cursor.execute(operation)
 
         future = Future()
         callback = partial(self._io_callback, future, cursor)

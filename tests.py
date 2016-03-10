@@ -127,6 +127,7 @@ class BaseDataTest(BaseTest):
         yield self.conn.execute("DROP TABLE IF EXISTS unit_test_transaction;")
         yield self.conn.execute("DROP TABLE IF EXISTS  unit_test_int_table;")
         yield self.conn.execute("DROP FUNCTION IF EXISTS unit_test_callproc(integer);")
+        yield self.conn.execute("DROP FUNCTION IF EXISTS unit_test_callproc_noparams();")
 
     def prepare_db(self):
         yield self.conn.execute(
@@ -142,6 +143,12 @@ class BaseDataTest(BaseTest):
             "CREATE OR REPLACE FUNCTION unit_test_callproc(n integer)\n"
             "RETURNS integer AS $BODY$BEGIN\n"
             "RETURN n*n;\n"
+            "END;$BODY$ LANGUAGE plpgsql VOLATILE;"
+        )
+        yield self.conn.execute(
+            "CREATE OR REPLACE FUNCTION unit_test_callproc_noparams()\n"
+            "RETURNS integer AS $BODY$BEGIN\n"
+            "RETURN 42;\n"
             "END;$BODY$ LANGUAGE plpgsql VOLATILE;"
         )
 
@@ -192,6 +199,15 @@ class MomokoConnectionDataTest(BaseDataTest):
         """Testing simple SELECT"""
         cursor = yield self.conn.execute("SELECT 1, 2, 3")
         self.assertEqual(cursor.fetchall(), [(1, 2, 3)])
+
+    @gen_test
+    def test_execute_percent_sign(self):
+        """
+        Testing that momoko does not complain on percent signs when there is no parameters.
+        Issue #136
+        """
+        cursor = yield self.conn.execute("SELECT 'a%s'")
+        self.assertEqual(cursor.fetchall(), [('a%s',)])
 
     @gen_test
     def test_ping(self):
@@ -271,6 +287,12 @@ class MomokoConnectionDataTest(BaseDataTest):
         """Testing callproc"""
         cursor = yield self.conn.callproc("unit_test_callproc", (64,))
         self.assertEqual(cursor.fetchone(), (4096,))
+
+    @gen_test
+    def test_callproc_noparams(self):
+        """Testing callproc without parameters"""
+        cursor = yield self.conn.callproc("unit_test_callproc_noparams")
+        self.assertEqual(cursor.fetchone(), (42,))
 
     @gen_test
     def test_query_error(self):
