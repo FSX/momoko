@@ -736,8 +736,8 @@ class Connection(object):
         Prepare and execute a database operation (query or command).
 
         :param string operation: An SQL query.
-        :param tuple/list parameters:
-            A list or tuple with query parameters. See `Passing parameters to SQL queries`_
+        :param tuple/list/dict parameters:
+            A list, tuple or dict with query parameters. See `Passing parameters to SQL queries`_
             for more information. Defaults to an empty tuple.
         :param cursor_factory:
             The ``cursor_factory`` argument can be used to create non-standard cursors.
