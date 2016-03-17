@@ -832,7 +832,7 @@ class Connection(object):
         :param tuple/list statements:
             List or tuple containing SQL queries with or without parameters. An item
             can be a string (SQL query without parameters) or a tuple/list with two items,
-            an SQL query and a tuple/list wuth parameters.
+            an SQL query and a tuple/list with parameters.
 
             See `Passing parameters to SQL queries`_ for more information.
         :param cursor_factory:
