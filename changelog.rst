@@ -1,6 +1,12 @@
 Changelog
 =========
 
+2.2.3 (2016-03-10)
+------------------
+*  Matching ``execute`` parameters behaviour to those of psycopg2. (`issue 136`_).
+
+.. _issue 136: https://github.com/FSX/momoko/issues/136
+
 2.2.2 (2015-12-02)
 ------------------
 *  Doc fixes (`issue 131`_). Thanks to gward_.
