@@ -101,8 +101,10 @@ class ConnectionContainer(object):
         assert conn in self.busy, "Tried to release non-busy connection"
         self.busy.remove(conn)
         if conn.closed:
+            log.debug("The connection is dead")
             self.dead.add(conn)
         else:
+            log.debug("The connection is alive")
             self.add_free(conn)
 
     def abort_waiting_queue(self, error):
@@ -123,7 +125,7 @@ class ConnectionContainer(object):
 
     @property
     def all_dead(self):
-        return not (self.free or self.busy or self.waiting_queue)
+        return not (self.free or self.busy or self.pending)
 
     @property
     def total(self):
@@ -333,6 +335,7 @@ class Pool(object):
         self.conns.release(connection)
 
         if self.conns.all_dead:
+            log.debug("All connections are dead - aborting waiting queue")
             self.conns.abort_waiting_queue(self._no_conn_available_error)
 
     @contextmanager
@@ -462,9 +465,9 @@ class Pool(object):
                 return self._retry(retry, when_available, conn, keep, future)
 
             if not async:
+                future.set_result(future_or_result)
                 if not keep:
                     self.putconn(conn)
-                future.set_result(future_or_result)
                 return
 
             def when_done(rfut):
@@ -474,9 +477,9 @@ class Pool(object):
                     log.debug("Method failed Asynchronously")
                     return self._retry(retry, when_available, conn, keep, future)
 
+                future.set_result(result)
                 if not keep:
                     self.putconn(conn)
-                future.set_result(result)
 
             self.ioloop.add_future(future_or_result, when_done)
 
