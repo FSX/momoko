@@ -134,7 +134,7 @@ class ConnectionContainer(object):
 
 class Pool(object):
     """
-    Asynchronous conntion pool object. All its methods are
+    Asynchronous connection pool object. All its methods are
     asynchronous unless stated otherwide in method description.
 
     :param string dsn:
@@ -537,7 +537,7 @@ class Pool(object):
         if self.conns.total == self.max_size:
             return  # max size reached
         if self.conns.free:
-            return  # no point to stretch if there are free connections
+            return  # no point in stretching if there are free connections
         if self.conns.pending:
             if len(self.conns.pending) >= len(self.conns.waiting_queue):
                 return  # there are enough outstanding connection requests
@@ -546,7 +546,7 @@ class Pool(object):
         self._new_connection()
 
     def _new_connection(self):
-        log.debug("Spawning new connection")
+        log.debug("Opening new connection")
         conn = Connection(self.dsn,
                           connection_factory=self.connection_factory,
                           cursor_factory=self.cursor_factory,
