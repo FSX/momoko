@@ -546,7 +546,7 @@ class Pool(object):
         self._new_connection()
 
     def _new_connection(self):
-        log.debug("Spawning new connection")
+        log.debug("Opening new connection")
         conn = Connection(self.dsn,
                           connection_factory=self.connection_factory,
                           cursor_factory=self.cursor_factory,
