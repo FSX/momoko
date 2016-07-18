@@ -539,7 +539,6 @@ class MomokoPoolDataTest(PoolBaseDataTest, MomokoConnectionDataTest):
         yield self.db.transaction(("INSERT INTO unit_test_int_table VALUES (1)",))
         cursor = yield self.db.execute("SELECT COUNT(1) FROM unit_test_int_table")
         self.assertEqual(cursor.fetchall(), [(1,)])
-        log.debug("test done")
 
     @gen_test
     def test_getconn_putconn(self):
@@ -920,6 +919,30 @@ class MomokoPoolVolatileDbTestProxy(ProxyMixIn, MomokoPoolVolatileDbTest):
         # No start proxy here!
         yield gen.sleep(db.reconnect_interval)
         f2 = db.execute("SELECT 1")
+
+        try:
+            yield f2
+            self.fail("Exception should have been raised")
+        except psycopg2.DatabaseError:
+            pass
+
+        self.assertEqual(len(db.conns.waiting_queue), 0)
+
+    @gen_test
+    def test_getconn_can_fail_after_disconnect_with_no_reconnect(self):
+        # Issue 147
+        db = yield self.build_pool(dsn=self.good_dsn, size=1)
+
+        f1 = db.getconn()
+        self.terminate_proxy()
+        try:
+            yield f1
+        except psycopg2.DatabaseError:
+            pass
+
+        # No start proxy here!
+        yield gen.sleep(db.reconnect_interval)
+        f2 = db.getconn()
 
         try:
             yield f2

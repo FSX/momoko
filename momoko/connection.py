@@ -307,6 +307,7 @@ class Pool(object):
 
             def on_reanimate_done(fut):
                 if self.conns.all_dead:
+                    log.debug("all connections are still dead")
                     future.set_exception(self._no_conn_available_error)
                     return
                 f = self.conns.acquire()
@@ -574,7 +575,12 @@ class Pool(object):
         ping_future = Future()
 
         def on_connection_available(fut):
-            conn = fut.result()
+            try:
+                conn = fut.result()
+            except psycopg2.Error:
+                log.debug("Aborting ping - failed to obtain connection")
+                ping_future.set_exception(self._no_conn_available_error)
+                return
 
             def on_ping_done(ping_fut):
                 try:
