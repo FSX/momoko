@@ -20,15 +20,13 @@ from functools import partial
 from collections import deque
 import time
 import datetime
-from functools import wraps
 from contextlib import contextmanager
 
 import psycopg2
 from psycopg2.extras import register_hstore as _psy_register_hstore
 from psycopg2.extras import register_json as _psy_register_json
-from psycopg2.extensions import POLL_OK, POLL_READ, POLL_WRITE, POLL_ERROR
+from psycopg2.extensions import POLL_OK, POLL_READ, POLL_WRITE
 
-from tornado import gen
 from tornado.ioloop import IOLoop
 from tornado.concurrent import chain_future, Future
 
@@ -309,6 +307,7 @@ class Pool(object):
 
             def on_reanimate_done(fut):
                 if self.conns.all_dead:
+                    log.debug("all connections are still dead")
                     future.set_exception(self._no_conn_available_error)
                     return
                 f = self.conns.acquire()
@@ -451,7 +450,7 @@ class Pool(object):
         def when_available(fut):
             try:
                 conn = fut.result()
-            except psycopg2.Error as error:
+            except psycopg2.Error:
                 future.set_exc_info(sys.exc_info())
                 if retry and not keep:
                     self.putconn(retry[0])
@@ -460,7 +459,7 @@ class Pool(object):
             log.debug("Obtained connection: %s", conn.fileno)
             try:
                 future_or_result = method(conn, *args, **kwargs)
-            except Exception as error:
+            except Exception:
                 log.debug("Method failed synchronously")
                 return self._retry(retry, when_available, conn, keep, future)
 
@@ -473,7 +472,7 @@ class Pool(object):
             def when_done(rfut):
                 try:
                     result = rfut.result()
-                except psycopg2.Error as error:
+                except psycopg2.Error:
                     log.debug("Method failed Asynchronously")
                     return self._retry(retry, when_available, conn, keep, future)
 
@@ -561,7 +560,7 @@ class Pool(object):
         def on_connect(fut):
             try:
                 fut.result()
-            except psycopg2.Error as error:
+            except psycopg2.Error:
                 self.conns.add_dead(conn)
             else:
                 self.conns.add_free(conn)
@@ -576,12 +575,17 @@ class Pool(object):
         ping_future = Future()
 
         def on_connection_available(fut):
-            conn = fut.result()
+            try:
+                conn = fut.result()
+            except psycopg2.Error:
+                log.debug("Aborting ping - failed to obtain connection")
+                ping_future.set_exception(self._no_conn_available_error)
+                return
 
             def on_ping_done(ping_fut):
                 try:
                     ping_fut.result()
-                except psycopg2.Error as error:
+                except psycopg2.Error:
                     if conn.closed:
                         ping_future.set_exception(self._no_conn_available_error)
                     else:
@@ -664,7 +668,7 @@ class Connection(object):
         self.connection = None
         try:
             self.connection = psycopg2.connect(self.dsn, **kwargs)
-        except psycopg2.Error as error:
+        except psycopg2.Error:
             self.connection = None
             future.set_exc_info(sys.exc_info())
             return future
@@ -702,7 +706,7 @@ class Connection(object):
     def _io_callback(self, future, result, fd=None, events=None):
         try:
             state = self.connection.poll()
-        except (psycopg2.Warning, psycopg2.Error) as error:
+        except (psycopg2.Warning, psycopg2.Error):
             self.ioloop.remove_handler(self.fileno)
             future.set_exc_info(sys.exc_info())
         else:
@@ -902,7 +906,7 @@ class Connection(object):
     def _register(self, future, registrator, fut):
         try:
             cursor = fut.result()
-        except Exception as error:
+        except Exception:
             future.set_exc_info(sys.exc_info())
             return
 
