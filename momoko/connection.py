@@ -42,6 +42,16 @@ class ConnectionContainer(object):
     def __init__(self):
         self.empty()
 
+    def __repr__(self):
+        return ('<%s at %x: %d free, %d busy, %d dead, %d pending, %d waiting>'
+                % (self.__class__.__name__,
+                   id(self),
+                   len(self.free),
+                   len(self.busy),
+                   len(self.dead),
+                   len(self.pending),
+                   len(self.waiting_queue)))
+
     def empty(self):
         self.free = deque()
         self.busy = set()
