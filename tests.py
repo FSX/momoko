@@ -9,9 +9,6 @@ from itertools import chain
 import inspect
 import logging
 import datetime
-import threading
-import socket
-from tornado.concurrent import Future
 import subprocess
 
 from tornado import gen
@@ -180,7 +177,7 @@ class MomokoConnectionTest(BaseTest):
     def test_bad_connect(self):
         """Test that Connection raises connection errors"""
         try:
-            conn = yield momoko.connect(bad_dsn, ioloop=self.io_loop)
+            yield momoko.connect(bad_dsn, ioloop=self.io_loop)
         except Exception as error:
             self.assertIsInstance(error, psycopg2.OperationalError)
 
@@ -188,7 +185,7 @@ class MomokoConnectionTest(BaseTest):
     def test_bad_connect_local(self):
         """Test that Connection raises connection errors when using local socket"""
         try:
-            conn = yield momoko.connect(local_bad_dsn, ioloop=self.io_loop)
+            yield momoko.connect(local_bad_dsn, ioloop=self.io_loop)
         except Exception as error:
             self.assertIsInstance(error, psycopg2.OperationalError)
 
@@ -597,8 +594,8 @@ class MomokoPoolDataTest(PoolBaseDataTest, MomokoConnectionDataTest):
         conn = yield self.db.getconn(ping=False)
         with self.db.manage(conn):
             try:
-                cursor = yield conn.execute("SELECT 1")
-            except psycopg2.Error as error:
+                yield conn.execute("SELECT 1")
+            except psycopg2.Error:
                 pass
         self.assertEqual(len(self.db.conns.busy), 0, msg="Some connections were not recycled")
 
@@ -606,7 +603,7 @@ class MomokoPoolDataTest(PoolBaseDataTest, MomokoConnectionDataTest):
     def test_non_psycopg2_errors(self):
         """Testing that non-psycopg2 errors are catched properly"""
         try:
-            sql = yield self.conn.execute("SELECT %s %s;", (1,))
+            yield self.conn.execute("SELECT %s %s;", (1,))
         except IndexError:
             pass
         self.assertEqual(len(self.db.conns.busy), 0, msg="Some connections were not recycled")
@@ -823,7 +820,7 @@ class MomokoPoolVolatileDbTest(PoolBaseTest):
         self.total_close(db)
         try:
             yield db.getconn()
-        except db.DatabaseNotAvailable as err:
+        except db.DatabaseNotAvailable:
             pass
 
     @gen_test
