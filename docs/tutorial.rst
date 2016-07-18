@@ -36,7 +36,8 @@ And this is how the same code looks with Momoko/Tornado::
     ioloop = IOLoop.instance()
 
     conn = momoko.Connection(dsn="...")
-    future = ioloop.add_future(conn.connect(), lambda x: ioloop.stop())
+    future = conn.connect()
+    ioloop.add_future(future, lambda x: ioloop.stop())
     ioloop.start()
     future.result()  # raises exception on connection error
 

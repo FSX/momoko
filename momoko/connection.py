@@ -132,7 +132,7 @@ class ConnectionContainer(object):
 
 class Pool(object):
     """
-    Asynchronous conntion pool object. All its methods are
+    Asynchronous connection pool object. All its methods are
     asynchronous unless stated otherwide in method description.
 
     :param string dsn:
@@ -536,7 +536,7 @@ class Pool(object):
         if self.conns.total == self.max_size:
             return  # max size reached
         if self.conns.free:
-            return  # no point to stretch if there are free connections
+            return  # no point in stretching if there are free connections
         if self.conns.pending:
             if len(self.conns.pending) >= len(self.conns.waiting_queue):
                 return  # there are enough outstanding connection requests
@@ -545,7 +545,7 @@ class Pool(object):
         self._new_connection()
 
     def _new_connection(self):
-        log.debug("Spawning new connection")
+        log.debug("Opening new connection")
         conn = Connection(self.dsn,
                           connection_factory=self.connection_factory,
                           cursor_factory=self.cursor_factory,
@@ -743,8 +743,8 @@ class Connection(object):
         Prepare and execute a database operation (query or command).
 
         :param string operation: An SQL query.
-        :param tuple/list parameters:
-            A list or tuple with query parameters. See `Passing parameters to SQL queries`_
+        :param tuple/list/dict parameters:
+            A list, tuple or dict with query parameters. See `Passing parameters to SQL queries`_
             for more information. Defaults to an empty tuple.
         :param cursor_factory:
             The ``cursor_factory`` argument can be used to create non-standard cursors.
@@ -839,7 +839,7 @@ class Connection(object):
         :param tuple/list statements:
             List or tuple containing SQL queries with or without parameters. An item
             can be a string (SQL query without parameters) or a tuple/list with two items,
-            an SQL query and a tuple/list wuth parameters.
+            an SQL query and a tuple/list/dict with parameters.
 
             See `Passing parameters to SQL queries`_ for more information.
         :param cursor_factory:
