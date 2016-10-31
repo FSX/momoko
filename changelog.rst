@@ -1,6 +1,17 @@
 Changelog
 =========
 
+2.2.4 (2016-10-31)
+------------------
+*  Resiliency to PostgreSQL restarts (`issue 147`_)
+*  Provide a useful `__repr__()` method for `ConnectionContainer` (`issue 146`_)
+*  Dropped support for Python 3.2 - Tornado stopped supporting it as well
+*  Fixed potential conflict in connection management (`issue 139`_)
+
+.. _issue 147: https://github.com/FSX/momoko/issues/147
+.. _issue 146: https://github.com/FSX/momoko/issues/146
+.. _issue 139: https://github.com/FSX/momoko/issues/139
+
 2.2.3 (2016-03-10)
 ------------------
 *  Matching ``execute`` parameters behaviour to those of psycopg2. (`issue 136`_).
