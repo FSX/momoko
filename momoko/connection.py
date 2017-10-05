@@ -734,7 +734,7 @@ class Connection(object):
                 # Can happen when there are quite a lof of outstanding
                 # requests. See https://github.com/FSX/momoko/issues/127
                 self.ioloop.remove_handler(self.fileno)
-                future.set_exception(psycopg2.OperationalError("IOError on socker"))
+                future.set_exception(psycopg2.OperationalError("IOError on socket"))
 
     def ping(self):
         """
