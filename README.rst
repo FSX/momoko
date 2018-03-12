@@ -4,9 +4,6 @@ Momoko
 .. image:: https://img.shields.io/pypi/v/momoko.svg
     :target: https://pypi.python.org/pypi/momoko
 
-.. image:: https://img.shields.io/pypi/dm/momoko.svg
-        :target: https://pypi.python.org/pypi/momoko
-
 .. image:: https://img.shields.io/travis/FSX/momoko.svg
         :target: https://travis-ci.org/FSX/momoko
 
