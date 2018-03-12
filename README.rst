@@ -20,7 +20,7 @@ straightforward, the API is not backward compatible with 1.x!
 
 Maintainer wanted
 -----------------
-Unfortunately none of the developers of this project actively use it anymore in their work. Test-convered pull requestes will be happily accepted, but no active developent is planned so far. For instance, Tornado 5.x is currently not supported. If you have serious intentions
+Unfortunately none of the developers of this project actively use it anymore in their work. Test-covered pull requestes will be happily accepted, but no active developent is planned so far. For instance, Tornado 5.x is currently not supported. If you have serious intentions
 to maintain this project, please get in touch.
 
 Installation
