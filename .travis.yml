@@ -5,6 +5,8 @@ python:
   - 2.7
   - 3.3
   - 3.4
+  - 3.5
+  - 3.6
   - pypy
 
 addons:
@@ -26,16 +28,10 @@ env:
     - MOMOKO_PSYCOPG2_IMPL=psycopg2
     - MOMOKO_PSYCOPG2_IMPL=psycopg2cffi
 
-install: "pip install tornado ${MOMOKO_PSYCOPG2_IMPL} unittest2"
+install: "pip install 'tornado>=4.0.0,<5.0.0' ${MOMOKO_PSYCOPG2_IMPL} unittest2"
 script: python setup.py test
 
 matrix:
   exclude:
-    - python: 3.2
-      env: MOMOKO_PSYCOPG2_IMPL=psycopg2cffi
-    - python: 3.3
-      env: MOMOKO_PSYCOPG2_IMPL=psycopg2cffi
-    - python: 3.4
-      env: MOMOKO_PSYCOPG2_IMPL=psycopg2cffi
     - python: pypy
       env: MOMOKO_PSYCOPG2_IMPL=psycopg2
