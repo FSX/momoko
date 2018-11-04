@@ -35,7 +35,7 @@ from .exceptions import PoolError, PartiallyConnectedError
 
 # Backfill for tornado 5 compatability
 # https://www.tornadoweb.org/en/stable/concurrent.html#tornado.concurrent.future_set_exc_info
-if tornado.version_info[0] < 4:
+if tornado.version_info[0] < 5:
     def future_set_exc_info(future, exc_info):
         future.set_exc_info(exc_info)
 else:
