@@ -9,3 +9,4 @@ __pycache__
 docs/_build/
 *.sublime-project
 *.sublime-workspace
+*.swp
