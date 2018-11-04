@@ -1,6 +1,10 @@
 Changelog
 =========
 
+2.2.5.1 (2018-11-05)
+--------------------
+*  Updated README (mainly for PyPi)
+
 2.2.5 (2018-11-05)
 ------------------
 *  Explicitly declaring and testing Python 3.5, 3.6, and 3.7 support
