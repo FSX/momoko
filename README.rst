@@ -9,7 +9,7 @@ Momoko
 
 Momoko wraps Psycopg2_'s functionality for use in Tornado_. Have a look at tutorial_ or full documentation_.
 
-**Important:** This is the 2.x version of Momoko. It requires 4.0 <= Tornado < 5.0, uses futures instead of calllbacks
+**Important:** This is the 2.x version of Momoko. It requires 4.0 <= Tornado < 6.0, uses futures instead of calllbacks
 and introduces a slightly different API compared to 1.x version. While transition is very
 straightforward, the API is not backward compatible with 1.x!
 
@@ -20,8 +20,7 @@ straightforward, the API is not backward compatible with 1.x!
 
 Maintainer wanted
 -----------------
-Unfortunately none of the developers of this project actively use it anymore in their work. Test-covered pull requests will be happily accepted, but no active development is planned so far. For instance, Tornado 5.x is currently not supported. If you have serious intentions
-to maintain this project, please get in touch.
+Unfortunately none of the developers of this project actively use it anymore in their work. Test-covered pull requests will be happily accepted, but no active development is planned so far. If you have serious intentions to maintain this project, please get in touch.
 
 Installation
 ------------
