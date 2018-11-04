@@ -219,10 +219,6 @@ static const char _policy_parser_eof_actions[] = {
 };
 
 static const int policy_parser_start = 1;
-static const int policy_parser_first_final = 99;
-static const int policy_parser_error = 0;
-
-static const int policy_parser_en_main = 1;
 
 
 #line 95 "policy.rl"
