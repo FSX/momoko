@@ -37,11 +37,11 @@ matrix:
     - python: pypy
       env: MOMOKO_PSYCOPG2_IMPL=psycopg2 TORNADO_VER="<5.0.0"
     - python: pypy
-      MOMOKO_PSYCOPG2_IMPL=psycopg2 TORNADO_VER=">=5.0.0"
+      env: MOMOKO_PSYCOPG2_IMPL=psycopg2 TORNADO_VER=">=5.0.0"
     - python: pypy3.5
       env: MOMOKO_PSYCOPG2_IMPL=psycopg2 TORNADO_VER="<5.0.0"
     - python: pypy3.5
-      MOMOKO_PSYCOPG2_IMPL=psycopg2 TORNADO_VER=">=5.0.0"
+      env: MOMOKO_PSYCOPG2_IMPL=psycopg2 TORNADO_VER=">=5.0.0"
   include:
     # https://github.com/travis-ci/travis-ci/issues/9815
     - python: 3.7
