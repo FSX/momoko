@@ -490,7 +490,8 @@ class ProxyMixIn(object):
             except TimeoutExpired:
                 log.warn("Proxy didn't die within a second")
                 self.proxy.kill()
-        except ProcessLookupError:
+        # ProcessLookupError == Exception on Py2.7, but OSError still slips through :?
+        except (ProcessLookupError, OSError):
             pass
 
     def kill_connections(self, db, amount=None):
