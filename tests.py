@@ -374,6 +374,14 @@ class MomokoConnectionFactoriesTest(BaseTest):
         conn = yield momoko.connect(self.dsn, ioloop=self.io_loop, cursor_factory=RealDictCursor)
         yield conn.ping()
 
+    @gen_test
+    def test_cursor_factory_with_json(self):
+        """Testing that register_json works with RealDictCursor"""
+        conn = yield momoko.connect(self.dsn, ioloop=self.io_loop, cursor_factory=RealDictCursor)
+        yield conn.register_json()
+        cursor = yield conn.execute("SELECT 1 AS a")
+        self.assertEqual(cursor.fetchone(), {"a": 1})
+
 
 #
 # Pool tests
