@@ -453,7 +453,8 @@ class ProxyMixIn(object):
 
     def start_proxy(self):
         # Dirty way to make sure there are no proxies leftovers
-        subprocess.call(("killall", TCPPROXY_PATH), stderr=open("/dev/null", "w"))
+        with open("/dev/null", "w") as stderr:
+            subprocess.call(("killall", TCPPROXY_PATH), stderr=stderr)
 
         proxy_conf = "127.0.0.1:%s -> %s:%s" % (db_proxy_port, db_host, db_port)
         self.proxy = subprocess.Popen((TCPPROXY_PATH, proxy_conf,))
@@ -461,6 +462,11 @@ class ProxyMixIn(object):
 
     def terminate_proxy(self):
         self.proxy.terminate()
+        try:
+            self.proxy.wait(1)
+        except subprocess.TimeoutExpired as error:
+            log.warn("Proxy didn't die within a second")
+            self.proxy.kill()
 
     def kill_connections(self, db, amount=None):
         self.terminate_proxy()
