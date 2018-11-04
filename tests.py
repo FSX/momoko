@@ -58,6 +58,20 @@ elif psycopg2_impl == 'psycopg2ct':
     from psycopg2ct import compat
     compat.register()
 
+# Some compatibility with python 2.7
+try:
+    ProcessLookupError
+except NameError:
+    class ProcessLookupError(Exception): pass
+try:
+    from subprocess import TimeoutExpired
+    def pwait(process, timeout=None):
+        process.wait(timeout)
+except ImportError:
+    class TimeoutExpired(Exception): pass
+    def pwait(process, timeout=None):
+        process.wait()
+
 
 import momoko
 import momoko.exceptions
@@ -469,12 +483,15 @@ class ProxyMixIn(object):
         time.sleep(0.1)
 
     def terminate_proxy(self):
-        self.proxy.terminate()
         try:
-            self.proxy.wait(1)
-        except subprocess.TimeoutExpired as error:
-            log.warn("Proxy didn't die within a second")
-            self.proxy.kill()
+            self.proxy.terminate()
+            try:
+                pwait(self.proxy, 1)
+            except TimeoutExpired:
+                log.warn("Proxy didn't die within a second")
+                self.proxy.kill()
+        except ProcessLookupError:
+            pass
 
     def kill_connections(self, db, amount=None):
         self.terminate_proxy()
