@@ -34,3 +34,8 @@ matrix:
   exclude:
     - python: pypy
       env: MOMOKO_PSYCOPG2_IMPL=psycopg2
+  include:
+    # https://github.com/travis-ci/travis-ci/issues/9815
+    - python: 3.7
+      dist: xenial
+      sudo: true
