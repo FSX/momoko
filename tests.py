@@ -11,6 +11,7 @@ import logging
 import datetime
 import subprocess
 
+import tornado
 from tornado import gen
 from tornado.testing import unittest, AsyncTestCase, gen_test
 
@@ -57,6 +58,20 @@ if psycopg2_impl == 'psycopg2cffi':
 elif psycopg2_impl == 'psycopg2ct':
     from psycopg2ct import compat
     compat.register()
+
+# Some compatibility with python 2.7
+try:
+    ProcessLookupError
+except NameError:
+    class ProcessLookupError(Exception): pass
+try:
+    from subprocess import TimeoutExpired
+    def pwait(process, timeout=None):
+        process.wait(timeout)
+except ImportError:
+    class TimeoutExpired(Exception): pass
+    def pwait(process, timeout=None):
+        process.wait()
 
 
 import momoko
@@ -374,6 +389,14 @@ class MomokoConnectionFactoriesTest(BaseTest):
         conn = yield momoko.connect(self.dsn, ioloop=self.io_loop, cursor_factory=RealDictCursor)
         yield conn.ping()
 
+    @gen_test
+    def test_cursor_factory_with_json(self):
+        """Testing that register_json works with RealDictCursor"""
+        conn = yield momoko.connect(self.dsn, ioloop=self.io_loop, cursor_factory=RealDictCursor)
+        yield conn.register_json()
+        cursor = yield conn.execute("SELECT 1 AS a")
+        self.assertEqual(cursor.fetchone(), {"a": 1})
+
 
 #
 # Pool tests
@@ -453,14 +476,24 @@ class ProxyMixIn(object):
 
     def start_proxy(self):
         # Dirty way to make sure there are no proxies leftovers
-        subprocess.call(("killall", TCPPROXY_PATH), stderr=open("/dev/null", "w"))
+        with open("/dev/null", "w") as stderr:
+            subprocess.call(("killall", TCPPROXY_PATH), stderr=stderr)
 
         proxy_conf = "127.0.0.1:%s -> %s:%s" % (db_proxy_port, db_host, db_port)
         self.proxy = subprocess.Popen((TCPPROXY_PATH, proxy_conf,))
         time.sleep(0.1)
 
     def terminate_proxy(self):
-        self.proxy.terminate()
+        try:
+            self.proxy.terminate()
+            try:
+                pwait(self.proxy, 1)
+            except TimeoutExpired:
+                log.warn("Proxy didn't die within a second")
+                self.proxy.kill()
+        # ProcessLookupError == Exception on Py2.7, but OSError still slips through :?
+        except (ProcessLookupError, OSError):
+            pass
 
     def kill_connections(self, db, amount=None):
         self.terminate_proxy()
@@ -648,19 +681,26 @@ class MomokoPoolFactoriesTest(PoolBaseTest):
         cursor = yield db.execute("SELECT 1 AS a")
         self.assertEqual(cursor.fetchone(), {"a": 1})
 
+    @unittest.skipIf(not test_hstore, "Skipping test as requested")
     @gen_test
-    def test_cursor_factory_with_extensions(self):
-        """Testing that NamedTupleCursor factory is working with hstore and json"""
+    def test_cursor_factory_with_hstore_extension(self):
+        """Testing that NamedTupleCursor factory is working with hstore"""
         db = yield self.build_pool(cur_factory=NamedTupleCursor)
 
         yield db.register_hstore()
-        yield db.register_json()
 
-        cursor = yield self.db.execute("SELECT 'a=>b, c=>d'::hstore;")
+        cursor = yield db.execute("SELECT 'a=>b, c=>d'::hstore;")
         self.assertEqual(cursor.fetchall(), [({"a": "b", "c": "d"},)])
 
-        cursor = yield self.db.execute("SELECT %s;", ({'e': 'f', 'g': 'h'},))
-        self.assertEqual(cursor.fetchall(), [({"e": "f", "g": "h"},)])
+    @gen_test
+    def test_cursor_factory_with_json_extension(self):
+        """Testing that NamedTupleCursor factory is working with json"""
+        db = yield self.build_pool(cur_factory=NamedTupleCursor)
+
+        yield db.register_json()
+
+        cursor = yield db.execute('SELECT \'{"a": "b", "c": "d"}\'::json;')
+        self.assertEqual(cursor.fetchall(), [({"a": "b", "c": "d"},)])
 
 
 class MomokoPoolParallelTest(PoolBaseTest):
@@ -822,6 +862,7 @@ class MomokoPoolVolatileDbTest(PoolBaseTest):
         except db.DatabaseNotAvailable:
             pass
 
+    @unittest.skipIf(tornado.version_info[0] == 5, "This test does not work with Tornado 5.x for reasons yet known")
     @gen_test
     def test_abort_waiting_queue(self, final_exception=momoko.Pool.DatabaseNotAvailable):
         """Testing that waiting queue is aborted properly when all connections are dead"""

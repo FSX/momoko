@@ -18,7 +18,7 @@ except ImportError:
     from distutils.core import setup, Extension, Command
 
 
-dependencies = ['tornado >= 4.0, <5.0', ]
+dependencies = ['tornado >= 4.0, <6.0', ]
 psycopg2_impl = os.environ.get('MOMOKO_PSYCOPG2_IMPL', 'psycopg2')
 
 if psycopg2_impl == 'psycopg2cffi':
@@ -50,12 +50,12 @@ setup(
         'License :: OSI Approved :: MIT License',
         'Programming Language :: Python :: Implementation :: PyPy',
         'Programming Language :: Python :: Implementation :: CPython',
-        'Programming Language :: Python :: 2.6',
         'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3.3',
         'Programming Language :: Python :: 3.4',
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.7',
         'Topic :: Database',
         'Topic :: Database :: Front-Ends'
     ]

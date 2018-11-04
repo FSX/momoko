@@ -1,13 +1,12 @@
 language: python
 
 python:
-  - 2.6
   - 2.7
-  - 3.3
   - 3.4
   - 3.5
   - 3.6
   - pypy
+  - pypy3.5
 
 addons:
   postgresql: "9.4"
@@ -25,13 +24,26 @@ env:
     - MOMOKO_TEST_HOST=127.0.0.1
     - PGHOST=127.0.0.1
   matrix:
-    - MOMOKO_PSYCOPG2_IMPL=psycopg2
-    - MOMOKO_PSYCOPG2_IMPL=psycopg2cffi
+    - MOMOKO_PSYCOPG2_IMPL=psycopg2 TORNADO_VER="<5.0.0"
+    - MOMOKO_PSYCOPG2_IMPL=psycopg2cffi TORNADO_VER="<5.0.0"
+    - MOMOKO_PSYCOPG2_IMPL=psycopg2 TORNADO_VER=">=5.0.0"
+    - MOMOKO_PSYCOPG2_IMPL=psycopg2cffi TORNADO_VER=">=5.0.0"
 
-install: "pip install 'tornado>=4.0.0,<5.0.0' ${MOMOKO_PSYCOPG2_IMPL} unittest2"
+install: 'pip install tornado"${TORNADO_VER}" ${MOMOKO_PSYCOPG2_IMPL} unittest2'
 script: python setup.py test
 
 matrix:
   exclude:
     - python: pypy
-      env: MOMOKO_PSYCOPG2_IMPL=psycopg2
+      env: MOMOKO_PSYCOPG2_IMPL=psycopg2 TORNADO_VER="<5.0.0"
+    - python: pypy
+      env: MOMOKO_PSYCOPG2_IMPL=psycopg2 TORNADO_VER=">=5.0.0"
+    - python: pypy3.5
+      env: MOMOKO_PSYCOPG2_IMPL=psycopg2 TORNADO_VER="<5.0.0"
+    - python: pypy3.5
+      env: MOMOKO_PSYCOPG2_IMPL=psycopg2 TORNADO_VER=">=5.0.0"
+  include:
+    # https://github.com/travis-ci/travis-ci/issues/9815
+    - python: 3.7
+      dist: xenial
+      sudo: true
