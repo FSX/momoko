@@ -654,19 +654,26 @@ class MomokoPoolFactoriesTest(PoolBaseTest):
         cursor = yield db.execute("SELECT 1 AS a")
         self.assertEqual(cursor.fetchone(), {"a": 1})
 
+    @unittest.skipIf(not test_hstore, "Skipping test as requested")
     @gen_test
-    def test_cursor_factory_with_extensions(self):
-        """Testing that NamedTupleCursor factory is working with hstore and json"""
+    def test_cursor_factory_with_hstore_extension(self):
+        """Testing that NamedTupleCursor factory is working with hstore"""
         db = yield self.build_pool(cur_factory=NamedTupleCursor)
 
         yield db.register_hstore()
-        yield db.register_json()
 
-        cursor = yield self.db.execute("SELECT 'a=>b, c=>d'::hstore;")
+        cursor = yield db.execute("SELECT 'a=>b, c=>d'::hstore;")
         self.assertEqual(cursor.fetchall(), [({"a": "b", "c": "d"},)])
 
-        cursor = yield self.db.execute("SELECT %s;", ({'e': 'f', 'g': 'h'},))
-        self.assertEqual(cursor.fetchall(), [({"e": "f", "g": "h"},)])
+    @gen_test
+    def test_cursor_factory_with_json_extension(self):
+        """Testing that NamedTupleCursor factory is working with json"""
+        db = yield self.build_pool(cur_factory=NamedTupleCursor)
+
+        yield db.register_json()
+
+        cursor = yield db.execute('SELECT \'{"a": "b", "c": "d"}\'::json;')
+        self.assertEqual(cursor.fetchall(), [({"a": "b", "c": "d"},)])
 
 
 class MomokoPoolParallelTest(PoolBaseTest):
